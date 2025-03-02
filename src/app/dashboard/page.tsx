@@ -1,18 +1,18 @@
 import React from "react";
 
 import  DashboardContent  from "@/app/_components/dashboard/DashboardContent"
-import DashboardLayout from "./layout"
 
-interface HomeDashboardLayoutProps {
+
+interface HomeDashboardProps {
   children?: React.ReactNode;
 }
 
-export const HomeDashboardLayout: React.FC<HomeDashboardLayoutProps> = () => {
+export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
   return (
-    <DashboardLayout>
+    <>
       <DashboardContent />
-    </DashboardLayout>
+    </>    
   );
 };
 
-export default HomeDashboardLayout;
+export default HomeDashboard;

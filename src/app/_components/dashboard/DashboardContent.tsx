@@ -1,4 +1,4 @@
-'use-client'
+'use client';
 
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,28 +13,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { MetricCard } from "@/app/_components/common/MetricCard";
-import CustomTooltip from "../common/CustomToolTip";
-
-
-// Import Recharts components - more compatible than MUI X-Charts
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  Area,
-  ComposedChart,
-  Scatter,
-} from "recharts";
+import DynamicChart from "@/app/_components/common/DynamicCharts"
 
 const CHART_COLORS = {
   primary: "hsl(var(--chart-1))",
@@ -46,10 +25,8 @@ const CHART_COLORS = {
   danger: "#ef4444", // red-500
 };
 
-
-
 const DashboardContent = () => {
-  const formatCurrency = (value:number) => {
+  const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
@@ -120,7 +97,7 @@ const DashboardContent = () => {
   ];
 
   // Custom formatter for y-axis values
-  const formatYAxis = (value:number) => {
+  const formatYAxis = (value: number) => {
     if (value >= 1000000) {
       return `$${(value / 1000000).toFixed(1)}M`;
     } else if (value >= 1000) {
@@ -216,60 +193,45 @@ const DashboardContent = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="h-[400px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <ComposedChart data={portfolioData}>
-                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                        <XAxis 
-                          dataKey="month" 
-                          stroke="hsl(var(--primary))" 
-                          tick={{ fill: "hsl(var(--primary))" }}
-                        />
-                        <YAxis 
-                          yAxisId="left" 
-                          stroke={CHART_COLORS.primary}
-                          tick={{ fill: "hsl(var(--primary))" }}
-                          tickFormatter={(value: any) => formatYAxis(value).toString()}
-                        />
-                        <YAxis 
-                          yAxisId="right" 
-                          orientation="right"
-                          stroke={CHART_COLORS.secondary}
-                          tick={{ fill: "hsl(var(--primary))" }}
-                        />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend 
-                          wrapperStyle={{ 
-                            color: "hsl(var(--primary))",
-                            fontSize: "12px"
-                          }} 
-                        />
-                        <Area
-                          yAxisId="left"
-                          type="monotone"
-                          dataKey="contractValue"
-                          name="Contract Value"
-                          stroke={CHART_COLORS.primary}
-                          fill={CHART_COLORS.primary}
-                          fillOpacity={0.3}
-                        />
-                        <Bar
-                          yAxisId="right"
-                          dataKey="costSavings"
-                          name="Cost Savings"
-                          fill={CHART_COLORS.secondary}
-                          radius={[4, 4, 0, 0]}
-                        />
-                        <Line
-                          yAxisId="right"
-                          type="monotone"
-                          dataKey="efficiency"
-                          name="Efficiency Score"
-                          stroke={CHART_COLORS.success}
-                          strokeWidth={2}
-                          dot={{ r: 4, fill: CHART_COLORS.success }}
-                        />
-                      </ComposedChart>
-                    </ResponsiveContainer>
+                    <DynamicChart
+                      type="composed"
+                      data={portfolioData}
+                      series={[
+                        { 
+                          dataKey: "contractValue", 
+                          name: "Contract Value", 
+                          type: "area", 
+                          fill: CHART_COLORS.primary,
+                          stroke: CHART_COLORS.primary,
+                          fillOpacity: 0.3
+                        },
+                        { 
+                          dataKey: "costSavings", 
+                          name: "Cost Savings", 
+                          type: "bar", 
+                          fill: CHART_COLORS.secondary
+                        },
+                        { 
+                          dataKey: "efficiency", 
+                          name: "Efficiency Score", 
+                          type: "line", 
+                          stroke: CHART_COLORS.success,
+                          strokeWidth: 3,
+                          dot: { r: 4, fill: CHART_COLORS.success }
+                        }
+                      ]}
+                      xAxisKey="month"
+                      height={400}
+                      useCustomTooltip={true}
+                      showGrid={true}
+                      yAxisLabel="Value"
+                      margin={{ top: 20, right: 30, left: 30, bottom: 20 }}
+                      colors={[
+                        CHART_COLORS.primary,
+                        CHART_COLORS.secondary,
+                        CHART_COLORS.success
+                      ]}
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -282,40 +244,29 @@ const DashboardContent = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={portfolioData}>
-                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                        <XAxis 
-                          dataKey="month" 
-                          stroke="hsl(var(--primary))" 
-                          tick={{ fill: "hsl(var(--primary))" }}
-                        />
-                        <YAxis 
-                          stroke="hsl(var(--primary))" 
-                          tick={{ fill: "hsl(var(--primary))" }}
-                          tickFormatter={(value: any) => formatYAxis(value).toString()}
-                        />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend 
-                          wrapperStyle={{ 
-                            color: "hsl(var(--primary))",
-                            fontSize: "12px"
-                          }} 
-                        />
-                        <Bar 
-                          dataKey="costSavings" 
-                          name="Cost Savings" 
-                          fill={CHART_COLORS.secondary} 
-                          radius={[4, 4, 0, 0]}
-                        />
-                        <Bar 
-                          dataKey="contracts" 
-                          name="Contract Count" 
-                          fill={CHART_COLORS.tertiary}
-                          radius={[4, 4, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <DynamicChart
+                      type="bar"
+                      data={portfolioData}
+                      series={[
+                        { 
+                          dataKey: "costSavings", 
+                          name: "Cost Savings", 
+                          fill: CHART_COLORS.secondary
+                        },
+                        { 
+                          dataKey: "contracts", 
+                          name: "Contract Count", 
+                          fill: CHART_COLORS.tertiary
+                        }
+                      ]}
+                      xAxisKey="month"
+                      height={300}
+                      showGrid={true}
+                      yAxisLabel="Value" 
+                      margin={{ top: 20, right: 30, left: 30, bottom: 20 }}
+                      useCustomTooltip={true}
+                      colors={[CHART_COLORS.secondary, CHART_COLORS.tertiary]}
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -329,82 +280,76 @@ const DashboardContent = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={riskData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={100}
-                          paddingAngle={2}
-                          dataKey="value"
-                          nameKey="name"
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          labelLine={false}
-                        >
-                          {riskData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          formatter={(value) => `${value}%`}
-                          content={<CustomTooltip />} 
-                        />
-                        <Legend 
-                          wrapperStyle={{ 
-                            color: "hsl(var(--primary))",
-                            fontSize: "12px"
-                          }} 
-                          layout="horizontal"
-                          verticalAlign="bottom"
-                          align="center"
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    <DynamicChart
+                      type="pie"
+                      data={riskData}
+                      series={[{ dataKey: "value" }]}
+                      height={300}
+                      useCustomTooltip={true}
+                      showLegend={true}
+                      colors={riskData.map(item => item.color)}
+                      margin={{ top: 20, right: 30, left: 30, bottom: 40 }}
+                      pieConfig={{
+                        dataKey: "value",
+                        nameKey: "name",
+                        innerRadius: 60,
+                        outerRadius: 100,
+                        paddingAngle: 2,
+                        label: false,
+                        labelLine: false
+                      }}
+                    />
+                    <div className="flex justify-center mt-2 space-x-4">
+                      {riskData.map((item, index) => (
+                        <div key={index} className="flex items-center">
+                          <div 
+                            className="w-3 h-3 rounded-full mr-1" 
+                            style={{ backgroundColor: item.color }}
+                          />
+                          <span className="text-xs">{item.name}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="border border-gold/10 shadow-luxury">
+              <Card className="border border-gold/10 shadow-luxury ">
                 <CardHeader>
                   <CardTitle className="text-primary font-serif">Strategic Value Distribution</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={valueDistributionData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={100}
-                          paddingAngle={2}
-                          dataKey="value"
-                          nameKey="name"
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          labelLine={false}
-                        >
-                          {valueDistributionData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          formatter={(value) => `${value}%`}
-                          content={<CustomTooltip />} 
-                        />
-                        <Legend 
-                          wrapperStyle={{ 
-                            color: "hsl(var(--primary))",
-                            fontSize: "12px"
-                          }} 
-                          layout="horizontal"
-                          verticalAlign="bottom"
-                          align="center"
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    <DynamicChart
+                      type="pie"
+                      data={valueDistributionData}
+                      series={[{ dataKey: "value" }]}
+                      height={300}
+                      useCustomTooltip={true}
+                      showLegend={true}
+                      colors={valueDistributionData.map(item => item.color)}
+                      margin={{ top: 20, right: 30, left: 30, bottom: 40 }}
+                      pieConfig={{
+                        dataKey: "value",
+                        nameKey: "name",
+                        innerRadius: 60,
+                        outerRadius: 100,
+                        paddingAngle: 2,
+                        label: false,
+                        labelLine: false
+                      }}
+                    />
+                    <div className="flex justify-center mt-2 space-x-4">
+                      {valueDistributionData.map((item, index) => (
+                        <div key={index} className="flex items-center">
+                          <div 
+                            className="w-3 h-3 rounded-full mr-1" 
+                            style={{ backgroundColor: item.color }}
+                          />
+                          <span className="text-xs">{item.name}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

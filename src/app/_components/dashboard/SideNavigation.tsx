@@ -51,7 +51,7 @@ const NavItem = React.memo(
       <div className="space-y-1">
         <Button
           variant={isActive ? "secondary" : "ghost"}
-          className={cn("w-full justify-start", isActive && "bg-muted")}
+          className={cn("w-full justify-start", isActive && "bg-muted", "cursor-pointer")}
           onClick={handleClick}
         >
           <item.icon className="mr-2 h-4 w-4 text-gold" />
@@ -73,7 +73,7 @@ const NavItem = React.memo(
                 key={subItem.href}
                 variant="ghost"
                 className={cn(
-                  "w-full justify-start h-9",
+                  "w-full justify-start h-9 cursor-pointer",
                   location.pathname === subItem.href && "bg-muted" // This line changes
                 )}
                 onClick={() => onClick(subItem.href, subItem.label)}
@@ -101,7 +101,7 @@ export const SideNavigation = ({ className }: { className?: string }) => {
       items: [
         {
           label: "Dashboard",
-          href: "/home",
+          href: "/dashboard",
           icon: Home,
         },
       ],
@@ -224,9 +224,7 @@ export const SideNavigation = ({ className }: { className?: string }) => {
 
   return (
     <aside className={cn("flex flex-col border-r bg-card", className)}>
-      <div className="p-6">
-        <h2 className="text-2xl font-serif font-bold text-primary">PactWise</h2>
-      </div>
+      
 
       <ScrollArea className="flex-1">
         <div className="space-y-6 p-4">
