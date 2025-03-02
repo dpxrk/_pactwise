@@ -1,4 +1,6 @@
-import {redirect} from 'next/navigation'
+"use client";
+
+import { useRouter } from 'next/navigation';
 
 type LogoSize = "sm" | "md" | "lg" | "xl";
 
@@ -7,30 +9,18 @@ interface LogoProps {
 }
 
 const sizeClasses: Record<LogoSize, { text: string; dot: string }> = {
-  sm: {
-    text: "text-xl",
-    dot: "h-1.5 w-1.5",
-  },
-  md: {
-    text: "text-2xl",
-    dot: "h-2 w-2",
-  },
-  lg: {
-    text: "text-3xl",
-    dot: "h-2.5 w-2.5",
-  },
-  xl: {
-    text: "text-4xl",
-    dot: "h-3 w-3",
-  },
+  sm: { text: "text-xl", dot: "h-1.5 w-1.5" },
+  md: { text: "text-2xl", dot: "h-2 w-2" },
+  lg: { text: "text-3xl", dot: "h-2.5 w-2.5" },
+  xl: { text: "text-4xl", dot: "h-3 w-3" },
 };
 
 export const Logo = ({ size = "md" }: LogoProps) => {
- 
+  const router = useRouter();
   const sizeClass = sizeClasses[size];
 
   const handleOnClick = () => {
-    redirect("/");
+    router.push("/");
   };
 
   return (
@@ -39,15 +29,35 @@ export const Logo = ({ size = "md" }: LogoProps) => {
       onClick={handleOnClick}
     >
       <span className={`font-serif font-bold ${sizeClass.text}`}>
-        <span className="bg-gradient-to-r from-navy via-gold to-navy bg-clip-text text-transparent animate-gradient">
+        <span style={{ 
+          backgroundImage: "linear-gradient(to right, #0A192F, #B8A369, #0A192F)", 
+          WebkitBackgroundClip: "text",
+          backgroundClip: "text",
+          color: "transparent",
+          animation: "gradient 8s ease infinite"
+        }}>
           Pact
         </span>
-        <span className="bg-gradient-to-r from-gold via-navy to-gold bg-clip-text text-transparent animate-gradient">
+        <span style={{ 
+          backgroundImage: "linear-gradient(to right, #B8A369, #0A192F, #B8A369)", 
+          WebkitBackgroundClip: "text",
+          backgroundClip: "text",
+          color: "transparent",
+          animation: "gradient 8s ease infinite 2s"
+        }}>
           Wise
         </span>
       </span>
 
-      <div className={`rounded-full bg-gold animate-pulse ${sizeClass.dot}`} />
+      <div 
+        className={`rounded-full ${sizeClass.dot}`} 
+        style={{ 
+          backgroundColor: "rgba(184, 163, 105, 0.8)", 
+          animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" 
+        }} 
+      />
     </div>
   );
 };
+
+export default Logo;

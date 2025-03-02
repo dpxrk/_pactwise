@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Container } from "@/app/_components/common/Container";
 import { Logo } from "@/app/_components/common/Logo";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
+
 
 const navItems = [
   { href: "#features", label: "Features" },
@@ -14,22 +15,22 @@ const navItems = [
 ];
 
 export const Navigation = () => {  
-
+  const router = useRouter();
   const handleOnClick = () => {
-    redirect("/auth");
+    router.push("/auth");
   };
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <Container>
-        <div className="flex h-16 items-center justify-between">
+        <div className="flex h-16 items-center justify-between ">
           <div className="flex items-center">
             <Logo size="md" />
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex md:items-center md:space-x-10">
-            <Button onClick={handleOnClick}>Sign In</Button>
+          <div className="hidden md:flex md:items-center md:space-x-10 ">
+            <Button className="cursor-pointer" onClick={handleOnClick}>Sign In</Button>
           </div>
 
           {/* Mobile Navigation */}

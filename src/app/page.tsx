@@ -5,8 +5,9 @@ const Features = React.lazy(() => import("@/app/_components/homepage/Features"))
 import { Benefits } from "@/app/_components/homepage/Benefits";
 import { Footer } from "@/app/_components/homepage/Footer";
 import  LoadingSpinner  from "@/app/_components/common/LoadingSpinner"
+import "@/app/globals.css"
 
-export const LandingPage = () => {
+const LandingPage = () => {
   return (
     <div className="relative min-h-screen bg-background/50 overflow-hidden">
       <div className="relative z-10 flex flex-col min-h-screen">

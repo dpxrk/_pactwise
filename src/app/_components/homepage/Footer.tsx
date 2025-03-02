@@ -159,19 +159,19 @@ export const Footer = () => {
               <li className="flex items-center justify-center space-x-2">
                 <Mail className="h-3 w-3 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
-                  enterprise@contractflow.com
+                  daniel.park2@richemont.com
                 </span>
               </li>
               <li className="flex items-center justify-center space-x-2">
                 <Phone className="h-3 w-3 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
-                  +1 (888) 123-4567
+                  +1 (917) 656-9998
                 </span>
               </li>
               <li className="flex items-center justify-center space-x-2">
                 <MapPin className="h-3 w-3 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
-                  San Francisco, CA 94105
+                  New York, NY 10022
                 </span>
               </li>
             </ul>
@@ -181,7 +181,7 @@ export const Footer = () => {
         <Separator className="my-6" />
 
         {/* Company Info and Social */}
-        <div className="flex flex-col items-center mb-6 space-y-4">
+        {/* <div className="flex flex-col items-center mb-6 space-y-4">
           <div className="text-center">
             <h3 className="text-sm font-semibold mb-2">ContractFlow</h3>
             <p className="text-xs text-muted-foreground mb-3 max-w-md">
@@ -209,12 +209,12 @@ export const Footer = () => {
               <Linkedin className="h-4 w-4" />
             </a>
           </div>
-        </div>
+        </div> */}
 
         {/* Footer Bottom */}
         <div className="flex flex-col-reverse md:flex-row md:justify-between items-center space-y-4 md:space-y-0 text-xs text-muted-foreground">
           <div className="flex items-center space-x-4 mt-4 md:mt-0">
-            <span>© {currentYear} ContractFlow</span>
+            <span>© {currentYear} PactWise</span>
             <Separator orientation="vertical" className="h-3" />
             <div className="flex items-center space-x-1">
               <Globe className="h-3 w-3" />
