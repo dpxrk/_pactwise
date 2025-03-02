@@ -49,8 +49,10 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
           >
             <Card>
               <CardContent className="p-4">
-                <Command>
+                <Command className="w-full">
                   <CommandInput
+                    value=""
+                    onValueChange={() => {}}
                     placeholder="Search contracts, vendors, documents..."
                     className="h-12"
                   />
