@@ -184,57 +184,7 @@ const DashboardContent = () => {
             </div>
 
             {/* Enhanced Charts */}
-            <div className="grid grid-cols-1 gap-4">
-              <Card className="bg-background-glass backdrop-blur-sm border border-gold/10 shadow-luxury">
-                <CardHeader>
-                  <CardTitle className="text-primary font-serif">
-                    Portfolio Performance Trends
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[400px] w-full">
-                    <DynamicChart
-                      type="composed"
-                      data={portfolioData}
-                      series={[
-                        { 
-                          dataKey: "contractValue", 
-                          name: "Contract Value", 
-                          type: "area", 
-                          fill: CHART_COLORS.primary,
-                          stroke: CHART_COLORS.primary,
-                          fillOpacity: 0.3
-                        },
-                        { 
-                          dataKey: "costSavings", 
-                          name: "Cost Savings", 
-                          type: "bar", 
-                          fill: CHART_COLORS.secondary
-                        },
-                        { 
-                          dataKey: "efficiency", 
-                          name: "Efficiency Score", 
-                          type: "line", 
-                          stroke: CHART_COLORS.success,
-                          strokeWidth: 3,
-                          dot: { r: 4, fill: CHART_COLORS.success }
-                        }
-                      ]}
-                      xAxisKey="month"
-                      height={400}
-                      useCustomTooltip={true}
-                      showGrid={true}
-                      yAxisLabel="Value"
-                      margin={{ top: 20, right: 30, left: 30, bottom: 20 }}
-                      colors={[
-                        CHART_COLORS.primary,
-                        CHART_COLORS.secondary,
-                        CHART_COLORS.success
-                      ]}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-1 gap-4">             
               
               <Card className="bg-background-glass backdrop-blur-sm border border-gold/10 shadow-luxury">
                 <CardHeader>

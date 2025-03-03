@@ -112,53 +112,53 @@ export const SideNavigation = ({ className }: { className?: string }) => {
         {
           label: "Contracts",
           icon: Files,
-          href: "/contracts",
+          href: "/dashboard/contracts",
           subItems: [
             {
               label: "All Contracts",
-              href: "/contracts",
+              href: "/dashboard/contracts",
               icon: FileText,
             },
             {
               label: "Pending Signature",
-              href: "/contracts/pending",
+              href: "/dashboard/contracts/pending",
               icon: FileSignature,
             },
             {
               label: "Drafts",
-              href: "/contracts/drafts",
+              href: "/dashboard/contracts/drafts",
               icon: Clock,
             },
             {
               label: "Expired",
-              href: "/contracts/expired",
+              href: "/dashboard/contracts/expired",
               icon: Clock,
             },
             {
               label: "Archived",
-              href: "/contracts/archived",
+              href: "/dashboard/contracts/archived",
               icon: Clock,
             },
           ],
         },
         {
           label: "Vendors",
-          href: "/vendors",
+          href: "/dashboard/vendors",
           icon: Building2,
           subItems: [
             {
               label: "All Vendors",
-              href: "/vendors",
+              href: "/dashboard/vendors",
               icon: Building2,
             },
             {
               label: "Active Vendors",
-              href: "/vendors/active",
+              href: "/dashboard/vendors/active",
               icon: Users,
             },
             {
               label: "Inactive Vendors",
-              href: "/vendors/inactive",
+              href: "/dashboard/vendors/inactive",
               icon: Users,
             },
           ],
@@ -170,12 +170,12 @@ export const SideNavigation = ({ className }: { className?: string }) => {
       items: [
         {
           label: "Analytics",
-          href: "/analytics",
+          href: "/dashboard/analytics",
           icon: BarChart3,
         },
         {
           label: "Settings",
-          href: "/settings",
+          href: "/dashboard/settings",
           icon: Settings,
         },
       ],

@@ -19,10 +19,37 @@ export type ContractType = {
   awaiting_counterparty: boolean;
   pending_signers: string[];
   vendor: {
+    id:number;
     name: string;
     location: string;
     email: string;
     rating: number;
     tier: string;
   };
+  owner:string;
 };
+
+
+
+
+// Form data for contract creation/editing
+export interface ContractFormData {
+  contractName: string;
+  contractType: string;
+  contractValue: string;
+  contractCategory: string;
+  contractOwner: string;
+  contractDescription: string;
+  isRenewable: boolean;
+  autoRenewal: boolean;
+  signatureDueDate: Date | null;
+  pendingSigners: string[];
+}
+
+// Vendor data type
+export interface VendorFormData {
+  name: string;
+  location: string;
+  email: string;
+  tier: string;
+}

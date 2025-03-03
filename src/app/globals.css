@@ -132,6 +132,10 @@
   .subtle-shadow {
     box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
   }
+
+  .cursor-pointer-important {
+    cursor: pointer !important;
+  }
 }
 
 
@@ -192,4 +196,19 @@
 
 .animation-delay-2000 {
   animation-delay: 2s;
+}
+
+button, 
+.button,
+[role="button"],
+select,
+[role="combobox"],
+.select-trigger,
+.select-item,  
+.dropdown-item, 
+[role="option"], 
+.checkbox,
+.radio,
+.switch {
+  cursor: pointer;
 }
