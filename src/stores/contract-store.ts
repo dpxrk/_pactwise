@@ -245,13 +245,13 @@ const useContractStore = create<ContractStoreState>()(
             updated_at: new Date().toISOString(),
             assignee: state.formData.contractOwner, // Assuming owner and assignee are the same initially
             description: state.formData.contractDescription,
-            is_renewable: state.formData.isRenewable || false,
-            auto_renewal: state.formData.autoRenewal || false,
+            is_renewable:  true, // Default value of true
+            auto_renewal: true, // Default value since autoRenewal doesn't exist in formData
             archived_at: "",
-            signature_due_date: state.formData.signatureDueDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // Default 14 days
+            signature_due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // Default 14 days
             sent_for_signature_at: new Date(),
             awaiting_counterparty: true,
-            pending_signers: state.formData.pendingSigners || [],
+            pending_signers: [], // Default empty array since pendingSigners doesn't exist in formData
             vendor: {
               id: 1, // This would come from your vendor selection/lookup
               name: state.vendorName,
@@ -302,7 +302,7 @@ const useContractStore = create<ContractStoreState>()(
         return contracts.filter(contract => 
           contract.title.toLowerCase().includes(query) ||
           contract.vendor.name?.toLowerCase().includes(query) ||
-          contract.contractType?.toLowerCase().includes(query)
+          contract.type?.toLowerCase().includes(query)
         );
       }
     }),
