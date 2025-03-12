@@ -181,6 +181,7 @@ export default defineSchema({
     lastName: v.optional(v.string()),
     title: v.optional(v.string()),
     department: v.optional(v.string()),
+    departmentId: v.optional(v.id("departments")), // Add this field
     role: v.string(), // Uses UserRole values
     status: v.string(), // Uses UserStatus values
     isActive: v.boolean(),
@@ -247,7 +248,8 @@ export default defineSchema({
   .index("by_email", ["email"])
   .index("by_enterprise", ["enterpriseId"])
   .index("by_role", ["role"])
-  .index("by_authId", ["authId"]), // Added index for authId lookups,
+  .index("by_authId", ["authId"])
+  .index("by_department", ["departmentId"]), 
 
   // User sessions
   userSessions: defineTable({
