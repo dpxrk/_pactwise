@@ -22,12 +22,8 @@ export const listContracts = query({
       .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))
       .order("desc");
       
-      
-    // Apply cursor if provided
-    if (cursor) {
-      //@ts-ignore
-      contractsQuery = contractsQuery.cursor(cursor);
-    }
+        
+   
 
     // Apply filters
     if (status) {
