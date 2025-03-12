@@ -18,7 +18,6 @@ export const listVendors = query({
       .query("vendors")
       .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))
       .order("desc")
-      .take(limit);
     
     if (status) {
       vendorsQuery = vendorsQuery.filter((q) => q.eq(q.field("status"), status));
@@ -32,7 +31,7 @@ export const listVendors = query({
     
     // For each vendor, get a count of associated contracts
     const vendorsWithContractCount = await Promise.all(
-      vendors.map(async (vendor) => {
+      vendors.map(async(vendor) => {
         const contractCount = await ctx.db
           .query("contracts")
           .withIndex("by_vendor", (q) => q.eq("vendorId", vendor._id))

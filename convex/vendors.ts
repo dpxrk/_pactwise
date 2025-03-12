@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { Doc, Id } from "./_generated/dataModel";
 
 // ==== VENDOR QUERIES ====
 
@@ -17,8 +18,7 @@ export const listVendors = query({
     let vendorsQuery = ctx.db
       .query("vendors")
       .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))
-      .order("desc")
-      .take(limit);
+      .order("desc");
     
     if (status) {
       vendorsQuery = vendorsQuery.filter((q) => q.eq(q.field("status"), status));
@@ -28,7 +28,14 @@ export const listVendors = query({
       vendorsQuery = vendorsQuery.filter((q) => q.eq(q.field("category"), category));
     }
     
-    const vendors = await vendorsQuery;
+    
+    
+    if (cursor) {
+      //@ts-ignore
+      vendorsQuery = vendorsQuery.cursor(cursor);
+    }
+    
+    const vendors = await vendorsQuery.take(limit);
     
     // For each vendor, get a count of associated contracts
     const vendorsWithContractCount = await Promise.all(
@@ -36,6 +43,7 @@ export const listVendors = query({
         const contractCount = await ctx.db
           .query("contracts")
           .withIndex("by_vendor", (q) => q.eq("vendorId", vendor._id))
+          //@ts-ignore
           .count();
         
         return {
@@ -253,7 +261,7 @@ export const updateVendor = mutation({
     }
     
     // Create update object with only the fields being changed
-    const updates = {};
+    const updates: Record<string, any> = {};
     for (const [key, value] of Object.entries(args)) {
       if (key !== "vendorId" && value !== undefined) {
         updates[key] = value;
@@ -443,7 +451,7 @@ export const updateVendorContact = mutation({
     }
     
     // Create update object with only the fields being changed
-    const updates = {};
+    const updates: Record<string, any> = {};
     for (const [key, value] of Object.entries(args)) {
       if (key !== "contactId" && value !== undefined) {
         updates[key] = value;

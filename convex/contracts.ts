@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
+
 
 // ==== CONTRACT QUERIES ====
 
@@ -15,20 +16,30 @@ export const listContracts = query({
   handler: async (ctx, args) => {
     const { enterpriseId, status, contractType, limit = 10, cursor } = args;
     
+    // Build the query step by step
     let contractsQuery = ctx.db
       .query("contracts")
       .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))
-      .order("desc")
-      .take(limit);
+      .order("desc");
+      
+      
+    // Apply cursor if provided
+    if (cursor) {
+      //@ts-ignore
+      contractsQuery = contractsQuery.cursor(cursor);
+    }
+
+    // Apply filters
     if (status) {
-      contractsQuery = contractsQuery.filter(q => q.eq("status", status));
+      contractsQuery = contractsQuery.filter((q) => q.eq(q.field("status"), status));
     }
     
     if (contractType) {
-      contractsQuery = contractsQuery.filter(q => q.eq("contractType", contractType));
+      contractsQuery = contractsQuery.filter((q) => q.eq(q.field("contractType"), contractType));
     }
     
-    const contracts = await contractsQuery;
+    // Apply limit and fetch contracts
+    const contracts = await contractsQuery.take(limit);
     
     // Fetch related data for each contract
     const contractsWithRelations = await Promise.all(
@@ -38,7 +49,10 @@ export const listContracts = query({
         
         return {
           ...contract,
-          vendor: vendor ? { name: vendor.name, id: vendor._id } : null,
+          vendor: vendor ? { 
+            name: vendor.name, 
+            id: vendor._id 
+          } : null,
           createdBy: createdBy ? { 
             name: `${createdBy.firstName || ''} ${createdBy.lastName || ''}`.trim(), 
             id: createdBy._id 
@@ -62,10 +76,10 @@ export const getContract = query({
     }
     
     // Get vendor details
-    const vendor = await ctx.db.get(contract.vendorId);
+    const vendor = contract.vendorId ? await ctx.db.get(contract.vendorId) : null;
     
     // Get creator details
-    const createdBy = await ctx.db.get(contract.createdById);
+    const createdBy = contract.createdById ? await ctx.db.get(contract.createdById) : null;
     
     // Get department if it exists
     let department = null;
@@ -100,7 +114,7 @@ export const getContract = query({
     // Get approver user details
     const approverDetails = await Promise.all(
       approvers.map(async (approver) => {
-        const user = await ctx.db.get(approver.userId);
+        const user = approver.userId ? await ctx.db.get(approver.userId) : null;
         return {
           ...approver,
           user: user ? {
@@ -163,7 +177,7 @@ export const getExpiringContracts = query({
     // Fetch vendors for the contracts
     const contractsWithVendors = await Promise.all(
       expiringContracts.map(async (contract) => {
-        const vendor = await ctx.db.get(contract.vendorId);
+        const vendor = contract.vendorId ? await ctx.db.get(contract.vendorId) : null;
         return {
           ...contract,
           vendor: vendor ? { name: vendor.name, id: vendor._id } : null,
@@ -188,24 +202,24 @@ export const getContractAnalytics = query({
       .collect();
     
     // Get contract counts by status
-    const statusCounts = contracts.reduce((acc, contract) => {
+    const statusCounts = contracts.reduce((acc: Record<string, number>, contract) => {
       acc[contract.status] = (acc[contract.status] || 0) + 1;
       return acc;
-    }, {} as Record<string, number>);
+    }, {});
     
     // Get contract counts by type
-    const typeCounts = contracts.reduce((acc, contract) => {
+    const typeCounts = contracts.reduce((acc: Record<string, number>, contract) => {
       acc[contract.contractType] = (acc[contract.contractType] || 0) + 1;
       return acc;
-    }, {} as Record<string, number>);
+    }, {});
     
     // Calculate total value by currency
-    const valueByRrency = contracts.reduce((acc, contract) => {
+    const valueByRrency = contracts.reduce((acc: Record<string, number>, contract) => {
       if (contract.value && contract.currency) {
         acc[contract.currency] = (acc[contract.currency] || 0) + contract.value;
       }
       return acc;
-    }, {} as Record<string, number>);
+    }, {});
     
     // Calculate expiring soon contracts
     const now = new Date();
@@ -272,14 +286,17 @@ export const createContract = mutation({
     customFields: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
-    const { identity } = ctx.auth;
+   
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Authentication required");
     }
     
+   
     const userId = identity.subject;
     const user = await ctx.db
       .query("users")
+      
       .filter((q) => q.eq(q.field("authId"), userId))
       .first();
     
@@ -361,14 +378,15 @@ export const updateContract = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { identity } = ctx.auth;
+   
+    const  identity  = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Authentication required");
     }
     
     const userId = identity.subject;
     const user = await ctx.db
-      .query("users")
+      .query("users")      
       .filter((q) => q.eq(q.field("authId"), userId))
       .first();
     
@@ -513,10 +531,9 @@ export const respondToApproval = mutation({
   },
   handler: async (ctx, args) => {
     const { contractId, approved, comments } = args;
-    
-    const { identity } = ctx.auth;
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error("Authentication required");
+      throw new ConvexError("Authentication required");
     }
     
     const userId = identity.subject;
@@ -598,7 +615,7 @@ export const respondToApproval = mutation({
           if (contract.createdAt) {
             const createdDate = new Date(contract.createdAt);
             const approvedDate = new Date(now);
-            const timeToApprove = Math.floor((approvedDate - createdDate) / (1000 * 60 * 60 * 24)); // Days
+            const timeToApprove = Math.floor((approvedDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)); // Days
             updates.timeToApprove = timeToApprove;
           }
         }
@@ -607,18 +624,20 @@ export const respondToApproval = mutation({
       await ctx.db.patch(contractId, updates);
       
       // Notify the contract creator
-      await ctx.db.insert("userNotifications", {
-        userId: contract.createdById,
-        type: approved ? "contract_approved" : "contract_rejected",
-        title: approved ? "Contract Approved" : "Contract Rejected",
-        message: approved 
-          ? `${user.firstName || ''} ${user.lastName || ''} has approved the contract: ${contract.title}`
-          : `${user.firstName || ''} ${user.lastName || ''} has rejected the contract: ${contract.title}`,
-        linkUrl: `/contracts/${contractId}`,
-        isRead: false,
-        metadata: { comments },
-        createdAt: now,
-      });
+      if (contract.createdById) {
+        await ctx.db.insert("userNotifications", {
+          userId: contract.createdById,
+          type: approved ? "contract_approved" : "contract_rejected",
+          title: approved ? "Contract Approved" : "Contract Rejected",
+          message: approved 
+            ? `${user.firstName || ''} ${user.lastName || ''} has approved the contract: ${contract.title}`
+            : `${user.firstName || ''} ${user.lastName || ''} has rejected the contract: ${contract.title}`,
+          linkUrl: `/contracts/${contractId}`,
+          isRead: false,
+          metadata: { comments },
+          createdAt: now,
+        });
+      }
     }
     
     return {
@@ -670,7 +689,8 @@ export const addSignatureRequest = mutation({
     sequence: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const { identity } = ctx.auth;
+   
+    const identity  = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Authentication required");
     }
@@ -784,6 +804,7 @@ export const submitSignature = mutation({
       signatureData: args.signatureData,
       signedAt: now,
       status: "completed",
+      //@ts-ignore
       ipAddress: ctx.request?.headers?.get("x-forwarded-for") || "unknown",
     });
     
@@ -798,7 +819,7 @@ export const submitSignature = mutation({
       .first();
     
     // If no pending signatures remain, update contract status
-    if (!pendingSignatures) {
+    if (!pendingSignatures && contract) {
       const updates: Record<string, any> = {
         status: "signed",
         signatureCompletedAt: now,
@@ -806,7 +827,7 @@ export const submitSignature = mutation({
       };
       
       // Calculate time to sign if possible
-      if (contract && contract.status === "pending_signature" && contract.updatedAt) {
+      if (contract.status === "pending_signature" && contract.updatedAt) {
         const startDate = new Date(contract.updatedAt);
         const endDate = new Date(now);
         const timeToSign = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)); // Days
@@ -853,7 +874,7 @@ export const searchContracts = query({
     // Get vendor details for matching contracts
     const contractsWithDetails = await Promise.all(
       matchingContracts.map(async (contract) => {
-        const vendor = await ctx.db.get(contract.vendorId);
+        const vendor = contract.vendorId ? await ctx.db.get(contract.vendorId) : null;
         return {
           ...contract,
           vendor: vendor ? { name: vendor.name, id: vendor._id } : null,

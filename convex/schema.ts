@@ -174,7 +174,7 @@ export default defineSchema({
   // ============= USER MANAGEMENT =============
   
   // Users table
-  users: defineTable({
+  users: defineTable({    
     // Basic user information
     email: v.string(),
     firstName: v.optional(v.string()),
@@ -185,6 +185,7 @@ export default defineSchema({
     status: v.string(), // Uses UserStatus values
     isActive: v.boolean(),
     isEmailVerified: v.boolean(),
+    authId: v.string(), // Store the identity.subject from auth provider here
     authType: v.string(), // Uses AuthenticationType values
     
     // Enterprise association
@@ -245,7 +246,8 @@ export default defineSchema({
   })
   .index("by_email", ["email"])
   .index("by_enterprise", ["enterpriseId"])
-  .index("by_role", ["role"]),
+  .index("by_role", ["role"])
+  .index("by_authId", ["authId"]), // Added index for authId lookups,
 
   // User sessions
   userSessions: defineTable({
