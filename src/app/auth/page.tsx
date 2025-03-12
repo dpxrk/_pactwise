@@ -13,11 +13,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { LoadingSpinner } from "@/app/_components/common/LoadingSpinner"
+import { LoadingSpinner } from "@/app/_components/common/LoadingSpinner";
 import { Eye, EyeOff, Shield, Lock, Mail } from "lucide-react";
-import { login, logAuthFailure, setAuthData } from "@/lib/auths"
 import { validatePassword } from "@/lib/validations";
-import { Logo } from "@/app/_components/common/Logo"
+import { Logo } from "@/app/_components/common/Logo";
+import { useAction } from "convex/react";
+import { api } from "../../../convex/_generated/api"
 
 const AuthPage = () => {
   const router = useRouter();
@@ -27,6 +28,11 @@ const AuthPage = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSignIn, setIsSignIn] = useState(true);
+
+  // Use Convex actions for authentication
+  const loginAction = useAction(api.auth.login);
+  const registerAction = useAction(api.auth.register);
+  const logAuthFailureAction = useAction(api.auth.logAuthFailure);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,24 +50,45 @@ const AuthPage = () => {
         throw new Error(passwordError);
       }
 
-      const response = await login({
+      const authData = {
         email,
         password,
         user_agent: navigator.userAgent,
-      });
+      };
 
-      // Store authentication data
-      setAuthData(response);
+      // Use the appropriate Convex action based on sign-in or register
+      const response = isSignIn 
+        ? await loginAction(authData) 
+        : await registerAction({
+            ...authData,
+            firstName: "",  // These would be populated in registration form
+            lastName: "",
+            title: "",
+          });
+
+      // Check if the login was successful
+      if (!response.success) {
+        throw new Error(response.message || "Authentication failed");
+      }
+
+      // Store auth token in local storage
+      localStorage.setItem("authToken", response.token);
+      localStorage.setItem("userId", response.userId);
+      
+      // Set any additional user data
+      if (response.userData) {
+        localStorage.setItem("userData", JSON.stringify(response.userData));
+      }
 
       // Redirect based on user role
-      router.push(response.is_superuser ? "/admin/dashboard" : "/dashboard");
+      router.push(response.userData?.role === "system_admin" ? "/admin/dashboard" : "/dashboard");
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "An error occurred";
       setError(errorMessage);
 
       // Log authentication failure
-      await logAuthFailure({
+      await logAuthFailureAction({
         email,
         error: errorMessage,
         timestamp: new Date().toISOString(),
@@ -184,6 +211,8 @@ const AuthPage = () => {
                 <Button 
                   variant="link" 
                   className="p-0 h-auto text-sm text-gold hover:text-gold-dark"
+                  onClick={() => router.push('/auth/reset-password')}
+                  type="button"
                 >
                   Forgot password?
                 </Button>
@@ -194,7 +223,7 @@ const AuthPage = () => {
               <Button 
                 variant='outline'
                 type="submit" 
-                className="w-full bg-primary hover:bg-primary/90 text-black cursor-pointer" 
+                className="w-full bg-primary hover:bg-primary/90 text-white cursor-pointer" 
                 disabled={isLoading}
               >
                 {isLoading ? <LoadingSpinner size="sm" className="mr-2" /> : null}

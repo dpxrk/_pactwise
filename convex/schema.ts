@@ -57,6 +57,15 @@ const AuthenticationType = {
   LDAP: "ldap",
 };
 
+// Auth-related enums
+const AuthProvider = {
+  EMAIL: "email",
+  GOOGLE: "google",
+  MICROSOFT: "microsoft",
+  OKTA: "okta",
+  CUSTOM: "custom",
+};
+
 // Vendor-related enums
 const VendorStatus = {
   ACTIVE: "active",
@@ -181,13 +190,14 @@ export default defineSchema({
     lastName: v.optional(v.string()),
     title: v.optional(v.string()),
     department: v.optional(v.string()),
-    departmentId: v.optional(v.id("departments")), // Add this field
+    departmentId: v.optional(v.id("departments")),
     role: v.string(), // Uses UserRole values
     status: v.string(), // Uses UserStatus values
     isActive: v.boolean(),
     isEmailVerified: v.boolean(),
-    authId: v.string(), // Store the identity.subject from auth provider here
+    authId: v.optional(v.string()), // Store the identity.subject from auth provider here
     authType: v.string(), // Uses AuthenticationType values
+    authProvider: v.optional(v.string()), // Store the provider name (e.g., "google", "microsoft")
     
     // Enterprise association
     enterpriseId: v.id("enterprises"),
@@ -263,20 +273,43 @@ export default defineSchema({
     isActive: v.boolean(),
     createdAt: v.string(), // ISO date string
     lastActiveAt: v.optional(v.string()), // ISO date string
+    lastRefreshAt: v.optional(v.string()), // ISO date string for tracking token refreshes
+    refreshCount: v.optional(v.number()), // Track how many times a token has been refreshed
   })
   .index("by_user", ["userId"])
-  .index("by_token", ["token"]),
+  .index("by_token", ["token"])
+  .index("by_session", ["sessionId"]),
+
+  // Auth failures tracking
+  authFailures: defineTable({
+    email: v.string(), // The attempted email
+    ipAddress: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+    error: v.string(), // The specific error that occurred
+    timestamp: v.string(), // ISO date string
+    attemptType: v.string(), // login, register, password_reset, etc.
+    requestData: v.optional(v.any()), // Additional data about the request (sanitized)
+    userId: v.optional(v.id("users")), // If the user exists
+  })
+  .index("by_email", ["email"])
+  .index("by_ip", ["ipAddress"])
+  .index("by_timestamp", ["timestamp"])
+  .index("by_user", ["userId"]),
 
   // User login attempts (for security monitoring)
   userLoginAttempts: defineTable({
-    userId: v.id("users"),
+    userId: v.optional(v.id("users")), // Can be null for non-existent users
+    email: v.string(), // The attempted email
     timestamp: v.string(), // ISO date string
     ipAddress: v.string(),
     userAgent: v.string(),
     success: v.boolean(),
     failureReason: v.optional(v.string()),
+    authProvider: v.optional(v.string()), // Which auth provider was used
   })
-  .index("by_user", ["userId"]),
+  .index("by_user", ["userId"])
+  .index("by_email", ["email"])
+  .index("by_ip_and_timestamp", ["ipAddress", "timestamp"]),
 
   // Password reset tokens
   passwordResetTokens: defineTable({
@@ -286,6 +319,8 @@ export default defineSchema({
     isUsed: v.boolean(),
     createdAt: v.string(), // ISO date string
     usedAt: v.optional(v.string()), // ISO date string
+    ipRequested: v.optional(v.string()), // IP that requested the reset
+    ipUsed: v.optional(v.string()), // IP that used the token
   })
   .index("by_token", ["token"])
   .index("by_user", ["userId"]),
@@ -299,9 +334,52 @@ export default defineSchema({
     isUsed: v.boolean(),
     createdAt: v.string(), // ISO date string
     usedAt: v.optional(v.string()), // ISO date string
+    ipRequested: v.optional(v.string()),
+    ipUsed: v.optional(v.string()),
   })
   .index("by_token", ["token"])
+  .index("by_user", ["userId"])
+  .index("by_email", ["email"]),
+
+  // MFA authentication codes
+  mfaCodes: defineTable({
+    userId: v.id("users"),
+    code: v.string(), // The actual code or hash of the code
+    expiresAt: v.string(), // ISO date string
+    isUsed: v.boolean(),
+    createdAt: v.string(), // ISO date string
+    usedAt: v.optional(v.string()), // ISO date string
+    ipRequested: v.optional(v.string()),
+    sessionId: v.optional(v.string()), // Link to a partial session pending MFA
+  })
+  .index("by_user", ["userId"])
+  .index("by_code", ["code"])
+  .index("by_session", ["sessionId"]),
+
+  // MFA recovery codes
+  mfaRecoveryCodes: defineTable({
+    userId: v.id("users"),
+    code: v.string(), // Hashed recovery code
+    isUsed: v.boolean(),
+    createdAt: v.string(), // ISO date string
+    usedAt: v.optional(v.string()), // ISO date string
+    ipUsed: v.optional(v.string()),
+  })
   .index("by_user", ["userId"]),
+
+  // OAuth states (for OAuth flow security)
+  oauthStates: defineTable({
+    state: v.string(), // Random state parameter for OAuth
+    provider: v.string(), // "google", "microsoft", etc.
+    redirectUri: v.string(), // Where to redirect after authentication
+    expiresAt: v.string(), // ISO date string
+    isUsed: v.boolean(),
+    createdAt: v.string(), // ISO date string
+    ipAddress: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+  })
+  .index("by_state", ["state"])
+  .index("by_expiry", ["expiresAt"]),
 
   // User notifications
   userNotifications: defineTable({
@@ -328,8 +406,27 @@ export default defineSchema({
     ipAddress: v.optional(v.string()),
     userAgent: v.optional(v.string()),
     timestamp: v.string(), // ISO date string
+    sessionId: v.optional(v.string()), // Link to the session
   })
-  .index("by_user", ["userId"]),
+  .index("by_user", ["userId"])
+  .index("by_action", ["action"])
+  .index("by_timestamp", ["timestamp"]),
+
+  // API Keys for programmatic access
+  apiKeys: defineTable({
+    userId: v.id("users"),
+    key: v.string(), // Hashed API key
+    name: v.string(), // User-friendly name for the key
+    permissions: v.array(v.string()), // Specific permissions for this key
+    isActive: v.boolean(),
+    expiresAt: v.optional(v.string()), // Optional expiration date
+    createdAt: v.string(),
+    lastUsedAt: v.optional(v.string()),
+    useCount: v.number(),
+    allowedIps: v.optional(v.array(v.string())), // IP restriction
+  })
+  .index("by_user", ["userId"])
+  .index("by_key", ["key"]),
   
   // ============= VENDOR MANAGEMENT =============
 
