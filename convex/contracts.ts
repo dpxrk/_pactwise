@@ -1,4 +1,4 @@
-import { query, mutation } from "./server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 // ==== CONTRACT QUERIES ====
@@ -17,15 +17,15 @@ export const listContracts = query({
     
     let contractsQuery = ctx.db
       .query("contracts")
-      // .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))
+      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))
       .order("desc")
       .take(limit);
     if (status) {
-       contractsQuery = contractsQuery.filter(q => q.eq("status", status));
+      contractsQuery = contractsQuery.filter(q => q.eq("status", status));
     }
     
     if (contractType) {
-       contractsQuery = contractsQuery.filter(q => q.eq("contractType", contractType));
+      contractsQuery = contractsQuery.filter(q => q.eq("contractType", contractType));
     }
     
     const contracts = await contractsQuery;
@@ -191,13 +191,13 @@ export const getContractAnalytics = query({
     const statusCounts = contracts.reduce((acc, contract) => {
       acc[contract.status] = (acc[contract.status] || 0) + 1;
       return acc;
-    }, {});
+    }, {} as Record<string, number>);
     
     // Get contract counts by type
     const typeCounts = contracts.reduce((acc, contract) => {
       acc[contract.contractType] = (acc[contract.contractType] || 0) + 1;
       return acc;
-    }, {});
+    }, {} as Record<string, number>);
     
     // Calculate total value by currency
     const valueByRrency = contracts.reduce((acc, contract) => {
@@ -205,7 +205,7 @@ export const getContractAnalytics = query({
         acc[contract.currency] = (acc[contract.currency] || 0) + contract.value;
       }
       return acc;
-    }, {});
+    }, {} as Record<string, number>);
     
     // Calculate expiring soon contracts
     const now = new Date();
@@ -383,7 +383,7 @@ export const updateContract = mutation({
     }
     
     // Create update object with only the fields being changed
-    const updates = {};
+    const updates: Record<string, any> = {};
     for (const [key, value] of Object.entries(args)) {
       if (key !== "contractId" && value !== undefined) {
         updates[key] = value;
@@ -547,7 +547,7 @@ export const respondToApproval = mutation({
     const now = new Date().toISOString();
     
     // Update the approver record
-    const updateFields = {
+    const updateFields: Record<string, any> = {
       approvalStatus: approved ? "approved" : "rejected",
       comments: comments || "",
     };
@@ -578,7 +578,7 @@ export const respondToApproval = mutation({
         status: a.approvalStatus,
       }));
       
-      const updates = {
+      const updates: Record<string, any> = {
         approvalChain,
         updatedAt: now,
       };
@@ -799,17 +799,17 @@ export const submitSignature = mutation({
     
     // If no pending signatures remain, update contract status
     if (!pendingSignatures) {
-      const updates = {
+      const updates: Record<string, any> = {
         status: "signed",
         signatureCompletedAt: now,
         updatedAt: now,
       };
       
       // Calculate time to sign if possible
-      if (contract.status === "pending_signature" && contract.updatedAt) {
+      if (contract && contract.status === "pending_signature" && contract.updatedAt) {
         const startDate = new Date(contract.updatedAt);
         const endDate = new Date(now);
-        const timeToSign = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)); // Days
+        const timeToSign = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)); // Days
         updates.timeToSign = timeToSign;
       }
       
