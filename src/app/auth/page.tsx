@@ -19,6 +19,7 @@ import { validatePassword } from "@/lib/validations";
 import { Logo } from "@/app/_components/common/Logo";
 import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api"
+import {useAuth0} from "@auth0/auth0-react"
 
 const AuthPage = () => {
   const router = useRouter();
@@ -28,6 +29,7 @@ const AuthPage = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSignIn, setIsSignIn] = useState(true);
+  
 
   // Use Convex actions for authentication
   const loginAction = useAction(api.auth.login);

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { ConvexClientProvider } from "./ConvexClientProvider"
+import { UserProvider } from '@auth0/nextjs-auth0/client';
 
 
 export const metadata: Metadata = {
@@ -14,10 +14,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body>
-      <ConvexClientProvider>{children}</ConvexClientProvider>
-      </body>
+    <html lang="en">      
+      <UserProvider>
+      <body>{children}</body>
+    </UserProvider>      
     </html>
   );
 }

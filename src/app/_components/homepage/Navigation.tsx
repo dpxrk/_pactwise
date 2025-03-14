@@ -8,17 +8,21 @@ import { Logo } from "@/app/_components/common/Logo";
 import { useRouter } from "next/navigation";
 
 
+
 const navItems = [
   { href: "#features", label: "Features" },
   { href: "#benefits", label: "Benefits" },
   { href: "#contact", label: "Contact" },
 ];
 
-export const Navigation = () => {  
-  const router = useRouter();
-  const handleOnClick = () => {
-    router.push("/auth");
-  };
+export const Navigation = () => {
+  const {loginWithRedirect} = useAuth0();
+
+  const handleClick = () =>{
+    loginWithRedirect()
+  }
+  
+  
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -30,7 +34,7 @@ export const Navigation = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex md:items-center md:space-x-10 ">
-            <Button className="cursor-pointer" onClick={handleOnClick}>Sign In</Button>
+            <Button className="cursor-pointer" onClick={handleClick}>Sign In</Button>
           </div>
 
           {/* Mobile Navigation */}
@@ -52,7 +56,7 @@ export const Navigation = () => {
                       {item.label}
                     </a>
                   ))}
-                  <Button className="mt-4" onClick={handleOnClick}>
+                  <Button className="mt-4" onClick={handleClick}>
                     Sign In
                   </Button>
                 </nav>
