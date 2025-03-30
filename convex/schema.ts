@@ -134,6 +134,24 @@ const ContactType = {
   OTHER: "other",
 };
 
+
+const AuthEventType = {
+  LOGIN: "login",
+  LOGOUT: "logout",
+  SIGNUP: "signup",
+  PASSWORD_RESET: "password_reset",
+  PASSWORD_CHANGE: "password_change",
+  MFA_ENABLED: "mfa_enabled",
+  MFA_DISABLED: "mfa_disabled",
+  ACCOUNT_UPDATE: "account_update",
+  ACCOUNT_LOCKED: "account_locked",
+  ACCOUNT_UNLOCKED: "account_unlocked",
+  FAILED_LOGIN: "failed_login",
+};
+
+
+
+
 export default defineSchema({
   // ============= ENTERPRISE STRUCTURE =============
   
@@ -835,4 +853,181 @@ export default defineSchema({
   })
   .index("by_contract", ["contractId"])
   .index("by_user", ["userId"]),
+
+  // ============= AUTHENTICATION MANAGEMENT =============
+  identityProviderLinks: defineTable({
+    userId: v.id("users"),
+    provider: v.string(), // google, microsoft, github, etc.
+    providerUserId: v.string(), // ID from the provider
+    email: v.string(),
+    accessToken: v.optional(v.string()), // Encrypted
+    refreshToken: v.optional(v.string()), // Encrypted
+    tokenExpiry: v.optional(v.string()),
+    profile: v.optional(v.any()), // Profile data from provider
+    isVerified: v.boolean(),
+    isActive: v.boolean(),
+    createdAt: v.string(),
+    lastUsedAt: v.optional(v.string()),
+  })
+  .index("by_user", ["userId"])
+  .index("by_provider_id", ["provider", "providerUserId"])
+  .index("by_email_provider", ["email", "provider"]),
+  
+  // Auth events specifically for authentication operations
+  authEvents: defineTable({
+    userId: v.optional(v.id("users")), // Optional because events can happen before user creation
+    eventType: v.string(), // Using AuthEventType values
+    timestamp: v.string(),
+    ipAddress: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+    location: v.optional(v.any()), // Geo information
+    deviceInfo: v.optional(v.any()),
+    success: v.boolean(),
+    errorMessage: v.optional(v.string()),
+    metadata: v.optional(v.any()), // Additional context
+  })
+  .index("by_user", ["userId"])
+  .index("by_event_type", ["eventType"])
+  .index("by_timestamp", ["timestamp"]),
+  
+  // Session refresh tokens (for refresh token rotation)
+  refreshTokens: defineTable({
+    userId: v.id("users"),
+    token: v.string(), // Hashed token
+    expiresAt: v.string(),
+    isRevoked: v.boolean(),
+    createdAt: v.string(),
+    revokedAt: v.optional(v.string()),
+    createdByIp: v.optional(v.string()),
+    createdByUserAgent: v.optional(v.string()),
+    scope: v.optional(v.string()), // Permissions scope
+    sessionId: v.string(), // Link to user session
+  })
+  .index("by_user", ["userId"])
+  .index("by_token", ["token"])
+  .index("by_session", ["sessionId"]),
+  
+  // Organizations/tenants for multi-tenant applications
+  organizations: defineTable({
+    name: v.string(),
+    slug: v.string(), // URL-friendly name
+    description: v.optional(v.string()),
+    logoUrl: v.optional(v.string()),
+    domain: v.optional(v.string()),
+    allowedDomains: v.optional(v.array(v.string())), // Auto-join domains
+    settings: v.optional(v.any()),
+    plan: v.optional(v.string()),
+    billingEmail: v.optional(v.string()),
+    isActive: v.boolean(),
+    createdById: v.id("users"),
+    createdAt: v.string(),
+    updatedAt: v.optional(v.string()),
+  })
+  .index("by_slug", ["slug"])
+  .index("by_domain", ["domain"]),
+  
+  // Organization members (users belonging to organizations)
+  organizationMembers: defineTable({
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    role: v.string(), // Owner, admin, member, etc.
+    permissions: v.optional(v.array(v.string())),
+    joinedAt: v.string(),
+    invitedBy: v.optional(v.id("users")),
+    isActive: v.boolean(),
+    lastActiveAt: v.optional(v.string()),
+  })
+  .index("by_org", ["organizationId"])
+  .index("by_user", ["userId"])
+  .index("by_org_user", ["organizationId", "userId"]),
+  
+  // Organization invitations
+  organizationInvitations: defineTable({
+    organizationId: v.id("organizations"),
+    email: v.string(),
+    role: v.string(),
+    invitedBy: v.id("users"),
+    token: v.string(),
+    expiresAt: v.string(),
+    status: v.string(), // pending, accepted, declined, expired
+    createdAt: v.string(),
+    respondedAt: v.optional(v.string()),
+  })
+  .index("by_org", ["organizationId"])
+  .index("by_email", ["email"])
+  .index("by_token", ["token"]),
+  
+  // Role definitions
+  roles: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    permissions: v.array(v.string()),
+    enterpriseId: v.optional(v.id("enterprises")), // If custom to an enterprise
+    isSystem: v.boolean(), // Is it a system-defined role
+    createdAt: v.string(),
+    updatedAt: v.optional(v.string()),
+  })
+  .index("by_name", ["name"])
+  .index("by_enterprise", ["enterpriseId"]),
+  
+  // Permission definitions
+  permissions: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    category: v.string(), // e.g., "contracts", "users", "settings"
+    isSystem: v.boolean(),
+    createdAt: v.string(),
+  })
+  .index("by_name", ["name"])
+  .index("by_category", ["category"]),
+  
+  // User role assignments (many-to-many)
+  userRoles: defineTable({
+    userId: v.id("users"),
+    roleId: v.id("roles"),
+    organizationId: v.optional(v.id("organizations")), // If scoped to an org
+    enterpriseId: v.optional(v.id("enterprises")), // If scoped to an enterprise
+    assignedBy: v.id("users"),
+    assignedAt: v.string(),
+  })
+  .index("by_user", ["userId"])
+  .index("by_user_org", ["userId", "organizationId"])
+  .index("by_user_enterprise", ["userId", "enterpriseId"]),
+  
+  // Security settings
+  securitySettings: defineTable({
+    enterpriseId: v.id("enterprises"),
+    passwordPolicy: v.object({
+      minLength: v.number(),
+      requireUppercase: v.boolean(),
+      requireLowercase: v.boolean(),
+      requireNumbers: v.boolean(),
+      requireSpecialChars: v.boolean(),
+      maxAge: v.optional(v.number()), // In days
+      preventReuse: v.optional(v.number()), // How many previous passwords to check
+    }),
+    mfaPolicy: v.object({
+      required: v.boolean(),
+      allowedMethods: v.array(v.string()),
+      gracePeroidDays: v.optional(v.number()),
+    }),
+    sessionPolicy: v.object({
+      maxDuration: v.number(), // In minutes
+      inactivityTimeout: v.number(), // In minutes
+      refreshTokenRotation: v.boolean(),
+      singleSession: v.optional(v.boolean()),
+    }),
+    loginAttempts: v.object({
+      maxAttempts: v.number(),
+      lockoutDuration: v.number(), // In minutes
+      trackByIp: v.boolean(),
+    }),
+    ipRestrictions: v.optional(v.array(v.string())),
+    updatedById: v.id("users"),
+    updatedAt: v.string(),
+  })
+  .index("by_enterprise", ["enterpriseId"]),
+
+
+
 });

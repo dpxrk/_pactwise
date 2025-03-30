@@ -1,11 +1,589 @@
 import { query, mutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
+import { getUser, requireUser, logAuthEvent } from "./auth";
+import { Id } from "./_generated/dataModel";
 
-// ==== USER QUERIES ====
+// ==== AUTH RELATED MUTATIONS ====
+
+// Create or update a user when they log in through an auth provider
+export const createOrUpdateUserFromAuth = mutation({
+  args: {
+    name: v.optional(v.string()),
+    email: v.string(),
+    pictureUrl: v.optional(v.string()),
+    provider: v.string(), // "google", "microsoft", etc.
+  },
+  handler: async (ctx, args) => {
+    // Get the user identity from the auth context
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Called createOrUpdateUserFromAuth without authentication");
+    }
+
+    const now = new Date().toISOString();
+    
+    // Check if user already exists
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first();
+
+    if (user) {
+      // User exists, update their information
+      await ctx.db.patch(user._id, {
+        firstName: args.name?.split(' ')[0] ?? user.firstName,
+        lastName: args.name?.split(' ').slice(1).join(' ') ?? user.lastName,
+        email: args.email || user.email,
+        lastLogin: now,
+        updatedAt: now,
+      });
+      // Log login event
+      await logAuthEvent(ctx, "LOGIN", user._id, true);
+      
+      return { userId: user._id, isNewUser: false };
+    } else {
+      // Look up enterprise based on email domain
+      const emailDomain = args.email.split('@')[1];
+      const enterprise = await ctx.db
+        .query("enterprises")
+        .withIndex("by_domain", (q) => q.eq("domain", emailDomain))
+        .first();
+      
+      if (!enterprise) {
+        throw new ConvexError("No enterprise found for this email domain");
+      }
+      
+      // Create a new user account
+      const nameParts = args.name ? args.name.split(' ') : ['New', 'User'];
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ') || '';
+      
+      const userId = await ctx.db.insert("users", {
+        email: args.email,
+        firstName,
+        lastName,
+        title: "",
+        role: "contract_viewer", // Default role for new users
+        status: "active",
+        isActive: true,
+        isEmailVerified: identity.emailVerified || false,
+        authId: identity.subject,
+        authType: "oauth",
+        authProvider: args.provider,
+        enterpriseId: enterprise._id,
+        language: "en-US",
+        timezone: "UTC",
+        dateFormat: "MM/DD/YYYY",
+        notificationPreferences: {
+          emailEnabled: true,
+          inAppEnabled: true,
+          smsEnabled: false,
+          contractNotifications: true,
+          approvalNotifications: true,
+          signatureNotifications: true,
+          analyticsNotifications: false,
+        },
+        securityPreferences: {
+          mfaEnabled: false,
+         
+          sessionTimeout: 60,
+        },
+        failedLoginAttempts: 0,
+        permissions: [],
+        accessibleContracts: [],
+        accessibleTemplates: [],
+        accessibleDepartments: [],
+        contractsCreated: 0,
+        contractsSigned: 0,
+        templatesCreated: 0,
+        activeSessions: 1,
+        createdAt: now,
+        updatedAt: now,
+        lastLogin: now,
+      });
+      
+      // Create identity provider link
+      await ctx.db.insert("identityProviderLinks", {
+        userId,
+        provider: args.provider,
+        providerUserId: identity.subject,
+        email: args.email,
+        profile: {
+          name: args.name,
+          picture: args.pictureUrl,
+        },
+        isVerified: identity.emailVerified || false,
+        isActive: true,
+        createdAt: now,
+        lastUsedAt: now,
+      });
+      
+      // Log user creation and login events
+      await logAuthEvent(ctx, "SIGNUP", userId, true, undefined, { provider: args.provider });
+      await logAuthEvent(ctx, "LOGIN", userId, true);
+      
+      return { userId, isNewUser: true };
+    }
+  },
+});
+
+// Handle user logout
+export const logout = mutation({
+  handler: async (ctx) => {
+    const user = await getUser(ctx);
+    if (!user) {
+      return { success: true }; // Already logged out
+    }
+    
+    // Get session info from headers if available
+    //@ts-expect-error
+    const headers = ctx.request?.headers;
+    const sessionId = headers?.get("x-session-id");
+    
+    // Log the logout event
+    await logAuthEvent(ctx, "LOGOUT", user._id);
+    
+    // If we have a session ID, end that specific session
+    if (sessionId) {
+      const session = await ctx.db
+        .query("userSessions")
+        .withIndex("by_session", q => q.eq("sessionId", sessionId))
+        .first();
+      
+      if (session) {
+        await ctx.db.patch(session._id, {
+          isActive: false,
+          lastActiveAt: new Date().toISOString(),
+        });
+        
+        // Update user's active session count
+        await ctx.db.patch(user._id, {
+          activeSessions: Math.max(0, (user.activeSessions || 1) - 1),
+        });
+      }
+    }
+    
+    return { success: true };
+  },
+});
+
+// Link a new identity provider to an existing user
+export const linkIdentityProvider = mutation({
+  args: {
+    provider: v.string(),
+    providerUserId: v.string(),
+    email: v.string(),
+    profile: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    
+    // Check if this provider is already linked to another account
+    const existingLink = await ctx.db
+      .query("identityProviderLinks")
+      .withIndex("by_provider_id", (q) => 
+        q.eq("provider", args.provider).eq("providerUserId", args.providerUserId)
+      )
+      .first();
+    
+    if (existingLink && existingLink.userId !== user._id) {
+      throw new ConvexError("This provider account is already linked to another user");
+    }
+    
+    // Check if this provider is already linked to this user
+    const userLink = await ctx.db
+      .query("identityProviderLinks")
+      .withIndex("by_email_provider", (q) => 
+        q.eq("email", args.email).eq("provider", args.provider)
+      )
+      .filter((q) => q.eq(q.field("userId"), user._id))
+      .first();
+    
+    if (userLink) {
+      // Update the existing link
+      await ctx.db.patch(userLink._id, {
+        providerUserId: args.providerUserId,
+        profile: args.profile,
+        lastUsedAt: new Date().toISOString(),
+      });
+    } else {
+      // Create a new link
+      await ctx.db.insert("identityProviderLinks", {
+        userId: user._id,
+        provider: args.provider,
+        providerUserId: args.providerUserId,
+        email: args.email,
+        profile: args.profile,
+        isVerified: true, // Since we already have an authenticated user
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        lastUsedAt: new Date().toISOString(),
+      });
+    }
+    
+    // Log the event
+    await logAuthEvent(
+      ctx, 
+      "ACCOUNT_LINKED", 
+      user._id, 
+      true, 
+      undefined, 
+      { provider: args.provider }
+    );
+    
+    return { success: true };
+  },
+});
+
+// Unlink an identity provider from a user
+export const unlinkIdentityProvider = mutation({
+  args: {
+    provider: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    
+    // Count how many active identity providers the user has
+    const providerLinks = await ctx.db
+      .query("identityProviderLinks")
+      .filter((q) => q.eq(q.field("userId"), user._id))
+      .collect();
+    
+    if (providerLinks.length <= 1) {
+      throw new ConvexError("Cannot remove the last authentication method");
+    }
+    
+    // Find the specific link to remove
+    const linkToRemove = providerLinks.find(link => 
+      link.provider === args.provider && link.isActive
+    );
+    
+    if (!linkToRemove) {
+      throw new ConvexError(`No active ${args.provider} account linked to this user`);
+    }
+    
+    // Deactivate the link (don't delete to maintain audit history)
+    await ctx.db.patch(linkToRemove._id, {
+      isActive: false,
+    });
+    
+    // Log the event
+    await logAuthEvent(
+      ctx, 
+      "ACCOUNT_UNLINKED", 
+      user._id, 
+      true, 
+      undefined, 
+      { provider: args.provider }
+    );
+    
+    return { success: true };
+  },
+});
+
+// Get the user's connected identity providers
+export const getConnectedProviders = query({
+  handler: async (ctx) => {
+    const user = await getUser(ctx);
+    if (!user) {
+      return [];
+    }
+    
+    const providerLinks = await ctx.db
+      .query("identityProviderLinks")
+      .filter((q) => 
+        q.and(
+          q.eq(q.field("userId"), user._id),
+          q.eq(q.field("isActive"), true)
+        )
+      )
+      .collect();
+    
+    return providerLinks.map(link => ({
+      provider: link.provider,
+      email: link.email,
+      connectedAt: link.createdAt,
+      lastUsed: link.lastUsedAt,
+    }));
+  },
+});
+
+// Change user email (with verification)
+export const initiateEmailChange = mutation({
+  args: {
+    newEmail: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    
+    // Check if email is already in use
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.newEmail))
+      .first();
+    
+    if (existingUser && existingUser._id !== user._id) {
+      throw new ConvexError("This email is already in use");
+    }
+    
+    const now = new Date().toISOString();
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24); // 24 hour expiry
+    
+    // Generate a token
+    const token = Math.random().toString(36).substring(2, 15) + 
+                 Math.random().toString(36).substring(2, 15);
+    
+    // Store the verification token
+    await ctx.db.insert("emailVerificationTokens", {
+      userId: user._id,
+      email: args.newEmail,
+      token,
+      expiresAt: expiresAt.toISOString(),
+      isUsed: false,
+      createdAt: now,
+       //@ts-expect-error
+      ipRequested: ctx.request?.headers?.get("x-forwarded-for") || "unknown",
+    });
+    
+    // In a real app, you would send an email with the verification link here
+    
+    // Log the event
+    await logAuthEvent(
+      ctx, 
+      "EMAIL_CHANGE_REQUESTED", 
+      user._id, 
+      true, 
+      undefined, 
+      { newEmail: args.newEmail }
+    );
+    
+    return { 
+      success: true,
+      // Only for development/testing - in production, this would not be returned
+      verificationToken: token 
+    };
+  },
+});
+
+// Verify email change token and update the email
+export const verifyEmailChange = mutation({
+  args: {
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Find the token
+    const verification = await ctx.db
+      .query("emailVerificationTokens")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .first();
+    
+    if (!verification) {
+      throw new ConvexError("Invalid verification token");
+    }
+    
+    if (verification.isUsed) {
+      throw new ConvexError("Token has already been used");
+    }
+    
+    // Check if token is expired
+    if (new Date(verification.expiresAt) < new Date()) {
+      throw new ConvexError("Verification token has expired");
+    }
+    
+    const now = new Date().toISOString();
+    
+    // Mark token as used
+    await ctx.db.patch(verification._id, {
+      isUsed: true,
+      usedAt: now,
+       //@ts-expect-error
+      ipUsed: ctx.request?.headers?.get("x-forwarded-for") || "unknown",
+    });
+    
+    // Update user's email
+    await ctx.db.patch(verification.userId, {
+      email: verification.email,
+      isEmailVerified: true,
+      emailVerifiedAt: now,
+      updatedAt: now,
+    });
+    
+    // Update email in linked providers
+    const providerLinks = await ctx.db
+      .query("identityProviderLinks")
+      .filter((q) => q.eq(q.field("userId"), verification.userId))
+      .collect();
+    
+    for (const link of providerLinks) {
+      await ctx.db.patch(link._id, {
+        email: verification.email,
+      });
+    }
+    
+    // Log the event
+    await logAuthEvent(
+      ctx, 
+      "EMAIL_CHANGED", 
+      verification.userId, 
+      true, 
+      undefined, 
+      { newEmail: verification.email }
+    );
+    
+    return { success: true };
+  },
+});
+
+// Enable Multi-Factor Authentication
+export const enableMFA = mutation({
+  args: {
+    mfaType: v.string(), // "app", "sms", etc.
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    
+    // In a real implementation, you would:
+    // 1. Generate MFA secret (for authenticator apps)
+    // 2. Store the secret
+    // 3. Generate and return QR code URL or setup instructions
+    
+    const mfaSecret = "DEMO_SECRET_" + Math.random().toString(36).substring(2, 10);
+    
+    // Update user's security preferences
+    await ctx.db.patch(user._id, {
+      securityPreferences: {
+        ...user.securityPreferences,
+        mfaEnabled: true,
+        mfaType: args.mfaType,
+      },
+      mfaSecret,
+      updatedAt: new Date().toISOString(),
+    });
+    
+    // Generate recovery codes
+    const recoveryCodes = [];
+    for (let i = 0; i < 8; i++) {
+      const code = Math.random().toString(36).substring(2, 8) + "-" + 
+                   Math.random().toString(36).substring(2, 8);
+      recoveryCodes.push(code);
+      
+      // Store hashed recovery codes
+      await ctx.db.insert("mfaRecoveryCodes", {
+        userId: user._id,
+        code, // In production, this would be hashed
+        isUsed: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    
+    // Log the event
+    await logAuthEvent(
+      ctx, 
+      "MFA_ENABLED", 
+      user._id, 
+      true, 
+      undefined, 
+      { mfaType: args.mfaType }
+    );
+    
+    return { 
+      success: true,
+      // In production, return QR code URL or setup instructions
+      secretKey: mfaSecret, 
+      recoveryCodes,
+    };
+  },
+});
+
+// Disable Multi-Factor Authentication
+export const disableMFA = mutation({
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
+    
+    // Update user's security preferences
+    await ctx.db.patch(user._id, {
+      securityPreferences: {
+        ...user.securityPreferences,
+        mfaEnabled: false,
+       
+      },
+  
+      updatedAt: new Date().toISOString(),
+    });
+    
+    // Delete recovery codes (or mark as inactive)
+    const recoveryCodes = await ctx.db
+      .query("mfaRecoveryCodes")
+      .filter((q) => q.eq(q.field("userId"), user._id))
+      .collect();
+    
+    for (const code of recoveryCodes) {
+      await ctx.db.delete(code._id);
+    }
+    
+    // Log the event
+    await logAuthEvent(ctx, "MFA_DISABLED", user._id);
+    
+    return { success: true };
+  },
+});
+
+// Get current user's auth status and session info
+export const getAuthStatus = query({
+  handler: async (ctx) => {
+    const user = await getUser(ctx);
+    if (!user) {
+      return {
+        isAuthenticated: false,
+        user: null,
+      };
+    }
+    
+    // Get user's active sessions
+    const sessions = await ctx.db
+      .query("userSessions")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+    
+    // Get connected providers
+    const providers = await ctx.db
+      .query("identityProviderLinks")
+      .filter((q) => 
+        q.and(
+          q.eq(q.field("userId"), user._id),
+          q.eq(q.field("isActive"), true)
+        )
+      )
+      .collect();
+    
+    return {
+      isAuthenticated: true,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        role: user.role,
+        mfaEnabled: user.securityPreferences?.mfaEnabled || false,
+      },
+      sessions: sessions.map(s => ({
+        id: s.sessionId,
+        createdAt: s.createdAt,
+        lastActive: s.lastActiveAt,
+        device: s.deviceInfo,
+        ipAddress: s.ipAddress,
+      })),
+      providers: providers.map(p => p.provider),
+    };
+  },
+});
+
+// ==== YOUR EXISTING USER QUERIES AND MUTATIONS ====
 
 export const getCurrentUser = query({
   handler: async (ctx) => {
-    const  identity  = await ctx.auth.getUserIdentity();
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       return null;
     }
@@ -29,7 +607,7 @@ export const getCurrentUser = query({
       .withIndex("by_user_and_read", (q) => 
         q.eq("userId", user._id).eq("isRead", false)
       )
-      //@ts-expect-error
+      // @ts-expect-error
       .count();
     
     return {
@@ -45,114 +623,6 @@ export const getCurrentUser = query({
   },
 });
 
-export const listUsers = query({
-  args: {
-    enterpriseId: v.id("enterprises"),
-    role: v.optional(v.string()),
-    status: v.optional(v.string()),
-    limit: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const { enterpriseId, role, status, limit = 100 } = args;
-    
-    let usersQuery = ctx.db
-      .query("users")
-      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))     
-    
-    if (role) {
-      usersQuery = usersQuery.filter((q) => q.eq(q.field("role"), role));
-    }
-    
-    if (status) {
-      usersQuery = usersQuery.filter((q) => q.eq(q.field("status"), status));
-    }
-    
-    return await usersQuery.take(limit);
-  },
-});
-
-export const getUserNotifications = query({
-  args: {
-    isRead: v.optional(v.boolean()),
-    limit: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const { isRead, limit = 20 } = args;
-    
-    const  identity  = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError("Authentication required");
-    }
-    
-    const userId = identity.subject;
-    const user = await ctx.db
-      .query("users")
-      .filter((q) => q.eq(q.field("authId"), userId))
-      .first();
-    
-    if (!user) {
-      throw new Error("User not found");
-    }
-    
-    let notificationsQuery = ctx.db
-      .query("userNotifications")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .order("desc")
-      
-    
-    if (isRead !== undefined) {
-      notificationsQuery = notificationsQuery.filter((q) => 
-        q.eq(q.field("isRead"), isRead)
-      );
-    }
-    
-    return await notificationsQuery.take(limit);
-  },
-});
-
-export const getUserById = query({
-  args: { userId: v.id("users") },
-  handler: async (ctx, args) => {
-    const user = await ctx.db.get(args.userId);
-    
-    if (!user) {
-      return null;
-    }
-    
-    // Get user's accessible departments
-    let departments:any[] = [];
-    if (user.accessibleDepartments && user.accessibleDepartments.length > 0) {
-      departments = await Promise.all(
-        user.accessibleDepartments.map(async (departmentId) => {
-          const department = await ctx.db.get(departmentId);
-          return department;
-        })
-      );
-      // Filter out any null values (in case any departments were deleted)
-      departments = departments.filter(Boolean);
-    }
-    
-    // Get primary department from user's department field if it exists
-    let primaryDepartment = null;
-    if (user.department) {
-      // Check if it's a reference or a string value
-      if (typeof user.department === 'string') {
-        // If it's a department name, we can return it directly
-        primaryDepartment = { name: user.department };
-      } else {
-        // Otherwise try to fetch the department object
-        const departmentId = user.department;
-        primaryDepartment = await ctx.db.get(departmentId);
-      }
-    }
-    
-    return {
-      ...user,
-      departments,
-      primaryDepartment,
-    };
-  },
-});
 
 // ==== USER MUTATIONS ====
 
