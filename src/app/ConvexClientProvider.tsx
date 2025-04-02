@@ -20,7 +20,7 @@ export function ConvexClientProvider({
 }) {
   return (
     <ClerkProvider
-      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}      
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
     >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
         {children}

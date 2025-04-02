@@ -29,9 +29,7 @@ export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   // Check authentication status
   const isAuthenticated = await convexAuth.isAuthenticated();
   
-  // Add some debugging
-  console.log(`Path: ${request.nextUrl.pathname}, Auth: ${isAuthenticated}`);
-  
+   
   // Redirect authenticated users away from sign-in pages
   if ((isSignInPage(request) || isSignUpPage(request)) && isAuthenticated) {
     return nextjsMiddlewareRedirect(request, "/dashboard");
@@ -51,3 +49,5 @@ export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
 export const config = {
   matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],
 };
+
+

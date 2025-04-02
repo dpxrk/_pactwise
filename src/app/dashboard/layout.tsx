@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import { Header } from "@/app/_components/dashboard/Header";
-import { SideNavigation } from "@/app/_components/dashboard/SideNavigation"
+import { SideNavigation } from "@/app/_components/dashboard/SideNavigation";
+import { useAuth, RedirectToSignIn } from "@clerk/nextjs";
 
 interface DashboardLayoutProps {
   children?: React.ReactNode;
@@ -12,6 +13,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   children,
 }) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const { isSignedIn, isLoaded } = useAuth();
+  
+  // Show loading state while checking auth
+  if (!isLoaded) {
+    return <div className="flex h-screen items-center justify-center">Loading...</div>;
+  }
+  
+  // Redirect to sign in if not authenticated
+  if (!isSignedIn) {
+    return <RedirectToSignIn />;
+  }
 
   return (
     <div className="flex h-screen bg-background">

@@ -4,6 +4,8 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 import { GlobalSearch } from "./GlobalSearch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useClerk, useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,13 +49,19 @@ const MobileNavigation = () => {
   );
 };
 
-const UserMenu = ({ userName = "User" }: { userName?: string }) => {
+const UserMenu = () => {
+  const { user } = useUser();
+  const { signOut } = useClerk();
+  const router = useRouter();
+  
+  const userName = user?.firstName || "User";
+  
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-9 w-9 rounded-full p-0 hover:bg-primary/5">
           <Avatar className="h-8 w-8 border border-gold/20 cursor-pointer">
-            <AvatarImage src="" alt={userName} />
+            <AvatarImage src={user?.imageUrl || ""} alt={userName} />
             <AvatarFallback className="bg-primary/5 text-primary font-medium">{userName.charAt(0)}</AvatarFallback>
           </Avatar>
         </Button>
@@ -66,10 +74,15 @@ const UserMenu = ({ userName = "User" }: { userName?: string }) => {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-border/50" />
-        <DropdownMenuItem className="cursor-pointer focus:bg-primary/5 bg-white dark:bg-card hover:bg-muted">Profile</DropdownMenuItem>
-        <DropdownMenuItem className="cursor-pointer focus:bg-primary/5 bg-white dark:bg-card hover:bg-muted">Settings</DropdownMenuItem>
+        <DropdownMenuItem className="cursor-pointer focus:bg-primary/5 bg-white dark:bg-card hover:bg-muted" onClick={() => router.push('/profile')}>Profile</DropdownMenuItem>
+        <DropdownMenuItem className="cursor-pointer focus:bg-primary/5 bg-white dark:bg-card hover:bg-muted" onClick={() => router.push('/settings')}>Settings</DropdownMenuItem>
         <DropdownMenuSeparator className="bg-border/50" />
-        <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600 cursor-pointer bg-white dark:bg-card hover:bg-red-50">Log out</DropdownMenuItem>
+        <DropdownMenuItem 
+          className="text-red-600 focus:bg-red-50 focus:text-red-600 cursor-pointer bg-white dark:bg-card hover:bg-red-50"
+          onClick={() => signOut(() => router.push('/'))}
+        >
+          Log out
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -79,8 +92,11 @@ export const Header: React.FC<HeaderProps> = ({
   isSearchOpen,
   onSearchOpen,
   onSearchClose,
-  userName = "Danny Park",
 }) => {
+  const { user } = useUser();
+  const userName = user?.firstName ? `${user.firstName} ${user.lastName || ''}` : "User";
+
+
   return (
     <header className="h-16 border-b border-border/50 bg-white dark:bg-card px-4 md:px-6 flex items-center justify-between sticky top-0 z-10 shadow-sm">
       {/* Mobile Navigation Trigger & Logo */}
@@ -120,7 +136,7 @@ export const Header: React.FC<HeaderProps> = ({
           <p className="text-sm font-medium text-primary">{userName}</p>
           <p className="text-xs text-muted-foreground">USER ROLE WILL BE HERE FOR LATER</p>
         </div>
-        <UserMenu userName={userName} />
+        <UserMenu />
       </div>
     </header>
   );
