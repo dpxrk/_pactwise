@@ -1,103 +1,105 @@
+// src/middleware.ts (or app/middleware.ts depending on your Next.js structure)
+
 import {
-  convexAuthNextjsMiddleware,
+  clerkMiddleware,
   createRouteMatcher,
-  nextjsMiddlewareRedirect,
-} from "@convex-dev/auth/nextjs/server";
-import { NextRequest, NextResponse } from "next/server"; // Import NextRequest/Response
+} from "@clerk/nextjs/server";
+import { NextResponse } from "next/server"; // Import Next.js response object
 
-// Match specific auth paths OR anything under /auth/
-const isAuthPage = createRouteMatcher([
-  "/signin",
-  "/signup",
-  "/forgot-password",
-  "/reset-password",
-  "/verify-email",
-  "/auth", // Base auth page if any
-  "/auth/(.*)", // Any subpath under /auth/ (more robust than /auth/*)
-]);
 
-// Match specific top-level protected routes OR anything under them
+// --- Route Matchers ---
+// Combine protected routes from both examples
 const isProtectedRoute = createRouteMatcher([
-  "/product", "/product/(.*)", // /product and /product/anything
-  "/dashboard", "/dashboard/(.*)",
-  "/contracts", "/contracts/(.*)",
-  "/vendors", "/vendors/(.*)",
-  "/settings", "/settings/(.*)",
-  "/profile", "/profile/(.*)",
+  '/dashboard(.*)',
+  '/forum(.*)',
+  "/product(.*)", // Includes /product and /product/*
+  "/contracts(.*)",
+  "/vendors(.*)",
+  "/settings(.*)",
+  "/profile(.*)",
 ]);
 
-// Simplified matchers for specific pages (often used for redirecting *away* if logged in)
+// Match sign-in/sign-up pages (adjust paths based on your actual Clerk setup)
 const isSignInOrSignUpPage = createRouteMatcher([
-  "/signin",
-  "/signup",
-  "/auth/sign-in", // Keep specific auth paths if they exist
-  "/auth/sign-up",
+  '/sign-in(.*)', // Matches /sign-in and /sign-in/*
+  '/sign-up(.*)', // Matches /sign-up and /sign-up/*
+  // Add any other specific auth-related pages you want logged-in users redirected away from
+  // e.g., '/forgot-password(.*)' if applicable
 ]);
 
-export default convexAuthNextjsMiddleware(async (request: NextRequest, { convexAuth }) => {
-  const { pathname, search } = request.nextUrl;
+// --- Clerk Middleware ---
+export default clerkMiddleware(async (auth, req) => {
+  const authResult = await auth();
+  const { userId } = authResult; // Now userId will be correctly extracted after the promise resolves
+
+  const { pathname, search, origin } = req.nextUrl;
   const pathWithQuery = pathname + search;
-  console.log(`Processing path: ${pathWithQuery}`);
 
-  const isAuthenticated = await convexAuth.isAuthenticated();
-  console.log(`Is authenticated: ${isAuthenticated}`);
+  console.log(`Processing path: ${pathWithQuery}, User ID: ${userId || 'Not logged in'}`);
 
-  // Debug simplified matchers
-  const onSignInOrSignUp = isSignInOrSignUpPage(request);
-  const onProtectedRoute = isProtectedRoute(request);
-  console.log(`Is sign-in/sign-up page: ${onSignInOrSignUp}`);
-  console.log(`Is protected route: ${onProtectedRoute}`);
+  // --- Logic for Protected Routes ---
+  // If the user is not logged in and trying to access a protected route...
+  if (!userId && isProtectedRoute(req)) {
+    console.log(`Unauthenticated access attempt to protected route: ${pathname}. Redirecting to sign-in.`);
+    return authResult.redirectToSignIn({ returnBackUrl: req.url });
+  }
 
-  const url = request.nextUrl.clone(); // Clone to safely modify searchParams
+  // --- Logic for Auth Pages (Sign-in/Sign-up) ---
+  // If the user IS logged in and trying to access a sign-in/sign-up page...
+  if (userId && isSignInOrSignUpPage(req)) {
+    console.log(`Authenticated user accessing auth page: ${pathname}. Redirecting away.`);
 
-  // Redirect authenticated users away from sign-in/sign-up pages
-  if (onSignInOrSignUp && isAuthenticated) {
-    const redirectParam = url.searchParams.get('redirect');
-    let redirectTo = "/dashboard"; // Default redirect
+    let redirectTo = "/dashboard"; // Default page to redirect logged-in users to
+    const redirectParam = req.nextUrl.searchParams.get('redirect');
+
+    // Honor the redirect parameter if present and valid/safe
     if (redirectParam) {
         try {
-            // Basic validation: Ensure it's a relative path or same origin
-            const redirectUrl = new URL(redirectParam, request.url);
-            if (redirectUrl.origin === request.nextUrl.origin) {
-                redirectTo = redirectParam;
+            // Ensure it's a relative path or same origin
+            const redirectUrl = new URL(redirectParam, origin); // Use origin as base
+            if (redirectUrl.origin === origin) {
+                redirectTo = redirectParam; // Use the validated parameter
             } else {
-                console.warn(`Ignoring potentially unsafe redirect parameter: ${redirectParam}`);
+                console.warn(`Ignoring potentially unsafe cross-origin redirect parameter: ${redirectParam}`);
             }
         } catch (e) {
-             // If redirectParam is not a valid URL/path, ignore it
-             console.warn(`Invalid redirect parameter: ${redirectParam}`);
+            // If redirectParam is not a valid relative path or URL part, ignore it
+            console.warn(`Invalid redirect parameter format: ${redirectParam}`);
         }
     }
-    console.log(`Redirecting authenticated user from auth page to: ${redirectTo}`);
-    return nextjsMiddlewareRedirect(request, redirectTo);
+
+    console.log(`Redirecting authenticated user to: ${redirectTo}`);
+    // Use NextResponse.redirect for custom redirects away from auth pages
+    // Ensure the redirect URL is absolute
+    const absoluteRedirectUrl = new URL(redirectTo, origin);
+    return NextResponse.redirect(absoluteRedirectUrl.toString());
   }
 
-  // Redirect unauthenticated users trying to access protected routes
-  if (onProtectedRoute && !isAuthenticated) {
-    // Add the intended URL as a redirect parameter
-    const returnUrl = encodeURIComponent(pathWithQuery); // Use the full path with query
-    const signInUrl = `/auth/sign-in?redirect=${returnUrl}`;
-    console.log(`Redirecting unauthenticated user to: ${signInUrl}`);
-    return nextjsMiddlewareRedirect(request, signInUrl);
-  }
-
-  // Allow the request to proceed
+  // --- Allow Request ---
+  // If none of the above conditions were met (e.g., accessing a public page,
+  // or a logged-in user accessing a non-auth page), allow the request to proceed.
+  // This is the default behavior when the middleware function doesn't return a response.
   console.log(`Allowing request to proceed for path: ${pathname}`);
-  return null; // Correctly allows the request to continue
-}, { cookieConfig: { maxAge: 60 * 60 * 24 * 30 } }); // 30 days cookie expiration
+  return NextResponse.next(); // Explicitly allow is also fine
+});
 
-
-// 2. Review Next.js Middleware Matcher (`config.matcher`)
+// --- Middleware Configuration ---
 export const config = {
-  /*
-   * Match all request paths except for the ones starting with:
-   * - api (API routes) - Important: API routes often need different auth (tokens, headers)
-   * - _next/static (static files)
-   * - _next/image (image optimization files)
-   * - favicon.ico (favicon file)
-   * - Any file extensions (e.g., .png, .jpg)
-   */
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.\\w+).*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - Any files with extensions (e.g., .png, .jpg, .svg)
+     * - Potentially API routes if they have separate auth (see note below)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.\\w+).*)',
+
+    // Include API routes if they should be protected by Clerk session auth
+    // '/(api|trpc)(.*)', // Uncomment this if your API routes rely on the Clerk session
+
+    // Exclude specific API routes if needed, e.g., webhooks
+    // '/((?!api/webhook).*)'
   ],
 };

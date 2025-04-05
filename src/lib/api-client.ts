@@ -2,7 +2,7 @@
 import {useState} from 'react'
 import { api } from "../../convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
-import type { DefaultFunctionArgs, FunctionReference, FunctionVisibility, OptionalRestArgs } from "convex/server";
+import type { DefaultFunctionArgs, FunctionReference } from "convex/server";
 import { Id } from '../../convex/_generated/dataModel';
 
 /**
@@ -12,16 +12,18 @@ import { Id } from '../../convex/_generated/dataModel';
  * @returns Object containing data, loading state, and error
  */
 export function useConvexQuery<T extends DefaultFunctionArgs>(
-  queryFn: FunctionReference<"query", "public", T>,
-  args?: any,
-) {
-  const result = useQuery(queryFn, args);
-  const isLoading = result === undefined;
-  const error = result instanceof Error ? result : null;
-  const data = !isLoading && !error ? result : null;
-
-  return { data, isLoading, error };
-}
+    queryFn: FunctionReference<"query", "public", T>,
+    args?: any, // Allow args to be potentially undefined
+  ) {
+    // Add a log here to see what args useQuery actually receives
+    console.log("useConvexQuery - Calling useQuery with args:", args);
+    const result = useQuery(queryFn, args);
+    const isLoading = result === undefined;
+    const error = result instanceof Error ? result : null;
+    const data = !isLoading && !error ? result : null;
+  
+    return { data, isLoading, error };
+  }
 
 /**
  * Custom hook for Convex mutations with better error handling
@@ -72,14 +74,27 @@ export const useUpdateContract = () => {
   return useConvexMutation(api.contracts.updateContract);
 };
 
-export const useExpiringContracts = (daysThreshold: number = 30, enterpriseId: Id<"enterprises">) => {
-  return useConvexQuery(api.contracts.getExpiringContracts, {
-    daysThreshold, enterpriseId
-  });
+export const useExpiringContracts = (daysThreshold: number = 30, enterpriseId?: Id<"enterprises"> | null) => {
+
+  console.log("useExpiringContracts - received enterpriseId:", enterpriseId);
+  const args = enterpriseId ? { daysThreshold, enterpriseId } : { daysThreshold };
+  console.log("useExpiringContracts - args:", args);
+ 
+  return useConvexQuery(api.contracts.getExpiringContracts, args); 
 };
 
-export const useContractAnalytics = () => {
-  return useConvexQuery(api.contracts.getContractAnalytics);
+export const useContractAnalytics = (enterpriseId: Id<"enterprises"> | undefined | null) => {
+  console.log("useContractAnalytics - received enterpriseId:", enterpriseId);
+
+
+  if (!enterpriseId) {
+    console.log("useContractAnalytics - Skipping query, enterpriseId is missing.");
+  
+    return { data: null, isLoading: false, error: null };
+  }
+  const args = { enterpriseId };
+  console.log("useContractAnalytics - Calling useConvexQuery with args:", args);
+  return useConvexQuery(api.contracts.getContractAnalytics, args);
 };
 
 /**

@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@auth/core": "^0.37.0",
-    "@clerk/clerk-react": "^5.25.5",
+    "@clerk/clerk-react": "^5.25.6",
     "@clerk/nextjs": "^6.12.12",
     "@convex-dev/auth": "^0.0.80",
     "@radix-ui/react-avatar": "^1.1.3",
