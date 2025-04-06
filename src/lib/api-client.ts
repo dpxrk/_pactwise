@@ -12,18 +12,17 @@ import { Id } from '../../convex/_generated/dataModel';
  * @returns Object containing data, loading state, and error
  */
 export function useConvexQuery<T extends DefaultFunctionArgs>(
-    queryFn: FunctionReference<"query", "public", T>,
-    args?: any, // Allow args to be potentially undefined
-  ) {
-    // Add a log here to see what args useQuery actually receives
-    console.log("useConvexQuery - Calling useQuery with args:", args);
-    const result = useQuery(queryFn, args);
-    const isLoading = result === undefined;
-    const error = result instanceof Error ? result : null;
-    const data = !isLoading && !error ? result : null;
-  
-    return { data, isLoading, error };
-  }
+  queryFn: FunctionReference<"query", "public", T>,
+  args?: any, // Allow args to be potentially undefined
+) {
+
+  const result = useQuery(queryFn, args);
+  const isLoading = result === undefined;
+  const error = result instanceof Error ? result : null;
+  const data = !isLoading && !error ? result : null;
+
+  return { data, isLoading, error };
+}
 
 /**
  * Custom hook for Convex mutations with better error handling
@@ -58,12 +57,35 @@ export function useConvexMutation<T extends DefaultFunctionArgs,>(
 /**
  * Contract API hooks
  */
-export const useContracts = () => {
-  return useConvexQuery(api.contracts.listContracts);
+
+// Define expected args type (adjust based on your actual listContracts backend args)
+type ListContractsArgs = {
+  enterpriseId: Id<"enterprises">;
+  status?: string; // Optional status filter
+  limit?: number;   // Optional limit
 };
 
-export const useContract = (contractId: string) => {
-  return useConvexQuery(api.contracts.getContract, { contractId });
+export const useContracts = (args?: ListContractsArgs | null) => {
+  console.log("useContracts - received args:", args);
+
+  if (!args?.enterpriseId) {
+    console.log("useContracts - Skipping query, enterpriseId missing in args.");
+    // Return default state if required ID is missing
+    return { data: null, isLoading: false, error: null };
+  }
+
+  // If enterpriseId exists, proceed with the query
+  console.log("useContracts - Calling useConvexQuery with args:", args);
+  return useConvexQuery(api.contracts.listContracts, args);
+};
+
+
+export const useContract = (contractId: Id<"contracts"> | undefined | null) => {
+   if (!contractId) {
+       console.log("useContract - Skipping query, contractId missing.");
+       return { data: null, isLoading: false, error: null };
+   }
+   return useConvexQuery(api.contracts.getContract, { contractId });
 };
 
 export const useCreateContract = () => {
@@ -74,14 +96,23 @@ export const useUpdateContract = () => {
   return useConvexMutation(api.contracts.updateContract);
 };
 
-export const useExpiringContracts = (daysThreshold: number = 30, enterpriseId?: Id<"enterprises"> | null) => {
 
+export const useExpiringContracts = (daysThreshold: number = 30, enterpriseId?: Id<"enterprises"> | null) => {
   console.log("useExpiringContracts - received enterpriseId:", enterpriseId);
-  const args = enterpriseId ? { daysThreshold, enterpriseId } : { daysThreshold };
-  console.log("useExpiringContracts - args:", args);
+
+  
+  if (!enterpriseId) {
+    console.log("useExpiringContracts - Skipping query, enterpriseId is missing.");
+    
+    return { data: null, isLoading: false, error: null };
+  }
+
  
-  return useConvexQuery(api.contracts.getExpiringContracts, args); 
+  const args = { daysThreshold, enterpriseId };
+  console.log("useExpiringContracts - Calling useConvexQuery with args:", args);
+  return useConvexQuery(api.contracts.getExpiringContracts, args);
 };
+
 
 export const useContractAnalytics = (enterpriseId: Id<"enterprises"> | undefined | null) => {
   console.log("useContractAnalytics - received enterpriseId:", enterpriseId);
@@ -89,7 +120,6 @@ export const useContractAnalytics = (enterpriseId: Id<"enterprises"> | undefined
 
   if (!enterpriseId) {
     console.log("useContractAnalytics - Skipping query, enterpriseId is missing.");
-  
     return { data: null, isLoading: false, error: null };
   }
   const args = { enterpriseId };
@@ -100,12 +130,35 @@ export const useContractAnalytics = (enterpriseId: Id<"enterprises"> | undefined
 /**
  * Vendor API hooks
  */
-export const useVendors = () => {
-  return useConvexQuery(api.vendors.listVendors);
+
+// Define expected args type
+type ListVendorsArgs = {
+  enterpriseId: Id<"enterprises">;
+  // Add other optional filters if needed
 };
 
-export const useVendor = (vendorId: string) => {
-  return useConvexQuery(api.vendors.getVendor, { vendorId });
+export const useVendors = (args?: ListVendorsArgs | null) => {
+  console.log("useVendors - received args:", args);
+
+  if (!args?.enterpriseId) {
+    console.log("useVendors - Skipping query, enterpriseId missing in args.");
+    return { data: null, isLoading: false, error: null };
+  }
+
+  // If enterpriseId exists, proceed with the query
+  console.log("useVendors - Calling useConvexQuery with args:", args);
+  return useConvexQuery(api.vendors.listVendors, args);
+};
+
+
+
+export const useVendor = (vendorId: Id<"vendors"> | undefined | null) => {
+   if (!vendorId) {
+       console.log("useVendor - Skipping query, vendorId missing.");
+       return { data: null, isLoading: false, error: null };
+   }
+   // Assuming backend expects { vendorId: Id<"vendors"> }
+   return useConvexQuery(api.vendors.getVendor, { vendorId });
 };
 
 export const useCreateVendor = () => {
@@ -124,6 +177,7 @@ export const useAddVendorContact = () => {
  * User API hooks
  */
 export const useCurrentUser = () => {
+  // Assuming getCurrentUser does not require arguments
   return useConvexQuery(api.users.getCurrentUser);
 };
 
