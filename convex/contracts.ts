@@ -1,893 +1,440 @@
-import { query, mutation } from "./_generated/server";
-import { ConvexError, v } from "convex/values";
+// convex/contracts.ts
+import { query, mutation, action } from "./_generated/server";
+import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
+import { ConvexError } from "convex/values";
+import { api } from "./_generated/api";
+import type { ActionCtx } from "./_generated/server";
 
+// Define the allowed status options based on the simplified schema
+const contractStatusOptions = [
+  "draft",
+  "pending_analysis",
+  "active",
+  "expired",
+  "terminated",
+  "archived",
+] as const;
 
-// ==== CONTRACT QUERIES ====
+// Define the allowed analysis status options based on the simplified schema
+const analysisStatusOptions = [
+    "pending",
+    "processing",
+    "completed",
+    "failed",
+] as const;
 
-// Get all contracts for an enterprise with pagination
-export const listContracts = query({
-  args: {
-    enterpriseId: v.id("enterprises"),
-    status: v.optional(v.string()),
-    contractType: v.optional(v.string()),
-    limit: v.optional(v.number()),
-    cursor: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const { enterpriseId, status, contractType, limit = 10, cursor } = args;
-    
-    // Build the query step by step
-    let contractsQuery = ctx.db
-      .query("contracts")
-      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))
-      .order("desc");
-      
-        
-   
+// Type alias for the contract status literal union
+type ContractStatus = typeof contractStatusOptions[number];
+// Type alias for the analysis status literal union
+type AnalysisStatus = typeof analysisStatusOptions[number];
 
-    // Apply filters
-    if (status) {
-      contractsQuery = contractsQuery.filter((q) => q.eq(q.field("status"), status));
-    }
-    
-    if (contractType) {
-      contractsQuery = contractsQuery.filter((q) => q.eq(q.field("contractType"), contractType));
-    }
-    
-    // Apply limit and fetch contracts
-    const contracts = await contractsQuery.take(limit);
-    
-    // Fetch related data for each contract
-    const contractsWithRelations = await Promise.all(
-      contracts.map(async (contract) => {
-        const vendor = await ctx.db.get(contract.vendorId);
-        const createdBy = await ctx.db.get(contract.createdById);
-        
-        return {
-          ...contract,
-          vendor: vendor ? { 
-            name: vendor.name, 
-            id: vendor._id 
-          } : null,
-          createdBy: createdBy ? { 
-            name: `${createdBy.firstName || ''} ${createdBy.lastName || ''}`.trim(), 
-            id: createdBy._id 
-          } : null,
-        };
-      })
-    );
-    
-    return contractsWithRelations;
-  },
-});
+// ============================================================================
+// CREATE (includes file upload initiation)
+// ============================================================================
 
-// Get a single contract by ID with all related data
-export const getContract = query({
-  args: { contractId: v.id("contracts") },
-  handler: async (ctx, args) => {
-    const contract = await ctx.db.get(args.contractId);
-    
-    if (!contract) {
-      return null;
-    }
-    
-    // Get vendor details
-    const vendor = contract.vendorId ? await ctx.db.get(contract.vendorId) : null;
-    
-    // Get creator details
-    const createdBy = contract.createdById ? await ctx.db.get(contract.createdById) : null;
-    
-    // Get department if it exists
-    let department = null;
-    if (contract.departmentId) {
-      department = await ctx.db.get(contract.departmentId);
-    }
-    
-    // Get template if it exists
-    let template = null;
-    if (contract.templateId) {
-      template = await ctx.db.get(contract.templateId);
-    }
-    
-    // Get contract revisions
-    const revisions = await ctx.db
-      .query("contractRevisions")
-      .withIndex("by_contract", (q) => q.eq("contractId", contract._id))
-      .collect();
-    
-    // Get signatures
-    const signatures = await ctx.db
-      .query("signatures")
-      .withIndex("by_contract", (q) => q.eq("contractId", contract._id))
-      .collect();
-    
-    // Get approvers
-    const approvers = await ctx.db
-      .query("contractApprovers")
-      .withIndex("by_contract", (q) => q.eq("contractId", contract._id))
-      .collect();
-    
-    // Get approver user details
-    const approverDetails = await Promise.all(
-      approvers.map(async (approver) => {
-        const user = approver.userId ? await ctx.db.get(approver.userId) : null;
-        return {
-          ...approver,
-          user: user ? {
-            name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-            email: user.email,
-            id: user._id,
-          } : null,
-        };
-      })
-    );
-    
-    return {
-      ...contract,
-      vendor,
-      createdBy: createdBy ? {
-        name: `${createdBy.firstName || ''} ${createdBy.lastName || ''}`.trim(),
-        email: createdBy.email,
-        id: createdBy._id,
-      } : null,
-      department,
-      template,
-      revisions,
-      signatures,
-      approvers: approverDetails,
-    };
-  },
-});
-
-// Get expiring contracts
-export const getExpiringContracts = query({
-  args: {
-    enterpriseId: v.id("enterprises"),
-    daysThreshold: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const { enterpriseId, daysThreshold = 30 } = args;
-    
-    // Calculate the date threshold
-    const now = new Date();
-    const thresholdDate = new Date();
-    thresholdDate.setDate(now.getDate() + daysThreshold);
-    
-    const thresholdISOString = thresholdDate.toISOString();
-    
-    // Query contracts that are expiring soon
-    const expiringContracts = await ctx.db
-      .query("contracts")
-      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))
-      .filter((q) => 
-        q.and(
-          q.gt(q.field("expiresAt"), now.toISOString()),
-          q.lt(q.field("expiresAt"), thresholdISOString),
-          q.neq(q.field("status"), "terminated"),
-          q.neq(q.field("status"), "cancelled"),
-          q.neq(q.field("status"), "expired")
-        )
-      )
-      .collect();
-    
-    // Fetch vendors for the contracts
-    const contractsWithVendors = await Promise.all(
-      expiringContracts.map(async (contract) => {
-        const vendor = contract.vendorId ? await ctx.db.get(contract.vendorId) : null;
-        return {
-          ...contract,
-          vendor: vendor ? { name: vendor.name, id: vendor._id } : null,
-        };
-      })
-    );
-    
-    return contractsWithVendors;
-  },
-});
-
-// Get contract analytics
-export const getContractAnalytics = query({
-  args: { enterpriseId: v.id("enterprises") },
-  handler: async (ctx, args) => {
-    const { enterpriseId } = args;
-    
-    // Get all contracts for the enterprise
-    const contracts = await ctx.db
-      .query("contracts")
-      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))
-      .collect();
-    
-    // Get contract counts by status
-    const statusCounts = contracts.reduce((acc: Record<string, number>, contract) => {
-      acc[contract.status] = (acc[contract.status] || 0) + 1;
-      return acc;
-    }, {});
-    
-    // Get contract counts by type
-    const typeCounts = contracts.reduce((acc: Record<string, number>, contract) => {
-      acc[contract.contractType] = (acc[contract.contractType] || 0) + 1;
-      return acc;
-    }, {});
-    
-    // Calculate total value by currency
-    const valueByRrency = contracts.reduce((acc: Record<string, number>, contract) => {
-      if (contract.value && contract.currency) {
-        acc[contract.currency] = (acc[contract.currency] || 0) + contract.value;
-      }
-      return acc;
-    }, {});
-    
-    // Calculate expiring soon contracts
-    const now = new Date();
-    const thirtyDaysLater = new Date();
-    thirtyDaysLater.setDate(now.getDate() + 30);
-    
-    const expiringSoon = contracts.filter(contract => {
-      if (!contract.expiresAt) return false;
-      
-      const expiryDate = new Date(contract.expiresAt);
-      return expiryDate > now && expiryDate < thirtyDaysLater;
-    }).length;
-    
-    // Calculate average time metrics
-    let totalTimeToSign = 0;
-    let timeToSignCount = 0;
-    let totalTimeToApprove = 0;
-    let timeToApproveCount = 0;
-    
-    contracts.forEach(contract => {
-      if (contract.timeToSign) {
-        totalTimeToSign += contract.timeToSign;
-        timeToSignCount++;
-      }
-      
-      if (contract.timeToApprove) {
-        totalTimeToApprove += contract.timeToApprove;
-        timeToApproveCount++;
-      }
-    });
-    
-    const avgTimeToSign = timeToSignCount > 0 ? totalTimeToSign / timeToSignCount : 0;
-    const avgTimeToApprove = timeToApproveCount > 0 ? totalTimeToApprove / timeToApproveCount : 0;
-    
-    return {
-      totalContracts: contracts.length,
-      statusCounts,
-      typeCounts,
-      valueByRrency,
-      expiringSoon,
-      avgTimeToSign,
-      avgTimeToApprove,
-    };
-  },
-});
-
-// ==== CONTRACT MUTATIONS ====
-
-// Create a new contract
-export const createContract = mutation({
-  args: {
-    title: v.string(),
-    description: v.optional(v.string()),
-    contractType: v.string(),
-    vendorId: v.id("vendors"),
-    enterpriseId: v.id("enterprises"),
-    departmentId: v.optional(v.id("departments")),
-    templateId: v.optional(v.id("templates")),
-    effectiveDate: v.optional(v.string()),
-    expiresAt: v.optional(v.string()),
-    autoRenewal: v.optional(v.boolean()),
-    currency: v.optional(v.string()),
-    value: v.optional(v.number()),
-    customFields: v.optional(v.any()),
-  },
-  handler: async (ctx, args) => {
-   
+/**
+ * 1. Generate a URL for the client to upload a file directly to Convex storage.
+ * Requires authentication.
+ */
+export const generateUploadUrl = mutation({
+  args: {}, // No arguments needed for a simple upload URL
+  handler: async (ctx) => {
+    // Authentication Check
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error("Authentication required");
+      throw new ConvexError("Authentication required: User must be logged in to upload files.");
     }
-    
-   
-    const userId = identity.subject;
-    const user = await ctx.db
-      .query("users")
-      
-      .filter((q) => q.eq(q.field("authId"), userId))
-      .first();
-    
-    if (!user) {
-      throw new Error("User not found");
+    // Generate and return the URL
+    const uploadUrl = await ctx.storage.generateUploadUrl();
+    return uploadUrl;
+  },
+});
+
+/**
+ * 2. Creates a new contract record AFTER the file has been uploaded.
+ * Links the contract to a vendor and the uploaded file (storageId).
+ * Schedules the analysis action.
+ * Requires authentication.
+ */
+export const createContract = mutation({
+  args: {
+    // Required fields
+    vendorId: v.id("vendors"),
+    title: v.string(),
+    storageId: v.id("_storage"), // The ID returned by the client after successful upload
+    fileName: v.string(),
+    fileType: v.string(),
+    // Optional initial status (defaults to 'pending_analysis' if not provided)
+    status: v.optional(v.union(
+        v.literal(contractStatusOptions[0]), v.literal(contractStatusOptions[1]),
+        v.literal(contractStatusOptions[2]), v.literal(contractStatusOptions[3]),
+        v.literal(contractStatusOptions[4]), v.literal(contractStatusOptions[5])
+    )),
+    // Optional notes
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // 1. Authentication Check
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required: User must be logged in to create a contract.");
     }
-    
-    // Generate a contract number
-    const contractNumber = generateContractNumber();
-    
-    // Default values
-    const now = new Date().toISOString();
-    
-    const contractId = await ctx.db.insert("contracts", {
-      title: args.title,
-      description: args.description || "",
-      contractNumber,
-      status: "draft", // Initial status
-      contractType: args.contractType,
-      enterpriseId: args.enterpriseId,
+    // Optional: Get userId if scoping contracts per user
+    // const userId = identity.subject;
+
+    // 2. Validation
+    if (!args.title || args.title.trim() === "") {
+        throw new ConvexError("Validation Error: Contract title cannot be empty.");
+    }
+     // Check if the referenced vendor exists
+    const vendor = await ctx.db.get(args.vendorId);
+    if (!vendor) {
+        throw new ConvexError(`Validation Error: Vendor with ID ${args.vendorId} not found.`);
+    }
+
+    // 3. Prepare Contract Data
+    const contractData = {
       vendorId: args.vendorId,
-      departmentId: args.departmentId,
-      templateId: args.templateId,
-      createdById: user._id,
-      effectiveDate: args.effectiveDate,
-      expiresAt: args.expiresAt,
-      autoRenewal: args.autoRenewal || false,
-      currency: args.currency || "USD",
-      value: args.value,
-      customFields: args.customFields,
-      isPublic: false,
-      watermark: true,
-      version: 1,
-      createdAt: now,
-      updatedAt: now,
-      accessCount: 0,
-      modificationCount: 0,
-      approvalReminderSent: false,
+      title: args.title.trim(),
+      status: args.status || "pending_analysis", // Default status
+      storageId: args.storageId,
+      fileName: args.fileName,
+      fileType: args.fileType,
+      analysisStatus: "pending", // Initial analysis status
+      notes: args.notes || undefined,
+      // Optional: Add userId for ownership
+      // userId: userId,
+      // Extracted fields are initially null/undefined
+      extractedParties: undefined,
+      extractedStartDate: undefined,
+      extractedEndDate: undefined,
+      extractedPaymentSchedule: undefined,
+      extractedPricing: undefined,
+      extractedScope: undefined,
+      analysisError: undefined,
+    };
+    // 4. Create Contract Record
+    const contractId = await ctx.db.insert("contracts", {
+      ...contractData,
+      analysisStatus: "pending" as const
     });
-    
-    // Create initial contract revision
-    await ctx.db.insert("contractRevisions", {
-      contractId,
-      version: 1,
-      changesSummary: "Initial version",
-      createdById: user._id,
-      createdAt: now,
+
+    // 5. Schedule Analysis Action
+    //    Run immediately after commit (delay 0)
+    await ctx.scheduler.runAfter(0, api.contracts.analyzeContract, {
+        contractId: contractId,
+        storageId: args.storageId,
     });
-    
-    // Log contract creation in user activity
-    await ctx.db.insert("userActivityLog", {
-      userId: user._id,
-      action: "create_contract",
-      resourceType: "contract",
-      resourceId: contractId,
-      details: { contractTitle: args.title, contractType: args.contractType },
-      timestamp: now,
-    });
-    
+
+    console.log(`Contract created with ID: ${contractId}, analysis scheduled.`);
     return contractId;
   },
 });
 
-// Update a contract
-export const updateContract = mutation({
+// ============================================================================
+// READ
+// ============================================================================
+
+/**
+ * Retrieves all contracts associated with a specific vendor.
+ * Requires authentication.
+ */
+export const getContractsByVendor = query({
+  args: {
+    vendorId: v.id("vendors"),
+  },
+  handler: async (ctx, args) => {
+    // 1. Authentication Check
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required to view contracts.");
+    }
+    // Optional: If scoping contracts by user, add filter here
+
+    // 2. Fetch Contracts
+    const contracts = await ctx.db
+      .query("contracts")
+      .withIndex("by_vendorId", (q) => q.eq("vendorId", args.vendorId))
+      .order("desc") // Order by creation time (most recent first)
+      .collect();
+
+    return contracts;
+  },
+});
+
+/**
+ * Retrieves a single contract by its ID.
+ * Requires authentication.
+ */
+export const getContractById = query({
   args: {
     contractId: v.id("contracts"),
+  },
+  handler: async (ctx, args) => {
+    // 1. Authentication Check
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required to view contract details.");
+    }
+    // Optional: Check if user owns/has access to this specific contract
+
+    // 2. Fetch Contract
+    const contract = await ctx.db.get(args.contractId);
+
+    // 3. Handle Not Found
+    if (!contract) {
+      return null; // Or throw new ConvexError("Contract not found");
+    }
+
+    return contract;
+  },
+});
+
+/**
+ * Retrieves the download/view URL for a contract's file using its storageId.
+ * Requires authentication.
+ */
+export const getContractFileUrl = query({
+    args: {
+        storageId: v.id("_storage"),
+    },
+    handler: async (ctx, args) => {
+        // 1. Authentication Check
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new ConvexError("Authentication required to get file URL.");
+        }
+        // Optional: Add fine-grained access check based on who owns the contract associated with this storageId
+
+        // 2. Get URL
+        const url = await ctx.storage.getUrl(args.storageId);
+
+        if (!url) {
+            // This could happen if the file was deleted or never existed.
+            console.error(`Failed to get URL for storageId: ${args.storageId}`);
+            return null;
+        }
+
+        return url;
+    }
+});
+
+
+// ============================================================================
+// UPDATE
+// ============================================================================
+
+/**
+ * Updates mutable fields of an existing contract record.
+ * Typically used for changing title, status, or notes.
+ * Avoid using this to update file info or analysis results directly.
+ * Requires authentication.
+ */
+export const updateContract = mutation({
+  args: {
+    // Required ID of the contract to update
+    contractId: v.id("contracts"),
+    // Optional fields to update
     title: v.optional(v.string()),
-    description: v.optional(v.string()),
-    status: v.optional(v.string()),
-    contractType: v.optional(v.string()),
-    departmentId: v.optional(v.id("departments")),
-    effectiveDate: v.optional(v.string()),
-    expiresAt: v.optional(v.string()),
-    autoRenewal: v.optional(v.boolean()),
-    currency: v.optional(v.string()),
-    value: v.optional(v.number()),
-    customFields: v.optional(v.any()),
+    status: v.optional(v.union(
+        v.literal(contractStatusOptions[0]), v.literal(contractStatusOptions[1]),
+        v.literal(contractStatusOptions[2]), v.literal(contractStatusOptions[3]),
+        v.literal(contractStatusOptions[4]), v.literal(contractStatusOptions[5])
+    )),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-   
-    const  identity  = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Authentication required");
-    }
-    
-    const userId = identity.subject;
-    const user = await ctx.db
-      .query("users")      
-      .filter((q) => q.eq(q.field("authId"), userId))
-      .first();
-    
-    if (!user) {
-      throw new Error("User not found");
-    }
-    
-    // Get the existing contract
-    const contract = await ctx.db.get(args.contractId);
-    if (!contract) {
-      throw new Error("Contract not found");
-    }
-    
-    // Create update object with only the fields being changed
-    const updates: Record<string, any> = {};
-    for (const [key, value] of Object.entries(args)) {
-      if (key !== "contractId" && value !== undefined) {
-        updates[key] = value;
-      }
-    }
-    
-    // Add updated timestamp
-    updates.updatedAt = new Date().toISOString();
-    
-    // Increment modification count
-    updates.modificationCount = (contract.modificationCount || 0) + 1;
-    
-    // Update the contract
-    await ctx.db.patch(args.contractId, updates);
-    
-    // Create a new revision if significant fields changed
-    const significantFieldsChanged = ["title", "description", "status", "contractType", 
-      "effectiveDate", "expiresAt", "value"].some(field => field in updates);
-    
-    if (significantFieldsChanged) {
-      await ctx.db.insert("contractRevisions", {
-        contractId: args.contractId,
-        version: (contract.version || 1) + 1,
-        changesSummary: `Updated contract details`,
-        modifiedSections: Object.keys(updates),
-        createdById: user._id,
-        createdAt: updates.updatedAt,
-      });
-      
-      // Update the contract version
-      await ctx.db.patch(args.contractId, {
-        version: (contract.version || 1) + 1,
-      });
-    }
-    
-    // Log contract update in user activity
-    await ctx.db.insert("userActivityLog", {
-      userId: user._id,
-      action: "update_contract",
-      resourceType: "contract",
-      resourceId: args.contractId,
-      details: { updatedFields: Object.keys(updates) },
-      timestamp: updates.updatedAt,
-    });
-    
-    return args.contractId;
-  },
-});
-
-// Add an approver to a contract
-export const addContractApprover = mutation({
-  args: {
-    contractId: v.id("contracts"),
-    userId: v.id("users"),
-    approvalStep: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const { contractId, userId, approvalStep = 1 } = args;
-    
-    // Check if this approver is already assigned to this contract
-    const existingApprover = await ctx.db
-      .query("contractApprovers")
-      .withIndex("by_contract", (q) => q.eq("contractId", contractId))
-      .filter((q) => q.eq(q.field("userId"), userId))
-      .first();
-    
-    if (existingApprover) {
-      throw new Error("User is already an approver for this contract");
-    }
-    
-    const now = new Date().toISOString();
-    
-    // Add the approver
-    const approverId = await ctx.db.insert("contractApprovers", {
-      contractId,
-      userId,
-      approvalStatus: "pending",
-      approvalStep,
-      reminderSent: false,
-      reminderCount: 0,
-      createdAt: now,
-    });
-    
-    // Update the contract to reflect the approval chain
-    const contract = await ctx.db.get(contractId);
-    if (contract) {
-      // Get all approvers for this contract
-      const approvers = await ctx.db
-        .query("contractApprovers")
-        .withIndex("by_contract", (q) => q.eq("contractId", contractId))
-        .collect();
-      
-      // Update the contract's approval chain
-      const approvalChain = approvers.map(a => ({
-        userId: a.userId,
-        step: a.approvalStep,
-        status: a.approvalStatus,
-      }));
-      
-      await ctx.db.patch(contractId, {
-        approvalChain,
-        updatedAt: now,
-      });
-      
-      // Send notification to the approver
-      await ctx.db.insert("userNotifications", {
-        userId,
-        type: "approval_request",
-        title: "Contract Approval Request",
-        message: `You have been requested to approve the contract: ${contract.title}`,
-        linkUrl: `/contracts/${contractId}`,
-        isRead: false,
-        createdAt: now,
-      });
-    }
-    
-    return approverId;
-  },
-});
-
-// Approve or reject a contract
-export const respondToApproval = mutation({
-  args: {
-    contractId: v.id("contracts"),
-    approved: v.boolean(),
-    comments: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const { contractId, approved, comments } = args;
+    // 1. Authentication Check
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError("Authentication required");
+      throw new ConvexError("Authentication required: User must be logged in to update a contract.");
     }
-    
-    const userId = identity.subject;
-    const user = await ctx.db
-      .query("users")
-      .filter((q) => q.eq(q.field("authId"), userId))
-      .first();
-    
-    if (!user) {
-      throw new Error("User not found");
+    // Optional: Check ownership if scoping by user
+
+    // 2. Fetch Existing Contract
+    const existingContract = await ctx.db.get(args.contractId);
+    if (!existingContract) {
+        throw new ConvexError(`Contract not found with ID: ${args.contractId}`);
     }
-    
-    // Find this user's approver record
-    const approver = await ctx.db
-      .query("contractApprovers")
-      .withIndex("by_contract", (q) => q.eq("contractId", contractId))
-      .filter((q) => q.eq(q.field("userId"), user._id))
-      .first();
-    
-    if (!approver) {
-      throw new Error("You are not an approver for this contract");
+    // Optional: Ownership check here
+
+    // 3. Prepare Updates
+    const { contractId, ...updates } = args; // Exclude contractId from updates
+
+    // Basic Validation: Ensure title isn't updated to empty string if provided
+    if (updates.title !== undefined && updates.title.trim() === "") {
+        throw new ConvexError("Validation Error: Contract title cannot be empty.");
     }
-    
-    if (approver.approvalStatus !== "pending") {
-      throw new Error("You have already responded to this approval request");
-    }
-    
-    const now = new Date().toISOString();
-    
-    // Update the approver record
-    const updateFields: Record<string, any> = {
-      approvalStatus: approved ? "approved" : "rejected",
-      comments: comments || "",
-    };
-    
-    if (approved) {
-      updateFields.approvedAt = now;
-    } else {
-      updateFields.rejectedAt = now;
-    }
-    
-    await ctx.db.patch(approver._id, updateFields);
-    
-    // Get the contract
-    const contract = await ctx.db.get(contractId);
-    
-    // Update the contract status and approvalChain
-    if (contract) {
-      // Get all approvers to check overall status
-      const approvers = await ctx.db
-        .query("contractApprovers")
-        .withIndex("by_contract", (q) => q.eq("contractId", contractId))
-        .collect();
-      
-      // Update approval chain
-      const approvalChain = approvers.map(a => ({
-        userId: a.userId,
-        step: a.approvalStep,
-        status: a.approvalStatus,
-      }));
-      
-      const updates: Record<string, any> = {
-        approvalChain,
-        updatedAt: now,
-      };
-      
-      // If rejected, update contract status
-      if (!approved) {
-        updates.status = "pending_review";
-      } else {
-        // Check if all approvers have approved
-        const allApproved = approvers.every(a => a.approvalStatus === "approved");
-        
-        if (allApproved) {
-          updates.status = "approved";
-          updates.approvedAt = now;
-          
-          // Calculate time to approve
-          if (contract.createdAt) {
-            const createdDate = new Date(contract.createdAt);
-            const approvedDate = new Date(now);
-            const timeToApprove = Math.floor((approvedDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)); // Days
-            updates.timeToApprove = timeToApprove;
-          }
-        }
+    if(updates.title) updates.title = updates.title.trim();
+
+    // Remove undefined values
+    (Object.keys(updates) as Array<keyof typeof updates>).forEach(key => {
+      if (updates[key] === undefined) {
+        delete updates[key];
       }
-      
-      await ctx.db.patch(contractId, updates);
-      
-      // Notify the contract creator
-      if (contract.createdById) {
-        await ctx.db.insert("userNotifications", {
-          userId: contract.createdById,
-          type: approved ? "contract_approved" : "contract_rejected",
-          title: approved ? "Contract Approved" : "Contract Rejected",
-          message: approved 
-            ? `${user.firstName || ''} ${user.lastName || ''} has approved the contract: ${contract.title}`
-            : `${user.firstName || ''} ${user.lastName || ''} has rejected the contract: ${contract.title}`,
-          linkUrl: `/contracts/${contractId}`,
-          isRead: false,
-          metadata: { comments },
-          createdAt: now,
-        });
-      }
+    });
+
+    if (Object.keys(updates).length === 0) {
+        console.log("No fields provided to update for contract:", contractId);
+        return { success: true, message: "No fields provided to update." };
     }
-    
-    return {
-      success: true,
-      status: approved ? "approved" : "rejected",
-    };
+
+    // 4. Apply Updates
+    await ctx.db.patch(contractId, updates);
+
+    console.log(`Contract updated with ID: ${contractId}. Updates applied:`, updates);
+    return { success: true };
   },
 });
 
-// ==== SIGNATURE QUERIES & MUTATIONS ====
 
-export const getContractSignatures = query({
-  args: { contractId: v.id("contracts") },
-  handler: async (ctx, args) => {
-    const signatures = await ctx.db
-      .query("signatures")
-      .withIndex("by_contract", (q) => q.eq("contractId", args.contractId))
-      .collect();
-    
-    // Get user details for each signature where available
-    const signaturesWithUsers = await Promise.all(
-      signatures.map(async (signature) => {
-        let user = null;
-        if (signature.userId) {
-          user = await ctx.db.get(signature.userId);
-        }
-        
-        return {
-          ...signature,
-          user: user ? {
-            name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-            email: user.email,
-            id: user._id,
-          } : null,
-        };
-      })
-    );
-    
-    return signaturesWithUsers;
-  },
-});
+// ============================================================================
+// DELETE
+// ============================================================================
 
-export const addSignatureRequest = mutation({
+/**
+ * Deletes a contract record AND its associated file from storage.
+ * Requires authentication.
+ */
+export const deleteContract = mutation({
   args: {
     contractId: v.id("contracts"),
-    signerEmail: v.string(),
-    signerName: v.string(),
-    signerTitle: v.optional(v.string()),
-    sequence: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-   
-    const identity  = await ctx.auth.getUserIdentity();
+    // 1. Authentication Check
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error("Authentication required");
+      throw new ConvexError("Authentication required: User must be logged in to delete a contract.");
     }
-    
-    const userId = identity.subject;
-    const user = await ctx.db
-      .query("users")
-      .filter((q) => q.eq(q.field("authId"), userId))
-      .first();
-    
-    if (!user) {
-      throw new Error("User not found");
-    }
-    
-    // Get the contract
+    // Optional: Check ownership if scoping by user
+
+    // 2. Fetch Existing Contract
     const contract = await ctx.db.get(args.contractId);
     if (!contract) {
-      throw new Error("Contract not found");
+        throw new ConvexError(`Contract not found with ID: ${args.contractId}`);
     }
-    
-    // Check if contract is in a signable state
-    if (contract.status !== "approved" && contract.status !== "pending_signature") {
-      throw new Error("Contract must be approved before requesting signatures");
+    // Optional: Ownership check here
+
+    // 3. Delete Associated File from Storage
+    //    Attempt this first. If it fails, we won't delete the DB record.
+    try {
+        await ctx.storage.delete(contract.storageId);
+        console.log(`Deleted file from storage with storageId: ${contract.storageId}`);
+    } catch (error) {
+        console.error(`Failed to delete file from storage (storageId: ${contract.storageId}):`, error);
+        // Decide if you want to proceed with DB deletion or throw an error.
+        // Throwing an error is safer as it indicates an incomplete delete.
+        throw new ConvexError(`Failed to delete associated file from storage. Database record not deleted. Error: ${error instanceof Error ? error.message : String(error)}`);
     }
-    
-    // Check if this email already has a signature request
-    const existingSignature = await ctx.db
-      .query("signatures")
-      .withIndex("by_contract", (q) => q.eq("contractId", args.contractId))
-      .filter((q) => q.eq(q.field("signerEmail"), args.signerEmail))
-      .first();
-    
-    if (existingSignature) {
-      throw new Error("A signature request already exists for this email");
-    }
-    
-    const now = new Date().toISOString();
-    
-    // If no sequence provided, put at the end
-    let sequence = args.sequence;
-    if (sequence === undefined) {
-      const highestSequence = await ctx.db
-        .query("signatures")
-        .withIndex("by_contract", (q) => q.eq("contractId", args.contractId))
-        .collect()
-        .then(signatures => 
-          signatures.reduce((max, sig) => Math.max(max, sig.sequence || 0), 0)
-        );
-      
-      sequence = highestSequence + 1;
-    }
-    
-    // Create a signature request
-    const signatureId = await ctx.db.insert("signatures", {
-      contractId: args.contractId,
-      signerEmail: args.signerEmail,
-      signerName: args.signerName,
-      signerTitle: args.signerTitle || "",
-      signatureType: "electronic",
-      status: "pending",
-      sequence,
-      reminderCount: 0,
-      createdAt: now,
-    });
-    
-    // Update contract status if needed
-    if (contract.status !== "pending_signature") {
-      await ctx.db.patch(args.contractId, {
-        status: "pending_signature",
-        updatedAt: now,
-      });
-    }
-    
-    // Log signature request
-    await ctx.db.insert("userActivityLog", {
-      userId: user._id,
-      action: "request_signature",
-      resourceType: "contract",
-      resourceId: args.contractId,
-      details: { signerEmail: args.signerEmail, signerName: args.signerName },
-      timestamp: now,
-    });
-    
-    return signatureId;
+
+    // 4. Delete Contract Record from Database
+    await ctx.db.delete(args.contractId);
+
+    console.log(`Contract record deleted from DB with ID: ${args.contractId}`);
+    return { success: true };
   },
 });
 
-export const submitSignature = mutation({
+
+// ============================================================================
+// ANALYSIS ACTION and related INTERNAL MUTATION (Copied from initial example)
+// ============================================================================
+
+/**
+ * INTERNAL MUTATION: Updates contract with analysis results or status.
+ * Should only be called internally by the `analyzeContract` action.
+ */
+export const updateContractAnalysis = mutation({
+    // Make internal to prevent client-side calls if desired
+    // access: internal,
+    args: {
+      contractId: v.id("contracts"),
+      analysisStatus: v.union(
+        v.literal(analysisStatusOptions[1]), // processing
+        v.literal(analysisStatusOptions[2]), // completed
+        v.literal(analysisStatusOptions[3])  // failed
+      ),
+      extractedData: v.optional(v.object({ // Structure matching schema optional fields
+        extractedParties: v.optional(v.array(v.string())),
+        extractedStartDate: v.optional(v.string()),
+        extractedEndDate: v.optional(v.string()),
+        extractedPaymentSchedule: v.optional(v.string()),
+        extractedPricing: v.optional(v.string()),
+        extractedScope: v.optional(v.string()),
+      })),
+      analysisError: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+       // Internal mutations skip user auth checks as they are called by trusted backend code
+       const { contractId, ...patchData } = args;
+       await ctx.db.patch(contractId, patchData);
+    },
+});
+
+/**
+ * ACTION: Performs the analysis of the contract file content.
+ * Fetches the file, attempts to extract text/data (using placeholders here),
+ * and calls the internal mutation `updateContractAnalysis` to store results.
+ */
+export const analyzeContract = action({
   args: {
     contractId: v.id("contracts"),
-    signerEmail: v.string(),
-    signatureData: v.string(),
+    storageId: v.id("_storage"),
   },
-  handler: async (ctx, args) => {
-    // Find the signature request
-    const signatureRequest = await ctx.db
-      .query("signatures")
-      .withIndex("by_contract", (q) => q.eq("contractId", args.contractId))
-      .filter((q) => q.eq(q.field("signerEmail"), args.signerEmail))
-      .filter((q) => q.eq(q.field("status"), "pending"))
-      .first();
-    
-    if (!signatureRequest) {
-      throw new Error("No pending signature request found for this email");
-    }
-    
-    const now = new Date().toISOString();
-    
-    // Update the signature
-    await ctx.db.patch(signatureRequest._id, {
-      signatureData: args.signatureData,
-      signedAt: now,
-      status: "completed",
-      //@ts-ignore
-      ipAddress: ctx.request?.headers?.get("x-forwarded-for") || "unknown",
+  handler: async (ctx: ActionCtx, args: {
+    [x: string]: any; contractId: Id<"contracts">, storageId: Id<"_storage"> 
+}) => {
+    console.log(`[Action] Starting analysis for contract ${args.contractId}`);
+
+    // 1. Mark as processing
+    await ctx.runMutation(api.contracts.updateContractAnalysis, {
+      contractId: args.contractId,
+      analysisStatus: "processing",
     });
-    
-    // Get the contract
-    const contract = await ctx.db.get(args.contractId);
-    
-    // Check if all signatures are complete
-    const pendingSignatures = await ctx.db
-      .query("signatures")
-      .withIndex("by_contract", (q) => q.eq("contractId", args.contractId))
-      .filter((q) => q.eq(q.field("status"), "pending"))
-      .first();
-    
-    // If no pending signatures remain, update contract status
-    if (!pendingSignatures && contract) {
-      const updates: Record<string, any> = {
-        status: "signed",
-        signatureCompletedAt: now,
-        updatedAt: now,
+
+    try {
+      // 2. Get the file content (simplified placeholder logic)
+      const fileUrl = await ctx.storage.getUrl(args.storageId);
+      if (!fileUrl) throw new Error("File URL not found.");
+      const response = await fetch(fileUrl);
+      if (!response.ok) throw new Error(`Failed to fetch file: ${response.statusText}`);
+      const fileBlob = await response.blob();
+      let textContent = `Placeholder text for file type: ${fileBlob.type}. Full analysis requires external APIs or libraries.`;
+
+      // TODO: Replace placeholder logic with actual text extraction (e.g., pdf-parse)
+      //       and data extraction (e.g., OpenAI API call, AWS Textract, etc.)
+      console.log(`[Action] Extracted text (placeholder): ${textContent.substring(0, 100)}...`);
+
+      // 3. Perform Analysis (Placeholder Data)
+      //    Replace this with your actual analysis results.
+      const extractedData = {
+           extractedParties: ["Placeholder Party A", "Placeholder Party B", `${args.fileName}`],
+           extractedStartDate: "2024-01-01",
+           extractedEndDate: "2024-12-31",
+           extractedPaymentSchedule: "Monthly Net 30 (Placeholder)",
+           extractedPricing: "$1000/month (Placeholder)",
+           extractedScope: `Placeholder scope extracted from ${args.fileName}. Analysis depends on content.`,
       };
-      
-      // Calculate time to sign if possible
-      if (contract.status === "pending_signature" && contract.updatedAt) {
-        const startDate = new Date(contract.updatedAt);
-        const endDate = new Date(now);
-        const timeToSign = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)); // Days
-        updates.timeToSign = timeToSign;
-      }
-      
-      await ctx.db.patch(args.contractId, updates);
+      console.log("[Action] Using placeholder extraction data:", extractedData);
+
+
+      // 4. Update the contract record with results
+      await ctx.runMutation(api.contracts.updateContractAnalysis, {
+        contractId: args.contractId,
+        analysisStatus: "completed",
+        extractedData: extractedData,
+      });
+      console.log(`[Action] Analysis completed successfully for contract ${args.contractId}`);
+
+    } catch (error: any) {
+      console.error(`[Action] Analysis failed for contract ${args.contractId}:`, error);
+      // 5. Update the contract record with error status
+      await ctx.runMutation(api.contracts.updateContractAnalysis, {
+        contractId: args.contractId,
+        analysisStatus: "failed",
+        analysisError: error.message || "Unknown analysis error",
+      });
     }
-    
-    return {
-      success: true,
-      allSignaturesComplete: !pendingSignatures,
-    };
   },
 });
-
-// ==== SEARCH ====
-
-export const searchContracts = query({
-  args: {
-    enterpriseId: v.id("enterprises"),
-    searchTerm: v.string(),
-    limit: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const { enterpriseId, searchTerm, limit = 20 } = args;
-    
-    // Normalize search term for case-insensitive search
-    const normalizedTerm = searchTerm.toLowerCase().trim();
-    
-    // Get all contracts for the enterprise
-    const allContracts = await ctx.db
-      .query("contracts")
-      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))
-      .collect();
-    
-    // Filter contracts based on search term
-    const matchingContracts = allContracts.filter(contract => 
-      (contract.title && contract.title.toLowerCase().includes(normalizedTerm)) ||
-      (contract.description && contract.description.toLowerCase().includes(normalizedTerm)) ||
-      (contract.contractNumber && contract.contractNumber.toLowerCase().includes(normalizedTerm))
-    ).slice(0, limit);
-    
-    // Get vendor details for matching contracts
-    const contractsWithDetails = await Promise.all(
-      matchingContracts.map(async (contract) => {
-        const vendor = contract.vendorId ? await ctx.db.get(contract.vendorId) : null;
-        return {
-          ...contract,
-          vendor: vendor ? { name: vendor.name, id: vendor._id } : null,
-        };
-      })
-    );
-    
-    return contractsWithDetails;
-  },
-});
-
-// Helper function to generate a contract number
-function generateContractNumber() {
-  const date = new Date();
-  const year = date.getFullYear().toString().substr(-2);
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-  
-  return `CTR-${year}${month}-${randomPart}`;
-}

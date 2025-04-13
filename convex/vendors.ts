@@ -1,476 +1,260 @@
+// convex/vendors.ts
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
+import { ConvexError } from "convex/values";
+import { api } from "./_generated/api"; // Needed for checking contracts on delete
 
-// ==== VENDOR QUERIES ====
+// ============================================================================
+// CREATE
+// ============================================================================
 
-export const listVendors = query({
-  args: {
-    enterpriseId: v.id("enterprises"),
-    status: v.optional(v.string()),
-    category: v.optional(v.string()),
-    limit: v.optional(v.number()),
-    cursor: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const { enterpriseId, status, category, limit = 10, cursor } = args;
-    
-    let vendorsQuery = ctx.db
-      .query("vendors")
-      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))
-      .order("desc");
-    
-    if (status) {
-      vendorsQuery = vendorsQuery.filter((q) => q.eq(q.field("status"), status));
-    }
-    
-    if (category) {
-      vendorsQuery = vendorsQuery.filter((q) => q.eq(q.field("category"), category));
-    }
-    
-    
-    
-    // Apply limit and execute the query
-    const vendors = await vendorsQuery.take(limit);
-    
-    // For each vendor, get a count of associated contracts
-    const vendorsWithContractCount = await Promise.all(
-      vendors.map(async (vendor) => {
-        const contractCount = await ctx.db
-          .query("contracts")
-          .withIndex("by_vendor", (q) => q.eq("vendorId", vendor._id))
-          //@ts-expect-error          
-          .count();
-        
-        return {
-          ...vendor,
-          contractCount,
-        };
-      })
-    );
-    
-    return vendorsWithContractCount;
-  },
-});
-
-export const getVendor = query({
-  args: { vendorId: v.id("vendors") },
-  handler: async (ctx, args) => {
-    const vendor = await ctx.db.get(args.vendorId);
-    
-    if (!vendor) {
-      return null;
-    }
-    
-    // Get vendor contacts
-    const contacts = await ctx.db
-      .query("vendorContacts")
-      .withIndex("by_vendor", (q) => q.eq("vendorId", vendor._id))
-      .collect();
-    
-    // Get vendor documents
-    const documents = await ctx.db
-      .query("vendorDocuments")
-      .withIndex("by_vendor", (q) => q.eq("vendorId", vendor._id))
-      .collect();
-    
-    // Get contracts associated with this vendor
-    const contracts = await ctx.db
-      .query("contracts")
-      .withIndex("by_vendor", (q) => q.eq("vendorId", vendor._id))
-      .collect();
-    
-    // Get department if it exists
-    let department = null;
-    if (vendor.departmentId) {
-      department = await ctx.db.get(vendor.departmentId);
-    }
-    
-    return {
-      ...vendor,
-      contacts,
-      documents,
-      contracts,
-      department,
-    };
-  },
-});
-
-export const searchVendors = query({
-  args: {
-    enterpriseId: v.id("enterprises"),
-    searchTerm: v.string(),
-    limit: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const { enterpriseId, searchTerm, limit = 20 } = args;
-    
-    // Normalize search term for case-insensitive search
-    const normalizedTerm = searchTerm.toLowerCase().trim();
-    
-    // Get all vendors for the enterprise
-    const allVendors = await ctx.db
-      .query("vendors")
-      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))
-      .collect();
-    
-    // Filter vendors based on search term
-    const matchingVendors = allVendors.filter(vendor => 
-      (vendor.name && vendor.name.toLowerCase().includes(normalizedTerm)) ||
-      (vendor.description && vendor.description.toLowerCase().includes(normalizedTerm)) ||
-      (vendor.taxId && vendor.taxId.toLowerCase().includes(normalizedTerm)) ||
-      (vendor.registrationNumber && vendor.registrationNumber.toLowerCase().includes(normalizedTerm))
-    ).slice(0, limit);
-    
-    return matchingVendors;
-  },
-});
-
-// ==== VENDOR MUTATIONS ====
-
+/**
+ * Creates a new vendor record.
+ * Requires authentication.
+ */
 export const createVendor = mutation({
   args: {
+    // Required field
     name: v.string(),
-    vendorType: v.string(),
-    category: v.string(),
-    status: v.optional(v.string()),
-    taxId: v.optional(v.string()),
-    registrationNumber: v.optional(v.string()),
+    // Optional fields based on simplified schema
+    contactEmail: v.optional(v.string()),
+    contactPhone: v.optional(v.string()),
+    address: v.optional(v.string()),
+    notes: v.optional(v.string()),
     website: v.optional(v.string()),
-    description: v.optional(v.string()),
-    paymentTerms: v.optional(v.string()),
-    currency: v.optional(v.string()),
-    primaryAddress: v.optional(v.object({
-      street1: v.string(),
-      street2: v.optional(v.string()),
-      city: v.string(),
-      state: v.string(),
-      postalCode: v.string(),
-      country: v.string(),
-      isPrimary: v.optional(v.boolean()),
-      addressType: v.optional(v.string()),
-    })),
-    enterpriseId: v.id("enterprises"),
-    departmentId: v.optional(v.id("departments")),
   },
   handler: async (ctx, args) => {
-    const  identity = await ctx.auth.getUserIdentity();
+    // 1. Authentication Check
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error("Authentication required");
+      throw new ConvexError("Authentication required: User must be logged in to create a vendor.");
     }
-    
-    const userId = identity.subject;
-    const user = await ctx.db
-      .query("users")
-      .filter((q) => q.eq(q.field("authId"), userId))
-      .first();
-    
-    if (!user) {
-      throw new Error("User not found");
+    // Optional: Get userId if you plan to scope vendors per user
+    // const userId = identity.subject;
+
+    // 2. Validation (Basic)
+    if (!args.name || args.name.trim() === "") {
+        throw new ConvexError("Validation Error: Vendor name cannot be empty.");
     }
-    
-    const now = new Date().toISOString();
-    
-    // Set vendor defaults
-    const vendorData = {
-      name: args.name,
-      vendorType: args.vendorType,
-      category: args.category,
-      status: args.status || "active",
-      taxId: args.taxId,
-      registrationNumber: args.registrationNumber,
-      website: args.website,
-      description: args.description || "",
-      paymentTerms: args.paymentTerms || "Net 30",
-      currency: args.currency || "USD",
-      primaryAddress: args.primaryAddress,
-      enterpriseId: args.enterpriseId,
-      departmentId: args.departmentId,
-      createdAt: now,
-      createdById: user._id,
-      lastAccessedAt: now,
-      lastAccessedById: user._id,
-    };
-    // Ensure required address fields are set
-    if (vendorData.primaryAddress) {
-      vendorData.primaryAddress.isPrimary = true;
-      vendorData.primaryAddress.addressType = vendorData.primaryAddress.addressType || 'business';
-    }
-    
-    // Create the vendor
-    //@ts-expect-error
-    const vendorId = await ctx.db.insert("vendors", vendorData);
-    
-    // Log vendor creation
-    await ctx.db.insert("userActivityLog", {
-      userId: user._id,
-      action: "create_vendor",
-      resourceType: "vendor",
-      resourceId: vendorId,
-      details: { vendorName: args.name, vendorType: args.vendorType },
-      timestamp: now,
+    // Add more specific validation if needed (e.g., email format)
+
+    // 3. Create Vendor
+    const vendorId = await ctx.db.insert("vendors", {
+      name: args.name.trim(), // Trim whitespace
+      contactEmail: args.contactEmail || undefined,
+      contactPhone: args.contactPhone || undefined,
+      address: args.address || undefined,
+      notes: args.notes || undefined,
+      website: args.website || undefined,
+      // Optional: Assign ownership if scoping by user
+      // userId: userId,
     });
-    
-    return vendorId;
+
+    console.log(`Vendor created with ID: ${vendorId}`);
+    return vendorId; // Return the ID of the newly created vendor
   },
 });
 
+// ============================================================================
+// READ
+// ============================================================================
+
+/**
+ * Retrieves a list of all vendors.
+ * Returns an empty list if the user is not authenticated or if no vendors exist.
+ * Consider adding user-specific filtering if scoping vendors by user.
+ */
+export const getVendors = query({
+  args: {}, // No arguments needed to get all
+  handler: async (ctx) => {
+    // 1. Authentication Check (Optional for public read, Recommended for restricted)
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      // Decide behavior: return empty list or throw error
+      // console.log("No user authenticated, returning empty vendor list.");
+      // return [];
+      throw new ConvexError("Authentication required to view vendors.");
+    }
+    // Optional: Get userId if filtering by user
+    // const userId = identity.subject;
+
+    // 2. Fetch Vendors
+    const vendors = await ctx.db
+      .query("vendors")
+      // Optional: Filter by user if implementing multi-tenancy
+      // .withIndex("by_user", (q) => q.eq("userId", userId))
+      //@ts-expect-error
+      .withIndex("by_name", (q) => q.eq("name", q.asc())) // Order alphabetically by name
+      // .order("desc") // Or order by creation time (default index)
+      .collect();
+
+    return vendors;
+  },
+});
+
+/**
+ * Retrieves a single vendor by its ID.
+ * Returns null if the vendor is not found or if the user lacks permission (if scoped).
+ * Requires authentication.
+ */
+export const getVendorById = query({
+  args: {
+    vendorId: v.id("vendors"), // Expect the Convex ID for the vendor
+  },
+  handler: async (ctx, args) => {
+    // 1. Authentication Check
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+        throw new ConvexError("Authentication required to view vendor details.");
+    }
+     // Optional: Get userId if filtering by user
+    // const userId = identity.subject;
+
+    // 2. Fetch Vendor
+    const vendor = await ctx.db.get(args.vendorId);
+
+    // 3. Handle Not Found / Permissions (if user-scoped)
+    if (!vendor) {
+      return null; // Or throw new ConvexError("Vendor not found");
+    }
+
+    // Optional: Check ownership if scoping by user
+    // if (vendor.userId !== userId) {
+    //   console.warn(`User ${userId} attempted to access vendor ${args.vendorId} owned by ${vendor.userId}`);
+    //   throw new ConvexError("Permission denied: You do not have access to this vendor.");
+    // }
+
+    return vendor;
+  },
+});
+
+
+// ============================================================================
+// UPDATE
+// ============================================================================
+
+/**
+ * Updates an existing vendor record.
+ * Only updates the fields provided in the arguments.
+ * Requires authentication and ownership (if scoped by user).
+ */
 export const updateVendor = mutation({
   args: {
+    // Required ID of the vendor to update
     vendorId: v.id("vendors"),
+    // Optional fields to update (matching schema)
     name: v.optional(v.string()),
-    vendorType: v.optional(v.string()),
-    category: v.optional(v.string()),
-    status: v.optional(v.string()),
-    taxId: v.optional(v.string()),
-    registrationNumber: v.optional(v.string()),
-    website: v.optional(v.string()),
-    description: v.optional(v.string()),
-    paymentTerms: v.optional(v.string()),
-    currency: v.optional(v.string()),
-    primaryAddress: v.optional(v.object({
-      street1: v.string(),
-      street2: v.optional(v.string()),
-      city: v.string(),
-      state: v.string(),
-      postalCode: v.string(),
-      country: v.string(),
-      isPrimary: v.optional(v.boolean()),
-      addressType: v.optional(v.string()),
-    })),
-    departmentId: v.optional(v.id("departments")),
-  },
-  handler: async (ctx, args) => {
-    const  identity  = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Authentication required");
-    }
-    
-    const userId = identity.subject;
-    const user = await ctx.db
-      .query("users")
-      .filter((q) => q.eq(q.field("authId"), userId))
-      .first();
-    
-    if (!user) {
-      throw new Error("User not found");
-    }
-    
-    // Get the existing vendor
-    const vendor = await ctx.db.get(args.vendorId);
-    if (!vendor) {
-      throw new Error("Vendor not found");
-    }
-    
-    // Create update object with only the fields being changed
-    const updates = {};
-    for (const [key, value] of Object.entries(args)) {
-      if (key !== "vendorId" && value !== undefined) {
-        (updates as Record<string, any>)[key] = value;
-      }
-    }
-    
-    // Add updated timestamp
-    (updates as any).updatedAt = new Date().toISOString();
-    (updates as any).lastAccessedAt = (updates as any).updatedAt;
-    (updates as any).lastAccessedById = user._id;
-    
-    // Update the vendor
-    await ctx.db.patch(args.vendorId, updates);
-    
-    // Log vendor update
-    await ctx.db.insert("userActivityLog", {
-      userId: user._id,
-      action: "update_vendor",
-      resourceType: "vendor",
-      resourceId: args.vendorId,
-      details: { updatedFields: Object.keys(updates) },
-      timestamp: (updates as any).updatedAt,
-    });
-    
-    return args.vendorId;
-  },
-});
-
-export const addVendorContact = mutation({
-  args: {
-    vendorId: v.id("vendors"),
-    firstName: v.optional(v.string()),
-    lastName: v.optional(v.string()),
-    email: v.string(),
-    phone: v.optional(v.string()),
-    title: v.optional(v.string()),
-    contactType: v.string(),
-    isPrimary: v.optional(v.boolean()),
+    contactEmail: v.optional(v.string()),
+    contactPhone: v.optional(v.string()),
+    address: v.optional(v.string()),
     notes: v.optional(v.string()),
+    website: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity  = await ctx.auth.getUserIdentity();
+    // 1. Authentication Check
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error("Authentication required");
+      throw new ConvexError("Authentication required: User must be logged in to update a vendor.");
     }
-    
-    const userId = identity.subject;
-    const user = await ctx.db
-      .query("users")
-      .filter((q) => q.eq(q.field("authId"), userId))
-      .first();
-    
-    if (!user) {
-      throw new Error("User not found");
-    }
-    
-    // Check if this is set as primary and handle existing primary contacts
-    if (args.isPrimary) {
-      const existingPrimaryContacts = await ctx.db
-        .query("vendorContacts")
-        .withIndex("by_primary", (q) => 
-          q.eq("vendorId", args.vendorId).eq("isPrimary", true)
-        )
-        .collect();
-      
-      // Update any existing primary contacts to not be primary
-      for (const contact of existingPrimaryContacts) {
-        await ctx.db.patch(contact._id, { isPrimary: false });
-      }
-    }
-    
-    const now = new Date().toISOString();
-    
-    // Create the contact
-    const contactId = await ctx.db.insert("vendorContacts", {
-      vendorId: args.vendorId,
-      firstName: args.firstName || "",
-      lastName: args.lastName || "",
-      email: args.email,
-      phone: args.phone || "",
-      title: args.title || "",
-      contactType: args.contactType,
-      isPrimary: args.isPrimary || false,
-      notes: args.notes || "",
-      createdAt: now,
-      updatedAt: now,
-      createdById: user._id,
-    });
-    
-    // Update the vendor's last accessed timestamp
-    await ctx.db.patch(args.vendorId, {
-      lastAccessedAt: now,
-      lastAccessedById: user._id,
-    });
-    
-    return contactId;
-  },
-});
+     // Optional: Get userId if filtering by user
+    // const userId = identity.subject;
 
-export const deleteVendorContact = mutation({
-  args: {
-    contactId: v.id("vendorContacts"),
-  },
-  handler: async (ctx, args) => {
-    const  identity  = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Authentication required");
+    // 2. Fetch Existing Vendor & Check Permissions
+    const existingVendor = await ctx.db.get(args.vendorId);
+    if (!existingVendor) {
+        throw new ConvexError(`Vendor not found with ID: ${args.vendorId}`);
     }
-    
-    const userId = identity.subject;
-    const user = await ctx.db
-      .query("users")
-      .filter((q) => q.eq(q.field("authId"), userId))
-      .first();
-    
-    if (!user) {
-      throw new Error("User not found");
+
+    // Optional: Check ownership if scoping by user
+    // if (existingVendor.userId !== userId) {
+    //   throw new ConvexError("Permission denied: You do not have permission to update this vendor.");
+    // }
+
+    // 3. Prepare Updates
+    const { vendorId, ...updates } = args; // Exclude vendorId from the updates object
+
+     // Basic Validation: Ensure name isn't updated to empty string if provided
+    if (updates.name !== undefined && updates.name.trim() === "") {
+        throw new ConvexError("Validation Error: Vendor name cannot be empty.");
     }
-    
-    // Get the contact to check permissions and get vendorId
-    const contact = await ctx.db.get(args.contactId);
-    if (!contact) {
-      throw new Error("Contact not found");
-    }
-    
-    // Delete the contact
-    await ctx.db.delete(args.contactId);
-    
-    // Update the vendor's last accessed timestamp
-    await ctx.db.patch(contact.vendorId, {
-      lastAccessedAt: new Date().toISOString(),
-      lastAccessedById: user._id,
+    if(updates.name) updates.name = updates.name.trim(); // Trim if provided
+    // Remove undefined values so patch only applies provided fields
+    (Object.keys(updates) as Array<keyof typeof updates>).forEach(key => {
+      if (updates[key] === undefined) {
+        delete updates[key];
+      }
     });
-    
+
+    if (Object.keys(updates).length === 0) {
+        // No actual updates provided besides the ID
+        console.log("No fields provided to update for vendor:", vendorId);
+        return { success: true, message: "No fields provided to update." };
+    }
+
+    // 4. Apply Updates
+    await ctx.db.patch(vendorId, updates);
+
+    console.log(`Vendor updated with ID: ${vendorId}. Updates applied:`, updates);
     return { success: true };
   },
 });
 
-export const updateVendorContact = mutation({
+
+// ============================================================================
+// DELETE
+// ============================================================================
+
+/**
+ * Deletes a vendor record.
+ * Requires authentication and ownership (if scoped by user).
+ * **Important:** By default, this prevents deletion if the vendor has associated contracts.
+ */
+export const deleteVendor = mutation({
   args: {
-    contactId: v.id("vendorContacts"),
-    firstName: v.optional(v.string()),
-    lastName: v.optional(v.string()),
-    email: v.optional(v.string()),
-    phone: v.optional(v.string()),
-    title: v.optional(v.string()),
-    contactType: v.optional(v.string()),
-    isPrimary: v.optional(v.boolean()),
-    notes: v.optional(v.string()),
+    vendorId: v.id("vendors"),
   },
   handler: async (ctx, args) => {
-    const  identity  = await ctx.auth.getUserIdentity();
+    // 1. Authentication Check
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error("Authentication required");
+      throw new ConvexError("Authentication required: User must be logged in to delete a vendor.");
     }
-    
-    const userId = identity.subject;
-    const user = await ctx.db
-      .query("users")
-      .filter((q) => q.eq(q.field("authId"), userId))
-      .first();
-    
-    if (!user) {
-      throw new Error("User not found");
+     // Optional: Get userId if filtering by user
+    // const userId = identity.subject;
+
+    // 2. Fetch Existing Vendor & Check Permissions
+    const existingVendor = await ctx.db.get(args.vendorId);
+    if (!existingVendor) {
+        throw new ConvexError(`Vendor not found with ID: ${args.vendorId}`);
     }
-    
-    // Get the contact to check permissions and get vendorId
-    const contact = await ctx.db.get(args.contactId);
-    if (!contact) {
-      throw new Error("Contact not found");
+
+    // Optional: Check ownership if scoping by user
+    // if (existingVendor.userId !== userId) {
+    //   throw new ConvexError("Permission denied: You do not have permission to delete this vendor.");
+    // }
+
+    // 3. Check for Associated Contracts (Safety Check)
+    const associatedContracts = await ctx.db
+      .query("contracts")
+      .withIndex("by_vendorId", (q) => q.eq("vendorId", args.vendorId))
+      .collect(); // Fetch all associated contracts
+
+    if (associatedContracts.length > 0) {
+        throw new ConvexError(
+            `Cannot delete vendor: This vendor has ${associatedContracts.length} associated contract(s). Please delete or reassign the contracts first.`
+        );
+        // Alternative (Dangerous): Implement cascade delete if needed.
+        // for (const contract of associatedContracts) {
+        //   await ctx.storage.delete(contract.storageId); // Delete file
+        //   await ctx.db.delete(contract._id); // Delete contract record
+        // }
     }
-    
-    // Handle primary contact status
-    if (args.isPrimary) {
-      const existingPrimaryContacts = await ctx.db
-        .query("vendorContacts")
-        .withIndex("by_primary", (q) => 
-          q.eq("vendorId", contact.vendorId).eq("isPrimary", true)
-        )
-        .filter((q) => q.neq(q.field("_id"), args.contactId))
-        .collect();
-      
-      // Update any existing primary contacts to not be primary
-      for (const primaryContact of existingPrimaryContacts) {
-        await ctx.db.patch(primaryContact._id, { isPrimary: false });
-      }
-    }
-    
-    // Create update object with only the fields being changed
-    const updates = {};
-    for (const [key, value] of Object.entries(args)) {
-      if (key !== "contactId" && value !== undefined) {
-        (updates as Record<string, any>)[key] = value;
-      }
-    }
-    
-    // Add updated timestamp
-    (updates as any).updatedAt = new Date().toISOString();
-    
-    // Update the contact
-    await ctx.db.patch(args.contactId, updates);
-    
-    // Update the vendor's last accessed timestamp
-    await ctx.db.patch(contact.vendorId, {
-      lastAccessedAt: (updates as any).updatedAt,
-      lastAccessedById: user._id,
-    });
-    
-    return args.contactId;
+
+    // 4. Delete Vendor
+    await ctx.db.delete(args.vendorId);
+
+    console.log(`Vendor deleted with ID: ${args.vendorId}`);
+    return { success: true };
   },
 });
