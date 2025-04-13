@@ -220,6 +220,47 @@ export const getContractFileUrl = query({
     }
 });
 
+/**
+ * Retrieves all contracts in the system.
+ * Requires authentication.
+ */
+export const getContracts = query({
+  args: {}, // No arguments needed
+  handler: async (ctx) => {
+    // 1. Authentication Check
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required to view contracts.");
+    }
+    // Optional: If scoping contracts by user, add filter here
+
+    // 2. Fetch All Contracts
+    const contracts = await ctx.db
+      .query("contracts")
+      .order("desc") // Order by creation time (most recent first)
+      .collect();
+
+    // 3. Fetch Vendor Data for Each Contract
+    const contractsWithVendors = await Promise.all(
+      contracts.map(async (contract) => {
+        let vendor = null;
+        try {
+          vendor = await ctx.db.get(contract.vendorId);
+        } catch (error) {
+          console.error(`Failed to fetch vendor for contract ${contract._id}:`, error);
+        }
+        return {
+          ...contract,
+          vendor: vendor || { name: "Unknown Vendor" }
+        };
+      })
+    );
+
+    return contractsWithVendors;
+  },
+});
+
+
 
 // ============================================================================
 // UPDATE
@@ -438,3 +479,5 @@ export const analyzeContract = action({
     }
   },
 });
+
+

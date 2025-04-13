@@ -1,24 +1,15 @@
-export interface VendorType {
-  id: number;
+import { Id } from "../../convex/_generated/dataModel";
+
+
+export type VendorType = {
+  _id: Id<"vendors">;
+  _creationTime?: number;
+  
+  // Core vendor info
   name: string;
-  vendor_number: string;
-  status: "active" | "inactive" | "pending";
-  category: string;
-  email: string;
-  phone?: string;
+  contactEmail?: string;
+  contactPhone?: string;
   address?: string;
-  active_contracts: number;
-  total_spend: number;
-  risk_level: "low" | "medium" | "high";
-  created_at: string;
-  updated_at: string;
-  primary_contact?: {
-    name: string;
-    email: string;
-    phone?: string;
-  };
-  compliance_score?: number;
-  payment_terms?: string;
-  tags?: string[];
-  metadata?: Record<string, unknown>;
-}
+  notes?: string;
+  website?: string;
+};

@@ -1,55 +1,84 @@
+// Type definition for contracts based on the simplified schema
+import { Id } from "../../convex/_generated/dataModel";
+
+// Contract status options from the schema
+export type ContractStatus = 
+  | "draft"
+  | "pending_analysis"
+  | "active" 
+  | "expired" 
+  | "terminated"
+  | "archived";
+
+// Analysis status options from the schema
+export type AnalysisStatus = 
+  | "pending"
+  | "processing"
+  | "completed"
+  | "failed";
+
+// Main contract type aligned with the Convex schema
 export type ContractType = {
-  id: number;
+  _id: Id<"contracts">; // Convex ID
+  _creationTime?: number; // Convex automatic timestamp
+
+  // Core Contract Info
   title: string;
-  type: string;
-  contract_number: string;
-  status: "active" | "pending_signature" | "draft" | "expired" | "archived";
-  value: number;
-  created_at: string;
-  start_date: string;
-  expires_at: string;
-  updated_at: string;
-  assignee: string;
-  description: string;
-  is_renewable: boolean;
-  auto_renewal: boolean;
-  archived_at: string;
-  signature_due_date: Date;
-  sent_for_signature_at: Date;
-  awaiting_counterparty: boolean;
-  pending_signers: string[];
-  vendor: {
-    id:number;
-    name: string;
-    location: string;
-    email: string;
-    rating: number;
-    tier: string;
-  };
-  owner:string;
+  vendorId: Id<"vendors">;
+  status: ContractStatus;
+  
+  // File Information
+  storageId: Id<"_storage">;
+  fileName: string;
+  fileType: string;
+  
+  // Extracted Information (all optional since they might not be available)
+  extractedParties?: string[];
+  extractedStartDate?: string;
+  extractedEndDate?: string;
+  extractedPaymentSchedule?: string;
+  extractedPricing?: string;
+  extractedScope?: string;
+  
+  // Analysis Process Tracking
+  analysisStatus?: AnalysisStatus;
+  analysisError?: string;
+  
+  // Optional user notes
+  notes?: string;
+  
+  // Not in the schema but added by the getContracts query for UI display
+  vendor?: VendorType;
 };
 
-
-
+// Vendor type aligned with the Convex schema
+export type VendorType = {
+  _id: Id<"vendors">;
+  _creationTime?: number;
+  
+  // Core vendor info
+  name: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  address?: string;
+  notes?: string;
+  website?: string;
+};
 
 // Form data for contract creation/editing
 export interface ContractFormData {
-  contractName: string;
-  contractType: string;
-  contractValue: string;
-  contractCategory: string;
-  contractOwner: string;
-  contractDescription: string;
-  isRenewable: boolean;
-  autoRenewal: boolean;
-  signatureDueDate: Date | null;
-  pendingSigners: string[];
+  title: string;
+  vendorId: string; // String representation of the Id
+  notes?: string;
+  file?: File; // For uploading the contract document
 }
 
-// Vendor data type
+// Vendor form data
 export interface VendorFormData {
   name: string;
-  location: string;
-  email: string;
-  tier: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  address?: string;
+  notes?: string;
+  website?: string;
 }
