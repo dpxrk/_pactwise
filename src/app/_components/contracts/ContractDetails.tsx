@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { useConvexQuery } from '@/lib/api-client';
 import { api } from '../../../../convex/_generated/api';
 import { Id } from '../../../../convex/_generated/dataModel';
+import { ContractStatus, AnalysisStatus } from '@/types/contract.types';
 
 // UI Components
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,19 +19,19 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Building,
   Calendar,
-  DollarSign,
   Edit,
-  FileSignature,
-  Info,
-  Tag,
-  User,
-  Clock,
-  AlertCircle,
-  CheckCircle,
+  FileText,
   Download,
-  Share2,
+  AlertCircle,
   Trash2,
-  Archive
+  Archive,
+  Info,
+  ExternalLink,
+  BarChart2,
+  PenTool,
+  CreditCard,
+  Users,
+  Clock
 } from 'lucide-react';
 
 interface ContractDetailsProps {
@@ -39,19 +40,21 @@ interface ContractDetailsProps {
 }
 
 // Contract status color mapper
-const statusColors: Record<string, string> = {
+const statusColors: Record<ContractStatus, string> = {
   draft: 'bg-blue-100 text-blue-800',
-  pending_review: 'bg-yellow-100 text-yellow-800',
-  in_review: 'bg-purple-100 text-purple-800',
-  pending_approval: 'bg-amber-100 text-amber-800',
-  approved: 'bg-emerald-100 text-emerald-800',
-  pending_signature: 'bg-orange-100 text-orange-800',
-  partially_signed: 'bg-indigo-100 text-indigo-800',
-  signed: 'bg-green-100 text-green-800',
+  pending_analysis: 'bg-yellow-100 text-yellow-800',
+  active: 'bg-green-100 text-green-800',
   expired: 'bg-red-100 text-red-800',
-  cancelled: 'bg-gray-100 text-gray-800',
+  terminated: 'bg-orange-100 text-orange-800',
   archived: 'bg-slate-100 text-slate-800',
-  terminated: 'bg-rose-100 text-rose-800',
+};
+
+// Analysis status color mapper
+const analysisColors: Record<AnalysisStatus, string> = {
+  pending: 'bg-slate-100 text-slate-800',
+  processing: 'bg-blue-100 text-blue-800',
+  completed: 'bg-green-100 text-green-800',
+  failed: 'bg-red-100 text-red-800',
 };
 
 export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) => {
@@ -59,23 +62,30 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
   
   // Fetch contract data
   const { data: contract, isLoading, error } = useConvexQuery(
-    api.contracts.getContract,
+    api.contracts.getContractById,
     { contractId }
+  );
+  
+  // Fetch vendor data if not included in contract
+  const { data: vendor } = useConvexQuery(
+    api.vendors.getVendorById,
+    contract?.vendorId ? { vendorId: contract.vendorId } : "skip"
+  );
+
+  // Get file URL for download/view
+  const { data: fileUrl } = useConvexQuery(
+    api.contracts.getContractFileUrl,
+    contract ? { storageId: contract.storageId } : "skip"
   );
   
   // Format date string for display
   const formatDate = (dateString?: string): string => {
     if (!dateString) return 'Not specified';
-    return format(new Date(dateString), 'PPP');
-  };
-  
-  // Format currency for display
-  const formatCurrency = (value?: number, currency = 'USD'): string => {
-    if (value === undefined) return 'Not specified';
-    return new Intl.NumberFormat('en-US', { 
-      style: 'currency', 
-      currency 
-    }).format(value);
+    try {
+      return format(new Date(dateString), 'PPP');
+    } catch (e) {
+      return dateString;
+    }
   };
   
   // Handle edit button click
@@ -84,6 +94,13 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
       onEdit();
     } else {
       router.push(`/dashboard/contracts/edit/${contractId}`);
+    }
+  };
+
+  // Handle download button click
+  const handleDownload = () => {
+    if (fileUrl) {
+      window.open(fileUrl, '_blank');
     }
   };
   
@@ -109,28 +126,18 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
     );
   }
   
-  // Determine status label and color
-  const statusLabel = contract.status.replace(/_/g, ' ');
-  const statusColor = statusColors[contract.status] || 'bg-gray-100 text-gray-800';
+  // Get the vendor information
+  const vendorInfo = (contract as any).vendor || vendor || { name: 'Unknown Vendor' };
   
-  // Calculate contract duration
-  const calculateDuration = (): string => {
-    if (!contract.effectiveDate || !contract.expiresAt) return 'Not specified';
-    
-    const start = new Date(contract.effectiveDate);
-    const end = new Date(contract.expiresAt);
-    const diffMonths = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-    
-    if (diffMonths < 1) {
-      const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      return `${diffDays} days`;
-    } else if (diffMonths < 12) {
-      return `${diffMonths} months`;
-    } else {
-      const years = Math.floor(diffMonths / 12);
-      const months = diffMonths % 12;
-      return months > 0 ? `${years} years, ${months} months` : `${years} years`;
-    }
+  // Determine status color
+  const statusColor = statusColors[contract.status as ContractStatus] || 'bg-gray-100 text-gray-800';
+  const analysisColor = contract.analysisStatus ? 
+    (analysisColors[contract.analysisStatus as AnalysisStatus] || 'bg-gray-100 text-gray-800') : 
+    'bg-gray-100 text-gray-800';
+  
+  // Format status label
+  const formatStatusLabel = (status: string): string => {
+    return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   };
   
   return (
@@ -144,17 +151,30 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
                 {contract.title}
               </CardTitle>
               <Badge className={statusColor}>
-                {statusLabel}
+                {formatStatusLabel(contract.status)}
               </Badge>
+              {contract.analysisStatus && (
+                <Badge className={analysisColor}>
+                  Analysis: {formatStatusLabel(contract.analysisStatus)}
+                </Badge>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Contract #{contract.contractNumber}
+              File: {contract.fileName || 'Unnamed file'}
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={handleEdit}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
+          <div className="flex gap-2">
+            {fileUrl && (
+              <Button variant="outline" size="sm" onClick={handleDownload}>
+                <Download className="h-4 w-4 mr-2" />
+                View Document
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={handleEdit}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          </div>
         </CardHeader>
       </Card>
       
@@ -166,90 +186,130 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
             <CardTitle className="text-lg font-medium">Contract Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Contract Type & Value */}
+            {/* File Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-start gap-3">
-                <Tag className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Contract Type</p>
+                  <p className="text-sm font-medium">Document Type</p>
                   <p className="text-sm text-muted-foreground">
-                    {contract.contractType}
+                    {contract.fileType || 'Unknown'}
+                  </p>
+                </div>
+              </div>
+              
+              {contract.analysisStatus && (
+                <div className="flex items-start gap-3">
+                  <BarChart2 className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Analysis Status</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatStatusLabel(contract.analysisStatus)}
+                      {contract.analysisError && (
+                        <span className="text-red-500 block">
+                          Error: {contract.analysisError}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Extracted Date Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-start gap-3">
+                <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Start Date</p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatDate(contract.extractedStartDate)}
                   </p>
                 </div>
               </div>
               
               <div className="flex items-start gap-3">
-                <DollarSign className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Contract Value</p>
+                  <p className="text-sm font-medium">End Date</p>
                   <p className="text-sm text-muted-foreground">
-                    {formatCurrency(contract.value, contract.currency)}
+                    {formatDate(contract.extractedEndDate)}
                   </p>
                 </div>
               </div>
             </div>
             
-            {/* Date Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-start gap-3">
-                <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Effective Date</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatDate(contract.effectiveDate)}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-3">
-                <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Expiration Date</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatDate(contract.expiresAt)}
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            {/* Auto-Renewal & Duration */}
+            {/* Extracted Payment Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-start gap-3">
                 <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Contract Duration</p>
+                  <p className="text-sm font-medium">Payment Schedule</p>
                   <p className="text-sm text-muted-foreground">
-                    {calculateDuration()}
+                    {contract.extractedPaymentSchedule || 'Not specified'}
                   </p>
                 </div>
               </div>
               
               <div className="flex items-start gap-3">
-                <Info className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <CreditCard className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Auto-Renewal</p>
+                  <p className="text-sm font-medium">Pricing</p>
                   <p className="text-sm text-muted-foreground">
-                    {contract.autoRenewal ? 'Enabled' : 'Disabled'}
+                    {contract.extractedPricing || 'Not specified'}
                   </p>
                 </div>
               </div>
             </div>
             
-            {/* Description */}
-            <div className="pt-2">
-              <Separator className="mb-4" />
-              <h3 className="text-sm font-medium mb-2">Description</h3>
-              <p className="text-sm text-muted-foreground whitespace-pre-line">
-                {contract.description || 'No description provided.'}
-              </p>
-            </div>
+            {/* Extracted Parties */}
+            {contract.extractedParties && contract.extractedParties.length > 0 && (
+              <div className="pt-2">
+                <Separator className="mb-4" />
+                <div className="flex items-start gap-3">
+                  <Users className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Parties Involved</p>
+                    <ul className="mt-1 space-y-1">
+                      {contract.extractedParties.map((party, index) => (
+                        <li key={index} className="text-sm text-muted-foreground">
+                          • {party}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Contract Scope */}
+            {contract.extractedScope && (
+              <div className="pt-2">
+                <Separator className="mb-4" />
+                <h3 className="text-sm font-medium mb-2">Contract Scope</h3>
+                <p className="text-sm text-muted-foreground whitespace-pre-line">
+                  {contract.extractedScope}
+                </p>
+              </div>
+            )}
+            
+            {/* Notes */}
+            {contract.notes && (
+              <div className="pt-2">
+                <Separator className="mb-4" />
+                <h3 className="text-sm font-medium mb-2">Notes</h3>
+                <p className="text-sm text-muted-foreground whitespace-pre-line">
+                  {contract.notes}
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
         
         {/* Sidebar Information */}
         <Card className="border-gold/10 bg-white/90 backdrop-blur-sm shadow-sm h-fit">
           <CardHeader>
-            <CardTitle className="text-lg font-medium">Related Information</CardTitle>
+            <CardTitle className="text-lg font-medium">Vendor Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Vendor Information */}
@@ -258,40 +318,62 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
               <div>
                 <p className="text-sm font-medium">Vendor</p>
                 <p className="text-sm text-muted-foreground">
-                  {contract.vendor?.name || 'Not specified'}
+                  {vendorInfo.name}
                 </p>
               </div>
             </div>
-            
-            {/* Created By */}
-            <div className="flex items-start gap-3">
-              <User className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Created By</p>
-                <p className="text-sm text-muted-foreground">
-                  {contract.createdBy?.name || 'Not specified'}
-                </p>
+            {/* Contact Email */}
+            {vendorInfo.contactEmail && (
+              <div className="flex items-start gap-3">
+                <ExternalLink className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Contact Email</p>
+                  <p className="text-sm text-muted-foreground">
+                    {vendorInfo.contactEmail}
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
             
-            {/* Created/Updated Dates */}
-            <div className="flex items-start gap-3">
-              <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Created Date</p>
-                <p className="text-sm text-muted-foreground">
-                  {formatDate(contract.createdAt)}
-                </p>
+            {/* Contact Phone */}
+            {vendorInfo.contactPhone && (
+              <div className="flex items-start gap-3">
+                <ExternalLink className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Contact Phone</p>
+                  <p className="text-sm text-muted-foreground">
+                    {vendorInfo.contactPhone}
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
             
-            {contract.updatedAt && (
+            {/* Vendor Website */}
+            {vendorInfo.website && (
+              <div className="flex items-start gap-3">
+                <ExternalLink className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Website</p>
+                  <a 
+                    href={vendorInfo.website.startsWith('http') ? vendorInfo.website : `https://${vendorInfo.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline"
+                  >
+                    {vendorInfo.website}
+                  </a>
+                </div>
+              </div>
+            )}
+            
+            {/* Creation Time */}
+            {contract._creationTime && (
               <div className="flex items-start gap-3">
                 <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Last Updated</p>
+                  <p className="text-sm font-medium">Created</p>
                   <p className="text-sm text-muted-foreground">
-                    {formatDate(contract.updatedAt)}
+                    {format(new Date(contract._creationTime), 'PPP')}
                   </p>
                 </div>
               </div>
@@ -300,66 +382,13 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
         </Card>
       </div>
       
-      {/* Approval Status */}
-      {contract.approvalChain && contract.approvalChain.length > 0 && (
-        <Card className="border-gold/10 bg-white/90 backdrop-blur-sm shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg font-medium">Approval Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {contract.approvalChain.map((approval:any, index:number) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">
-                      {/* Would need to look up user name from userId */}
-                      User {approval.userId.toString().slice(0, 8)}...
-                    </span>
-                  </div>
-                  <Badge 
-                    className={
-                      approval.status === 'approved' ? 'bg-green-100 text-green-800' :
-                      approval.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }
-                  >
-                    {approval.status}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      
-      {/* Signature Status */}
-      {contract.status === 'pending_signature' && (
-        <Card className="border-gold/10 bg-white/90 backdrop-blur-sm shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg font-medium">Signature Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Alert className="bg-blue-50 border-blue-200">
-              <Info className="h-4 w-4 text-blue-600" />
-              <AlertTitle className="text-blue-800">Pending Signatures</AlertTitle>
-              <AlertDescription className="text-blue-700">
-                This contract is awaiting signatures. You can send reminders or view signature details.
-              </AlertDescription>
-            </Alert>
-            
-            <div className="mt-4">
-              <Button variant="outline" size="sm" className="mr-2">
-                <FileSignature className="h-4 w-4 mr-2" />
-                View Signatures
-              </Button>
-              <Button variant="outline" size="sm">
-                <Share2 className="h-4 w-4 mr-2" />
-                Share for Signature
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Analysis Failed Alert */}
+      {contract.analysisStatus === 'failed' && contract.analysisError && (
+        <Alert variant="destructive" className="border-red-200">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Analysis Failed</AlertTitle>
+          <AlertDescription>{contract.analysisError}</AlertDescription>
+        </Alert>
       )}
       
       {/* Contract Actions */}
@@ -369,30 +398,36 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Download
-            </Button>
-            <Button variant="outline" size="sm">
-              <Share2 className="h-4 w-4 mr-2" />
-              Share
-            </Button>
-            {contract.status !== 'signed' && (
-              <Button variant="outline" size="sm">
-                <FileSignature className="h-4 w-4 mr-2" />
-                Sign
+            {fileUrl && (
+              <Button variant="outline" size="sm" onClick={handleDownload}>
+                <Download className="h-4 w-4 mr-2" />
+                Download Document
               </Button>
             )}
-            {contract.status === 'signed' && (
+            
+            {/* Edit contract */}
+            <Button variant="outline" size="sm" onClick={handleEdit}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit Details
+            </Button>
+            
+            {/* Retry analysis if failed */}
+            {contract.analysisStatus === 'failed' && (
               <Button variant="outline" size="sm">
-                <CheckCircle className="h-4 w-4 mr-2" />
-                View Signatures
+                <BarChart2 className="h-4 w-4 mr-2" />
+                Retry Analysis
               </Button>
             )}
-            <Button variant="outline" size="sm">
-              <Archive className="h-4 w-4 mr-2" />
-              Archive
-            </Button>
+            
+            {/* Archive contract */}
+            {contract.status !== 'archived' && (
+              <Button variant="outline" size="sm">
+                <Archive className="h-4 w-4 mr-2" />
+                Archive
+              </Button>
+            )}
+            
+            {/* Delete contract */}
             <Button variant="outline" size="sm" className="text-red-600 hover:bg-red-50">
               <Trash2 className="h-4 w-4 mr-2" />
               Delete

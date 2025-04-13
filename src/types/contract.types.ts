@@ -1,5 +1,6 @@
 // Type definition for contracts based on the simplified schema
 import { Id } from "../../convex/_generated/dataModel";
+import { VendorType } from "./vendor.types";
 
 // Contract status options from the schema
 export type ContractStatus = 
@@ -51,19 +52,6 @@ export type ContractType = {
   vendor?: VendorType;
 };
 
-// Vendor type aligned with the Convex schema
-export type VendorType = {
-  _id: Id<"vendors">;
-  _creationTime?: number;
-  
-  // Core vendor info
-  name: string;
-  contactEmail?: string;
-  contactPhone?: string;
-  address?: string;
-  notes?: string;
-  website?: string;
-};
 
 // Form data for contract creation/editing
 export interface ContractFormData {
