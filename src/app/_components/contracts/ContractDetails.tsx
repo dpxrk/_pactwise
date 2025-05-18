@@ -6,7 +6,11 @@ import { format } from 'date-fns';
 import { useConvexQuery } from '@/lib/api-client';
 import { api } from '../../../../convex/_generated/api';
 import { Id } from '../../../../convex/_generated/dataModel';
-import { ContractStatus, AnalysisStatus } from '@/types/contract.types';
+import type { ContractStatus, AnalysisStatus, ContractTypeEnum } from '@/types/contract.types'; // Added ContractTypeEnum
+import type { VendorCategory } from '@/types/vendor.types'; // Added VendorCategory for vendor display
+
+// Clerk hook to get user information
+import { useUser } from '@clerk/nextjs';
 
 // UI Components
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Added Tooltip
 
 // Icons
 import {
@@ -28,67 +33,89 @@ import {
   Info,
   ExternalLink,
   BarChart2,
-  PenTool,
-  CreditCard,
+  CreditCard, // PenTool was not used, CreditCard is used
   Users,
-  Clock
+  Clock,
+  FileBadge, // Using FileBadge for contract type
+  Briefcase // Using Briefcase for vendor category
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ContractDetailsProps {
   contractId: Id<"contracts">;
   onEdit?: () => void;
+  // enterpriseId should ideally be fetched within the component or passed if readily available higher up
 }
 
 // Contract status color mapper
 const statusColors: Record<ContractStatus, string> = {
-  draft: 'bg-blue-100 text-blue-800',
-  pending_analysis: 'bg-yellow-100 text-yellow-800',
-  active: 'bg-green-100 text-green-800',
-  expired: 'bg-red-100 text-red-800',
-  terminated: 'bg-orange-100 text-orange-800',
-  archived: 'bg-slate-100 text-slate-800',
+  draft: 'bg-blue-100 text-blue-800 dark:bg-blue-900/70 dark:text-blue-300',
+  pending_analysis: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/70 dark:text-yellow-300',
+  active: 'bg-green-100 text-green-800 dark:bg-green-900/70 dark:text-green-300',
+  expired: 'bg-red-100 text-red-800 dark:bg-red-900/70 dark:text-red-300',
+  terminated: 'bg-orange-100 text-orange-800 dark:bg-orange-900/70 dark:text-orange-300',
+  archived: 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
 };
 
 // Analysis status color mapper
 const analysisColors: Record<AnalysisStatus, string> = {
-  pending: 'bg-slate-100 text-slate-800',
-  processing: 'bg-blue-100 text-blue-800',
-  completed: 'bg-green-100 text-green-800',
-  failed: 'bg-red-100 text-red-800',
+  pending: 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
+  processing: 'bg-blue-100 text-blue-800 dark:bg-blue-900/70 dark:text-blue-300',
+  completed: 'bg-green-100 text-green-800 dark:bg-green-900/70 dark:text-green-300',
+  failed: 'bg-red-100 text-red-800 dark:bg-red-900/70 dark:text-red-300',
+};
+
+// Contract type color mapper (example)
+const contractTypeColors: Record<string, string> = {
+    default: 'bg-purple-100 text-purple-800 dark:bg-purple-900/70 dark:text-purple-300',
+    nda: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/70 dark:text-indigo-300',
+    msa: 'bg-sky-100 text-sky-800 dark:bg-sky-900/70 dark:text-sky-300',
+    saas: 'bg-teal-100 text-teal-800 dark:bg-teal-900/70 dark:text-teal-300',
 };
 
 export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) => {
   const router = useRouter();
-  
-  // Fetch contract data
-  const { data: contract, isLoading, error } = useConvexQuery(
+  const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
+
+  // --- Get enterpriseId from Clerk user's public metadata ---
+  // Ensure this is correctly set in your Clerk dashboard for users.
+  const enterpriseId = clerkUser?.publicMetadata?.enterpriseId as Id<"enterprises"> | undefined;
+
+  // Fetch contract data - now passing enterpriseId
+  const { data: contract, isLoading: isLoadingContract, error: contractError } = useConvexQuery(
     api.contracts.getContractById,
-    { contractId }
-  );
-  
-  // Fetch vendor data if not included in contract
-  const { data: vendor } = useConvexQuery(
-    api.vendors.getVendorById,
-    contract?.vendorId ? { vendorId: contract.vendorId } : "skip"
+    // Skip query if contractId or enterpriseId is not available yet
+    (contractId && enterpriseId) ? { contractId, enterpriseId } : "skip"
   );
 
-  // Get file URL for download/view
-  const { data: fileUrl } = useConvexQuery(
-    api.contracts.getContractFileUrl,
-    contract ? { storageId: contract.storageId } : "skip"
+  // Fetch vendor data - now passing enterpriseId
+  // The `getVendorById` query in `convex/vendors.ts` should also expect `enterpriseId`
+  const { data: vendor, isLoading: isLoadingVendor } = useConvexQuery(
+    api.vendors.getVendorById,
+    (contract?.vendorId && enterpriseId) ? { vendorId: contract.vendorId, enterpriseId } : "skip"
   );
-  
-  // Format date string for display
+
+  const { data: fileUrl, isLoading: isLoadingFileUrl } = useConvexQuery(
+    api.contracts.getContractFileUrl,
+    contract?.storageId ? { storageId: contract.storageId } : "skip"
+    // Consider adding enterpriseId to getContractFileUrl args if strict permission is needed for file URLs
+  );
+
+  const isLoading = isLoadingContract || isLoadingVendor || isLoadingFileUrl || !isClerkLoaded;
+
   const formatDate = (dateString?: string): string => {
-    if (!dateString) return 'Not specified';
+    if (!dateString) return 'N/A';
     try {
-      return format(new Date(dateString), 'PPP');
+      // Check if dateString is a valid ISO string or timestamp number
+      const date = new Date(isNaN(Number(dateString)) ? dateString : Number(dateString));
+      if (isNaN(date.getTime())) return dateString; // Return original if invalid
+      return format(date, 'PPP'); // e.g., Jun 20, 2023
     } catch (e) {
-      return dateString;
+      console.warn("Error formatting date:", dateString, e);
+      return dateString; // Fallback to original string if formatting fails
     }
   };
-  
-  // Handle edit button click
+
   const handleEdit = () => {
     if (onEdit) {
       onEdit();
@@ -97,346 +124,268 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
     }
   };
 
-  // Handle download button click
   const handleDownload = () => {
     if (fileUrl) {
       window.open(fileUrl, '_blank');
     }
   };
-  
-  // Loading state
-  if (isLoading) {
+
+   if (isLoading) {
     return (
-      <div className="p-8 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+      <div className="p-8 flex justify-center items-center min-h-[300px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <p className="ml-3 text-muted-foreground">Loading contract details...</p>
       </div>
     );
   }
-  
-  // Error state
-  if (error || !contract) {
+
+  if (!enterpriseId && isClerkLoaded) {
+    return (
+      <Alert variant="destructive" className="mb-6">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Configuration Error</AlertTitle>
+        <AlertDescription>
+          Enterprise information is missing for your user account. Please contact support.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (contractError || !contract) {
     return (
       <Alert variant="destructive" className="mb-6">
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Error</AlertTitle>
         <AlertDescription>
-          {error ? `Failed to load contract: ${error.message}` : 'Contract not found'}
+          {contractError ? `Failed to load contract: ${contractError.message}` : 'Contract not found or access denied.'}
         </AlertDescription>
       </Alert>
     );
   }
-  
-  // Get the vendor information
-  const vendorInfo = (contract as any).vendor || vendor || { name: 'Unknown Vendor' };
-  
-  // Determine status color
-  const statusColor = statusColors[contract.status as ContractStatus] || 'bg-gray-100 text-gray-800';
-  const analysisColor = contract.analysisStatus ? 
-    (analysisColors[contract.analysisStatus as AnalysisStatus] || 'bg-gray-100 text-gray-800') : 
-    'bg-gray-100 text-gray-800';
-  
-  // Format status label
-  const formatStatusLabel = (status: string): string => {
+
+  // Use the vendor data directly from the contract object if it's already populated by getContractById
+  const vendorInfo = contract.vendor || vendor || { name: 'Unknown Vendor', category: undefined };
+
+  const statusColor = statusColors[contract.status as ContractStatus] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+  const analysisColor = contract.analysisStatus
+    ? (analysisColors[contract.analysisStatus as AnalysisStatus] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300')
+    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+  const currentContractTypeColor = contract.contractType
+    ? (contractTypeColors[contract.contractType] || contractTypeColors.default)
+    : contractTypeColors.default;
+
+
+  const formatStatusLabel = (status?: string): string => {
+    if (!status) return 'N/A';
     return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   };
-  
+
   return (
-    <div className="space-y-6">
-      {/* Contract Header */}
-      <Card className="border-gold/10 bg-white/90 backdrop-blur-sm shadow-sm">
-        <CardHeader className="flex flex-row items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <CardTitle className="text-2xl font-serif text-primary">
-                {contract.title}
-              </CardTitle>
-              <Badge className={statusColor}>
-                {formatStatusLabel(contract.status)}
-              </Badge>
-              {contract.analysisStatus && (
-                <Badge className={analysisColor}>
-                  Analysis: {formatStatusLabel(contract.analysisStatus)}
+    <TooltipProvider>
+      <div className="space-y-6 p-1"> {/* Added p-1 for slight padding */}
+        {/* Contract Header */}
+        <Card className="border-border dark:border-border/50 bg-card shadow-sm">
+          <CardHeader className="flex flex-col md:flex-row items-start justify-between gap-4">
+            <div className="flex-grow">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <FileText className="h-7 w-7 text-primary mr-2 flex-shrink-0" />
+                <CardTitle className="text-2xl font-serif text-primary dark:text-primary-foreground break-all">
+                  {contract.title}
+                </CardTitle>
+                <Badge className={`${statusColor} font-medium`}>
+                  {formatStatusLabel(contract.status)}
                 </Badge>
-              )}
+                {contract.analysisStatus && (
+                  <Badge className={`${analysisColor} font-medium`}>
+                    Analysis: {formatStatusLabel(contract.analysisStatus)}
+                  </Badge>
+                )}
+                 {contract.contractType && (
+                  <Badge className={`${currentContractTypeColor} font-medium`}>
+                    Type: {formatStatusLabel(contract.contractType)}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground ml-9">
+                File: {contract.fileName || 'N/A'} ({contract.fileType || 'N/A'})
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground">
-              File: {contract.fileName || 'Unnamed file'}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            {fileUrl && (
-              <Button variant="outline" size="sm" onClick={handleDownload}>
-                <Download className="h-4 w-4 mr-2" />
-                View Document
+            <div className="flex gap-2 flex-shrink-0 self-start md:self-center">
+              {fileUrl && (
+                <Button variant="outline" size="sm" onClick={handleDownload}>
+                  <Download className="h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Document</span>
+                </Button>
+              )}
+              <Button variant="default" size="sm" onClick={handleEdit}> {/* Changed to default */}
+                <Edit className="h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Edit</span>
               </Button>
-            )}
-            <Button variant="outline" size="sm" onClick={handleEdit}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-          </div>
-        </CardHeader>
-      </Card>
-      
-      {/* Contract Details */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Main Contract Information */}
-        <Card className="border-gold/10 bg-white/90 backdrop-blur-sm shadow-sm md:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg font-medium">Contract Information</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* File Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-start gap-3">
-                <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Document Type</p>
-                  <p className="text-sm text-muted-foreground">
-                    {contract.fileType || 'Unknown'}
-                  </p>
-                </div>
+        </Card>
+
+        {/* Contract Details Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Contract Information (Spans 2 cols on lg) */}
+          <Card className="border-border dark:border-border/50 bg-card shadow-sm lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-lg font-medium text-primary dark:text-primary-foreground">
+                <Info className="inline h-5 w-5 mr-2" />
+                Contract Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {/* Section for Key Dates & Financials */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+                <DetailItem icon={Calendar} label="Start Date" value={formatDate(contract.extractedStartDate)} />
+                <DetailItem icon={Calendar} label="End Date" value={formatDate(contract.extractedEndDate)} />
+                <DetailItem icon={CreditCard} label="Pricing / Value" value={contract.extractedPricing || 'N/A'} />
+                <DetailItem icon={Clock} label="Payment Schedule" value={contract.extractedPaymentSchedule || 'N/A'} />
               </div>
-              
-              {contract.analysisStatus && (
-                <div className="flex items-start gap-3">
-                  <BarChart2 className="h-5 w-5 text-muted-foreground mt-0.5" />
+              <Separator />
+               {/* Contract Type and Analysis */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+                <DetailItem icon={FileBadge} label="Contract Type" value={contract.contractType ? formatStatusLabel(contract.contractType) : 'N/A'} />
+                <DetailItem icon={BarChart2} label="Analysis Status" value={contract.analysisStatus ? formatStatusLabel(contract.analysisStatus) : 'N/A'} />
+                {contract.analysisStatus === 'failed' && contract.analysisError && (
+                    <div className="sm:col-span-2">
+                        <DetailItem icon={AlertCircle} label="Analysis Error" value={contract.analysisError} valueClassName="text-red-600 dark:text-red-400" />
+                    </div>
+                )}
+              </div>
+
+              {contract.extractedParties && contract.extractedParties.length > 0 && (
+                <>
+                  <Separator />
                   <div>
-                    <p className="text-sm font-medium">Analysis Status</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatStatusLabel(contract.analysisStatus)}
-                      {contract.analysisError && (
-                        <span className="text-red-500 block">
-                          Error: {contract.analysisError}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            {/* Extracted Date Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-start gap-3">
-                <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Start Date</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatDate(contract.extractedStartDate)}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-3">
-                <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">End Date</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatDate(contract.extractedEndDate)}
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            {/* Extracted Payment Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-start gap-3">
-                <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Payment Schedule</p>
-                  <p className="text-sm text-muted-foreground">
-                    {contract.extractedPaymentSchedule || 'Not specified'}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-3">
-                <CreditCard className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Pricing</p>
-                  <p className="text-sm text-muted-foreground">
-                    {contract.extractedPricing || 'Not specified'}
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            {/* Extracted Parties */}
-            {contract.extractedParties && contract.extractedParties.length > 0 && (
-              <div className="pt-2">
-                <Separator className="mb-4" />
-                <div className="flex items-start gap-3">
-                  <Users className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium">Parties Involved</p>
-                    <ul className="mt-1 space-y-1">
-                      {contract.extractedParties.map((party, index) => (
-                        <li key={index} className="text-sm text-muted-foreground">
-                          • {party}
+                    <DetailItem icon={Users} label="Parties Involved" />
+                    <ul className="mt-1 space-y-1 pl-8">
+                      {contract.extractedParties.map((party:any, index:number) => (
+                        <li key={index} className="text-sm text-muted-foreground list-disc list-inside">
+                          {party}
                         </li>
                       ))}
                     </ul>
                   </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Contract Scope */}
-            {contract.extractedScope && (
-              <div className="pt-2">
-                <Separator className="mb-4" />
-                <h3 className="text-sm font-medium mb-2">Contract Scope</h3>
-                <p className="text-sm text-muted-foreground whitespace-pre-line">
-                  {contract.extractedScope}
-                </p>
-              </div>
-            )}
-            
-            {/* Notes */}
-            {contract.notes && (
-              <div className="pt-2">
-                <Separator className="mb-4" />
-                <h3 className="text-sm font-medium mb-2">Notes</h3>
-                <p className="text-sm text-muted-foreground whitespace-pre-line">
-                  {contract.notes}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        
-        {/* Sidebar Information */}
-        <Card className="border-gold/10 bg-white/90 backdrop-blur-sm shadow-sm h-fit">
+                </>
+              )}
+
+              {contract.extractedScope && (
+                <>
+                  <Separator />
+                  <div>
+                    <DetailItem icon={FileText} label="Scope of Work" />
+                    <p className="mt-1 text-sm text-muted-foreground whitespace-pre-line pl-8">
+                      {contract.extractedScope}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {contract.notes && (
+                <>
+                  <Separator />
+                  <div>
+                    <DetailItem icon={Edit} label="Internal Notes" />
+                    <p className="mt-1 text-sm text-muted-foreground whitespace-pre-line pl-8">
+                      {contract.notes}
+                    </p>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Sidebar Information (Vendor & System Info) */}
+          <div className="space-y-6">
+            <Card className="border-border dark:border-border/50 bg-card shadow-sm h-fit">
+              <CardHeader>
+                <CardTitle className="text-lg font-medium text-primary dark:text-primary-foreground">
+                  <Building className="inline h-5 w-5 mr-2" />
+                  Vendor Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <DetailItem label="Name" value={vendorInfo.name} />
+                {vendorInfo.category && (
+                  <DetailItem icon={Briefcase} label="Category" value={formatStatusLabel(vendorInfo.category)} />
+                )}
+                {vendorInfo.contactEmail && (
+                    <DetailItem label="Email" value={vendorInfo.contactEmail} isLink={`mailto:${vendorInfo.contactEmail}`} />
+                )}
+                {vendorInfo.contactPhone && (
+                  <DetailItem label="Phone" value={vendorInfo.contactPhone} />
+                )}
+                {vendorInfo.website && (
+                  <DetailItem label="Website" value={vendorInfo.website} isLink={vendorInfo.website.startsWith('http') ? vendorInfo.website : `https://${vendorInfo.website}`} />
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-border dark:border-border/50 bg-card shadow-sm h-fit">
+                <CardHeader>
+                    <CardTitle className="text-lg font-medium text-primary dark:text-primary-foreground">
+                        <Info className="inline h-5 w-5 mr-2" />
+                        System Information
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <DetailItem icon={Calendar} label="Date Created" value={formatDate(contract._creationTime?.toString())} />
+                    <DetailItem icon={FileText} label="File Name" value={contract.fileName || "N/A"} />
+                    <DetailItem icon={FileBadge} label="File Type" value={contract.fileType || "N/A"} />
+                    <DetailItem icon={Edit} label="Contract ID" value={contract._id} isMonospace={true} />
+                    <DetailItem icon={Edit} label="Storage ID" value={contract.storageId} isMonospace={true}/>
+                </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Contract Actions - simplified, can be expanded */}
+        <Card className="border-border dark:border-border/50 bg-card shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg font-medium">Vendor Information</CardTitle>
+            <CardTitle className="text-lg font-medium text-primary dark:text-primary-foreground">Contract Actions</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Vendor Information */}
-            <div className="flex items-start gap-3">
-              <Building className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Vendor</p>
-                <p className="text-sm text-muted-foreground">
-                  {vendorInfo.name}
-                </p>
-              </div>
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              {/* Add other actions like archive, terminate, delete etc. based on backend capabilities */}
+               <Button variant="outline" size="sm" disabled>
+                <Archive className="h-4 w-4 mr-2" /> Archive (Coming Soon)
+              </Button>
+              <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive-foreground" disabled>
+                <Trash2 className="h-4 w-4 mr-2" /> Delete (Coming Soon)
+              </Button>
             </div>
-            {/* Contact Email */}
-            {vendorInfo.contactEmail && (
-              <div className="flex items-start gap-3">
-                <ExternalLink className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Contact Email</p>
-                  <p className="text-sm text-muted-foreground">
-                    {vendorInfo.contactEmail}
-                  </p>
-                </div>
-              </div>
-            )}
-            
-            {/* Contact Phone */}
-            {vendorInfo.contactPhone && (
-              <div className="flex items-start gap-3">
-                <ExternalLink className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Contact Phone</p>
-                  <p className="text-sm text-muted-foreground">
-                    {vendorInfo.contactPhone}
-                  </p>
-                </div>
-              </div>
-            )}
-            
-            {/* Vendor Website */}
-            {vendorInfo.website && (
-              <div className="flex items-start gap-3">
-                <ExternalLink className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Website</p>
-                  <a 
-                    href={vendorInfo.website.startsWith('http') ? vendorInfo.website : `https://${vendorInfo.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary hover:underline"
-                  >
-                    {vendorInfo.website}
-                  </a>
-                </div>
-              </div>
-            )}
-            
-            {/* Creation Time */}
-            {contract._creationTime && (
-              <div className="flex items-start gap-3">
-                <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Created</p>
-                  <p className="text-sm text-muted-foreground">
-                    {format(new Date(contract._creationTime), 'PPP')}
-                  </p>
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
-      
-      {/* Analysis Failed Alert */}
-      {contract.analysisStatus === 'failed' && contract.analysisError && (
-        <Alert variant="destructive" className="border-red-200">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Analysis Failed</AlertTitle>
-          <AlertDescription>{contract.analysisError}</AlertDescription>
-        </Alert>
-      )}
-      
-      {/* Contract Actions */}
-      <Card className="border-gold/10 bg-white/90 backdrop-blur-sm shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg font-medium">Contract Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {fileUrl && (
-              <Button variant="outline" size="sm" onClick={handleDownload}>
-                <Download className="h-4 w-4 mr-2" />
-                Download Document
-              </Button>
-            )}
-            
-            {/* Edit contract */}
-            <Button variant="outline" size="sm" onClick={handleEdit}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Details
-            </Button>
-            
-            {/* Retry analysis if failed */}
-            {contract.analysisStatus === 'failed' && (
-              <Button variant="outline" size="sm">
-                <BarChart2 className="h-4 w-4 mr-2" />
-                Retry Analysis
-              </Button>
-            )}
-            
-            {/* Archive contract */}
-            {contract.status !== 'archived' && (
-              <Button variant="outline" size="sm">
-                <Archive className="h-4 w-4 mr-2" />
-                Archive
-              </Button>
-            )}
-            
-            {/* Delete contract */}
-            <Button variant="outline" size="sm" className="text-red-600 hover:bg-red-50">
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    </TooltipProvider>
   );
 };
+
+// Helper component for detail items
+const DetailItem = ({ icon: Icon, label, value, isLink, isMonospace, valueClassName }: { icon?: React.ElementType, label: string, value?: string | number | null, isLink?: string, isMonospace?: boolean, valueClassName?: string}) => (
+    <div>
+        <p className="text-sm font-medium text-foreground dark:text-gray-300 flex items-center">
+            {Icon && <Icon className="h-4 w-4 text-muted-foreground mr-2 flex-shrink-0" />}
+            {label}
+        </p>
+        {value && (
+            isLink ? (
+                <a
+                    href={isLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn("text-sm text-primary hover:underline dark:text-blue-400 break-all", valueClassName)}
+                >
+                    {value} <ExternalLink className="inline h-3 w-3 ml-1" />
+                </a>
+            ) : (
+                <p className={cn("text-sm text-muted-foreground dark:text-gray-400 break-all", isMonospace && "font-mono text-xs", valueClassName)}>
+                    {value}
+                </p>
+            )
+        )}
+         {!value && <p className="text-sm text-muted-foreground dark:text-gray-500">N/A</p>}
+    </div>
+);
 
 export default ContractDetails;

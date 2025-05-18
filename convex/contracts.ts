@@ -1,395 +1,267 @@
-// convex/contracts.ts
-import { query, mutation, action } from "./_generated/server";
-import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
-import { ConvexError } from "convex/values";
-import { api } from "./_generated/api";
-import type { ActionCtx } from "./_generated/server";
+// src/lib/api-client.ts
+import { useState, useMemo } from 'react';
+import { api } from "../convex/_generated/api"; 
+import { useQuery, useMutation } from "convex/react";
+import type {
+    FunctionReference,
+    FunctionArgs,
+    FunctionReturnType
+} from "convex/server";
+import { Id } from '../convex/_generated/dataModel'; // Correct path to generated dataModel
+import type { VendorCategory } from '../src/types/vendor.types'; // Import VendorCategory
+import type { ContractTypeEnum } from "../src/types/contract.types" // Import ContractTypeEnum
 
-// Define the allowed status options based on the simplified schema
-const contractStatusOptions = [
-  "draft",
-  "pending_analysis",
-  "active",
-  "expired",
-  "terminated",
-  "archived",
-] as const;
+// Define a constant for skipping queries cleanly
+const SKIP_TOKEN = 'skip' as const;
 
-// Define the allowed analysis status options based on the simplified schema
-const analysisStatusOptions = [
-    "pending",
-    "processing",
-    "completed",
-    "failed",
-] as const;
+/**
+ * Custom hook for Convex queries with simplified loading/error handling.
+ * Handles undefined state during loading and returns data, loading state, and error.
+ * Supports skipping the query by passing SKIP_TOKEN as args.
+ */
+export function useConvexQuery<
+    Query extends FunctionReference<"query">
+>(
+  queryFn: Query,
+  args: FunctionArgs<Query> | typeof SKIP_TOKEN
+) {
+    const stableArgs = useMemo(() => args, [JSON.stringify(args)]);
 
-type ContractStatus = typeof contractStatusOptions[number];
-type AnalysisStatus = typeof analysisStatusOptions[number];
-
-export const generateUploadUrl = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError("Authentication required: User must be logged in to upload files.");
-    }
-    return await ctx.storage.generateUploadUrl();
-  },
-});
-
-export const createContract = mutation({
-  args: {
-    // --- ADD enterpriseId AS A REQUIRED ARGUMENT ---
-    enterpriseId: v.id("enterprises"), // Assuming you'll have an 'enterprises' table
-    // Required fields
-    vendorId: v.id("vendors"),
-    title: v.string(),
-    storageId: v.id("_storage"),
-    fileName: v.string(),
-    fileType: v.string(),
-    status: v.optional(v.union(
-        v.literal(contractStatusOptions[0]), v.literal(contractStatusOptions[1]),
-        v.literal(contractStatusOptions[2]), v.literal(contractStatusOptions[3]),
-        v.literal(contractStatusOptions[4]), v.literal(contractStatusOptions[5])
-    )),
-    notes: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError("Authentication required: User must be logged in to create a contract.");
-    }
-
-    if (!args.title || args.title.trim() === "") {
-        throw new ConvexError("Validation Error: Contract title cannot be empty.");
-    }
-    const vendor = await ctx.db.get(args.vendorId);
-    if (!vendor) {
-        throw new ConvexError(`Validation Error: Vendor with ID ${args.vendorId} not found.`);
-    }
-
-    // --- VALIDATE enterpriseId if needed (e.g., check if it exists) ---
-    // const enterprise = await ctx.db.get(args.enterpriseId);
-    // if (!enterprise) {
-    //   throw new ConvexError(`Validation Error: Enterprise with ID ${args.enterpriseId} not found.`);
-    // }
-    // You might also want to check if the currently authenticated user
-    // belongs to this enterprise, if you store that link in Convex.
-
-    const contractData = {
-      // --- STORE enterpriseId ---
-      enterpriseId: args.enterpriseId,
-      vendorId: args.vendorId,
-      title: args.title.trim(),
-      status: args.status || "pending_analysis",
-      storageId: args.storageId,
-      fileName: args.fileName,
-      fileType: args.fileType,
-      analysisStatus: "pending" as const, // Explicitly type
-      notes: args.notes || undefined,
-      extractedParties: undefined,
-      extractedStartDate: undefined,
-      extractedEndDate: undefined,
-      extractedPaymentSchedule: undefined,
-      extractedPricing: undefined,
-      extractedScope: undefined,
-      analysisError: undefined,
-    };
-
-    const contractId = await ctx.db.insert("contracts", contractData);
-
-    await ctx.scheduler.runAfter(0, api.contracts.analyzeContract, {
-        contractId: contractId,
-        storageId: args.storageId,
-    });
-
-    console.log(`Contract created with ID: ${contractId} for enterprise ${args.enterpriseId}, analysis scheduled.`);
-    return contractId;
-  },
-});
-
-// ... (rest of your contracts.ts file: getContractsByVendor, getContractById, etc.)
-// IMPORTANT: Any query/mutation that should be enterprise-specific will also need
-// to accept `enterpriseId` as an argument or derive it if you create a Convex `users` table
-// that links Clerk users to enterprises.
-
-// Example for getContracts - making it enterprise-specific:
-export const getContracts = query({
-  args: {
-    // --- ADD enterpriseId AS A REQUIRED ARGUMENT ---
-    enterpriseId: v.id("enterprises"),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError("Authentication required to view contracts.");
-    }
-
-    const contracts = await ctx.db
-      .query("contracts")
-      // --- FILTER BY enterpriseId ---
-      .withIndex("by_enterpriseId", (q) => q.eq("enterpriseId", args.enterpriseId))
-      .order("desc")
-      .collect();
-
-    const contractsWithVendors = await Promise.all(
-      contracts.map(async (contract) => {
-        let vendor = null;
-        try {
-          vendor = await ctx.db.get(contract.vendorId);
-        } catch (error) {
-          console.error(`Failed to fetch vendor for contract ${contract._id}:`, error);
-        }
-        return {
-          ...contract,
-          vendor: vendor || { name: "Unknown Vendor" } // Provide a default/fallback
-        };
-      })
+    const result = useQuery(
+        queryFn,
+        stableArgs === SKIP_TOKEN ? SKIP_TOKEN : stableArgs
     );
-    return contractsWithVendors;
-  },
-});
 
-// ... (Rest of the file: analyzeContract, updateContractAnalysis etc. remain the same for now)
-// updateContract, deleteContract etc. would also need to check for enterpriseId
-// or ensure the user has permission based on their enterprise.
-export const getContractsByVendor = query({
-    args: {
-      vendorId: v.id("vendors"),
-      // Optional: If you also want to ensure it's for the correct enterprise
-      enterpriseId: v.optional(v.id("enterprises")),
-    },
-    handler: async (ctx, args) => {
-      const identity = await ctx.auth.getUserIdentity();
-      if (!identity) {
-        throw new ConvexError("Authentication required to view contracts.");
-      }
-  
-      let query = ctx.db
-        .query("contracts")
-        .withIndex("by_vendorId", (q) => q.eq("vendorId", args.vendorId));
-  
-      // If enterpriseId is provided, further filter by it.
-      // This requires an index on [vendorId, enterpriseId] or querying all by vendorId
-      // and then filtering, or ensuring contracts table has an index by_enterprise_and_vendor
-      // For simplicity here, we'll fetch by vendorId and if enterpriseId is given, we'd filter results.
-      // A more efficient way is to ensure your schema supports this directly.
-      // For now, we'll assume getContractsByVendor is called in a context where enterprise is already known
-      // or handled at a higher level. If direct enterprise filtering is needed here, the query needs adjustment.
-  
-      const contracts = await query.order("desc").collect();
-  
-      // If enterpriseId was passed, filter in code (less efficient but works without schema change)
-      if (args.enterpriseId) {
-        return contracts.filter(c => c.enterpriseId === args.enterpriseId);
-      }
-      return contracts;
-    },
-  });
-  
-  export const getContractById = query({
-    args: {
-      contractId: v.id("contracts"),
-      // Optional: enterpriseId for an ownership/access check
-      enterpriseId: v.optional(v.id("enterprises")),
-    },
-    handler: async (ctx, args) => {
-      const identity = await ctx.auth.getUserIdentity();
-      if (!identity) {
-        throw new ConvexError("Authentication required to view contract details.");
-      }
-  
-      const contract = await ctx.db.get(args.contractId);
-      if (!contract) {
-        return null;
-      }
-  
-      // If enterpriseId is provided, verify the contract belongs to that enterprise
-      if (args.enterpriseId && contract.enterpriseId !== args.enterpriseId) {
-        // You might want to throw an error or return null based on your security model
-        console.warn(`Access denied: Contract ${args.contractId} does not belong to enterprise ${args.enterpriseId}`);
-        return null; // Or throw new ConvexError("Access denied to this contract.");
-      }
-      return contract;
-    },
-  });
-  
-  export const getContractFileUrl = query({
-      args: {
-          storageId: v.id("_storage"),
-      },
-      handler: async (ctx, args) => {
-          const identity = await ctx.auth.getUserIdentity();
-          if (!identity) {
-              throw new ConvexError("Authentication required to get file URL.");
-          }
-          const url = await ctx.storage.getUrl(args.storageId);
-          if (!url) {
-              console.error(`Failed to get URL for storageId: ${args.storageId}`);
-              return null;
-          }
-          return url;
-      }
-  });
-  
-  
-  export const updateContract = mutation({
-    args: {
-      contractId: v.id("contracts"),
-      enterpriseId: v.optional(v.id("enterprises")), // For permission check
-      title: v.optional(v.string()),
-      status: v.optional(v.union(
-          v.literal(contractStatusOptions[0]), v.literal(contractStatusOptions[1]),
-          v.literal(contractStatusOptions[2]), v.literal(contractStatusOptions[3]),
-          v.literal(contractStatusOptions[4]), v.literal(contractStatusOptions[5])
-      )),
-      notes: v.optional(v.string()),
-    },
-    handler: async (ctx, args) => {
-      const identity = await ctx.auth.getUserIdentity();
-      if (!identity) {
-        throw new ConvexError("Authentication required.");
-      }
-  
-      const existingContract = await ctx.db.get(args.contractId);
-      if (!existingContract) {
-          throw new ConvexError(`Contract not found.`);
-      }
-  
-      // Permission Check: Ensure the user is updating a contract within their enterprise
-      if (args.enterpriseId && existingContract.enterpriseId !== args.enterpriseId) {
-          throw new ConvexError("Permission denied to update this contract.");
-      }
-      // If enterpriseId is not passed from client, you might need to fetch it based on user identity
-      // or assume the check is done client-side before calling.
-  
-      const { contractId, enterpriseId: _enterpriseId, ...updates } = args;
-      if (updates.title !== undefined && updates.title.trim() === "") {
-          throw new ConvexError("Title cannot be empty.");
-      }
-      if(updates.title) updates.title = updates.title.trim();
-  
-      (Object.keys(updates) as Array<keyof typeof updates>).forEach(key => {
-        if (updates[key] === undefined) delete updates[key];
-      });
-  
-      if (Object.keys(updates).length === 0) {
-          return { success: true, message: "No fields to update." };
-      }
-  
-      await ctx.db.patch(contractId, updates);
-      return { success: true };
-    },
-  });
-  
-  export const deleteContract = mutation({
-    args: {
-      contractId: v.id("contracts"),
-      enterpriseId: v.optional(v.id("enterprises")), // For permission check
-    },
-    handler: async (ctx, args) => {
-      const identity = await ctx.auth.getUserIdentity();
-      if (!identity) {
-        throw new ConvexError("Authentication required.");
-      }
-  
-      const contract = await ctx.db.get(args.contractId);
-      if (!contract) {
-          throw new ConvexError(`Contract not found.`);
-      }
-  
-      if (args.enterpriseId && contract.enterpriseId !== args.enterpriseId) {
-          throw new ConvexError("Permission denied to delete this contract.");
-      }
-  
-      try {
-          await ctx.storage.delete(contract.storageId);
-      } catch (error) {
-          console.error(`Failed to delete file from storage (storageId: ${contract.storageId}):`, error);
-          throw new ConvexError(`Failed to delete associated file. DB record not deleted.`);
-      }
-  
-      await ctx.db.delete(args.contractId);
-      return { success: true };
-    },
-  });
-  
-  export const updateContractAnalysis = mutation({
-      args: {
-        contractId: v.id("contracts"),
-        analysisStatus: v.union(
-          v.literal(analysisStatusOptions[1]),
-          v.literal(analysisStatusOptions[2]),
-          v.literal(analysisStatusOptions[3])
-        ),
-        extractedData: v.optional(v.object({
-          extractedParties: v.optional(v.array(v.string())),
-          extractedStartDate: v.optional(v.string()),
-          extractedEndDate: v.optional(v.string()),
-          extractedPaymentSchedule: v.optional(v.string()),
-          extractedPricing: v.optional(v.string()),
-          extractedScope: v.optional(v.string()),
-        })),
-        analysisError: v.optional(v.string()),
-      },
-      handler: async (ctx, args) => {
-         const { contractId, ...patchData } = args;
-         await ctx.db.patch(contractId, patchData);
-      },
-  });
-  
-  export const analyzeContract = action({
-    args: {
-      contractId: v.id("contracts"),
-      storageId: v.id("_storage"),
-      // fileName might be useful for context in analysis, but not strictly required by the action's core logic
-      fileName: v.optional(v.string()),
-    },
-    handler: async (ctx: ActionCtx, args: {
-       contractId: Id<"contracts">, storageId: Id<"_storage"> , fileName?: string
-  }) => {
-      console.log(`[Action] Starting analysis for contract ${args.contractId}`);
-  
-      await ctx.runMutation(api.contracts.updateContractAnalysis, {
-        contractId: args.contractId,
-        analysisStatus: "processing",
-      });
-  
-      try {
-        const fileUrl = await ctx.storage.getUrl(args.storageId);
-        if (!fileUrl) throw new Error("File URL not found.");
-        const response = await fetch(fileUrl);
-        if (!response.ok) throw new Error(`Failed to fetch file: ${response.statusText}`);
-        const fileBlob = await response.blob();
-        let textContent = `Placeholder text for file type: ${fileBlob.type}. Full analysis requires external APIs. File: ${args.fileName || 'N/A'}`;
-  
-        console.log(`[Action] Extracted text (placeholder): ${textContent.substring(0, 100)}...`);
-  
-        const extractedData = {
-             extractedParties: ["Placeholder Party A", "Placeholder Party B", `${args.fileName || 'Unknown File'}`],
-             extractedStartDate: "2024-01-01", // Placeholder
-             extractedEndDate: "2024-12-31",   // Placeholder
-             extractedPaymentSchedule: "Monthly Net 30 (Placeholder)",
-             extractedPricing: "$1000/month (Placeholder)",
-             extractedScope: `Placeholder scope for ${args.fileName || 'the document'}. Analysis depends on actual content.`,
-        };
-        console.log("[Action] Using placeholder extraction data:", extractedData);
-  
-        await ctx.runMutation(api.contracts.updateContractAnalysis, {
-          contractId: args.contractId,
-          analysisStatus: "completed",
-          extractedData: extractedData,
-        });
-        console.log(`[Action] Analysis completed for contract ${args.contractId}`);
-  
-      } catch (error: any) {
-        console.error(`[Action] Analysis failed for contract ${args.contractId}:`, error);
-        await ctx.runMutation(api.contracts.updateContractAnalysis, {
-          contractId: args.contractId,
-          analysisStatus: "failed",
-          analysisError: error.message || "Unknown analysis error",
-        });
-      }
-    },
-  });
+    const isLoading = result === undefined && stableArgs !== SKIP_TOKEN;
+    const error = result && typeof result === 'object' && 'message' in result ? result as Error : null;
+    const data = (!isLoading && !error && stableArgs !== SKIP_TOKEN && result !== undefined)
+                 ? result as FunctionReturnType<Query>
+                 : null;
+
+    return { data, isLoading, error };
+}
+
+/**
+ * Custom hook for Convex mutations with loading state and error handling.
+ */
+export function useConvexMutation<
+    Mutation extends FunctionReference<"mutation">
+>(
+  mutationFn: Mutation
+) {
+  const mutationRunner = useMutation(mutationFn);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const execute = async (
+      args: FunctionArgs<Mutation>
+  ): Promise<FunctionReturnType<Mutation> | null> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await mutationRunner(args);
+      return result as FunctionReturnType<Mutation>;
+    } catch (err) {
+      const caughtError = err instanceof Error ? err : new Error(String(err));
+      console.error(`Mutation failed:`, caughtError);
+      setError(caughtError);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { execute, isLoading, error };
+}
+
+// ============================================================================
+// Vendor API Hooks
+// ============================================================================
+
+/**
+ * Args type for fetching vendors.
+ * Includes enterpriseId (required) and optional category filter.
+ */
+interface UseVendorsArgs {
+  enterpriseId: Id<"enterprises">;
+  category?: VendorCategory | "all"; // Use the imported VendorCategory type
+}
+
+/**
+ * Hook to fetch vendors for a specific enterprise, with optional category filter.
+ * @param args - Object containing enterpriseId and optional category.
+ * Pass null/undefined or use SKIP_TOKEN to skip the query.
+ */
+export const useVendors = (args: UseVendorsArgs | null | undefined | typeof SKIP_TOKEN) => {
+  return useConvexQuery(
+      api.vendors.getVendors,
+      args === SKIP_TOKEN || !args || !args.enterpriseId ? SKIP_TOKEN : args
+  );
+};
+
+/**
+ * Args type for fetching a single vendor.
+ */
+interface UseVendorArgs {
+    vendorId: Id<"vendors">;
+    enterpriseId: Id<"enterprises">; // For access control
+}
+
+/**
+ * Hook to fetch a single vendor by its ID, ensuring it belongs to the enterprise.
+ * @param args - Object containing vendorId and enterpriseId.
+ * Pass null/undefined or use SKIP_TOKEN to skip.
+ */
+export const useVendor = (args: UseVendorArgs | null | undefined | typeof SKIP_TOKEN) => {
+   return useConvexQuery(
+       api.vendors.getVendorById,
+       args === SKIP_TOKEN || !args || !args.vendorId || !args.enterpriseId ? SKIP_TOKEN : args
+   );
+};
+
+export const useCreateVendor = () => {
+  return useConvexMutation(api.vendors.createVendor);
+};
+
+export const useUpdateVendor = () => {
+  return useConvexMutation(api.vendors.updateVendor);
+};
+
+export const useDeleteVendor = () => {
+  return useConvexMutation(api.vendors.deleteVendor);
+};
+
+
+// ============================================================================
+// Contract API Hooks
+// ============================================================================
+
+export const useGenerateUploadUrl = () => {
+    return useConvexMutation(api.contracts.generateUploadUrl);
+};
+
+export const useCreateContract = () => {
+  return useConvexMutation(api.contracts.createContract);
+};
+
+/**
+ * Args type for fetching contracts for an enterprise.
+ */
+interface UseContractsArgs {
+    enterpriseId: Id<"enterprises">;
+    contractType?: ContractTypeEnum | "all"; // Use imported ContractTypeEnum
+    // Add other filters if your getContracts query supports them (e.g., status)
+    status?: string; // Example
+}
+
+/**
+ * Hook to fetch contracts for a specific enterprise, with optional filters.
+ * @param args - Object containing enterpriseId and optional filters like contractType.
+ * Pass null/undefined or use SKIP_TOKEN to skip.
+ */
+export const useContracts = (args: UseContractsArgs | null | undefined | typeof SKIP_TOKEN) => {
+    return useConvexQuery(
+        api.contracts.getContracts, // Assuming this is your main query for listing contracts
+        args === SKIP_TOKEN || !args || !args.enterpriseId ? SKIP_TOKEN : args
+    );
+};
+
+
+/**
+ * Args type for fetching contracts by vendor.
+ */
+interface UseContractsByVendorArgs {
+    vendorId: Id<"vendors">;
+    enterpriseId: Id<"enterprises">; // To scope contracts to the enterprise
+}
+/**
+ * Hook to fetch contracts associated with a specific vendor within an enterprise.
+ * @param args - Object containing vendorId and enterpriseId.
+ * Pass null/undefined or use SKIP_TOKEN to skip.
+ */
+export const useContractsByVendor = (args: UseContractsByVendorArgs | null | undefined | typeof SKIP_TOKEN) => {
+  return useConvexQuery(
+    api.contracts.getContractsByVendor,
+    args === SKIP_TOKEN || !args || !args.vendorId || !args.enterpriseId ? SKIP_TOKEN : args
+  );
+};
+
+/**
+ * Args type for fetching a single contract.
+ */
+interface UseContractArgs {
+    contractId: Id<"contracts">;
+    enterpriseId: Id<"enterprises">; // For access control
+}
+
+/**
+ * Hook to fetch a single contract by its ID, ensuring it belongs to the enterprise.
+ * @param args - Object containing contractId and enterpriseId.
+ * Pass null/undefined or use SKIP_TOKEN to skip.
+ */
+export const useContract = (args: UseContractArgs | null | undefined | typeof SKIP_TOKEN) => {
+   return useConvexQuery(
+       api.contracts.getContractById,
+       args === SKIP_TOKEN || !args || !args.contractId || !args.enterpriseId ? SKIP_TOKEN : args
+   );
+};
+
+export const useUpdateContract = () => {
+  return useConvexMutation(api.contracts.updateContract);
+};
+
+export const useDeleteContract = () => {
+  return useConvexMutation(api.contracts.deleteContract);
+};
+
+export const useContractFileUrl = (storageId: Id<"_storage"> | null | undefined | typeof SKIP_TOKEN) => {
+    return useConvexQuery(
+        api.contracts.getContractFileUrl,
+        storageId === SKIP_TOKEN || !storageId ? SKIP_TOKEN : { storageId }
+    );
+};
+
+// ============================================================================
+// Enterprise & User Related Hooks (Placeholders or examples if needed later)
+// ============================================================================
+// If you create a `users` table in Convex linked to Clerk users and enterprises:
+// export const useCurrentUserWithEnterprise = () => {
+//   return useConvexQuery(api.users.getCurrentUserWithEnterprise, {});
+// };
+
+// If you have an `enterprises` table and want to fetch enterprise details:
+// export const useEnterprise = (enterpriseId: Id<"enterprises"> | null | undefined | typeof SKIP_TOKEN) => {
+//   return useConvexQuery(
+//     api.enterprises.getEnterpriseById, // Assuming you create such a function
+//     enterpriseId === SKIP_TOKEN || !enterpriseId ? SKIP_TOKEN : { enterpriseId }
+//   );
+// };
+
+
+// ============================================================================
+// Direct API Client Export (Optional)
+// ============================================================================
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const apiClient: any = {
+  vendors: {
+    create: api.vendors.createVendor,
+    list: api.vendors.getVendors,
+    get: api.vendors.getVendorById,
+    update: api.vendors.updateVendor,
+    delete: api.vendors.deleteVendor,
+  },
+  contracts: {
+    generateUploadUrl: api.contracts.generateUploadUrl,
+    create: api.contracts.createContract,
+    list: api.contracts.getContracts, // Changed from listByVendor to general list
+    listByVendor: api.contracts.getContractsByVendor,
+    get: api.contracts.getContractById,
+    getFileUrl: api.contracts.getContractFileUrl,
+    update: api.contracts.updateContract,
+    delete: api.contracts.deleteContract,
+    // analysis functions are internal
+  },
+  // enterprises: { // Example if you add enterprise functions
+  //   get: api.enterprises.getEnterpriseById,
+  // }
+};

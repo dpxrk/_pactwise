@@ -116,11 +116,13 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
   // Adjust useVendors hook if it needs enterpriseId for filtering.
   // Assuming useVendors is designed to fetch all or you'll filter client-side for now.
   // If useVendors *requires* enterpriseId, this query will be skipped until enterpriseIdFromClerk is available.
-  const { data: vendors = [], isLoading: isLoadingVendors } = useVendors();
+  const { data: vendors = [], isLoading: isLoadingVendors } = useVendors(
+    enterpriseIdFromClerk ? { enterpriseId: enterpriseIdFromClerk, category: "all" } : "skip"
+  );
 
 
   const { data: contractData, isLoading: isLoadingContract, error: contractError } = useContract(
-    contractId ?? null
+    contractId && enterpriseIdFromClerk ? { contractId, enterpriseId: enterpriseIdFromClerk } : "skip"
   );
 
   const createContractMutation = useConvexMutation(api.contracts.createContract);
@@ -275,10 +277,8 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
           storageId: uploadedStorageId,
           fileName: uploadedFileName,
           fileType: uploadedFileType,
-          notes: formState.description, // Mapped description to notes
-          status: 'pending_analysis' as const, // Default status
-          // Other fields like contractType, dates, value are not in the simplified backend schema's direct args
-          // They would be part of 'extractedData' after analysis or need schema expansion.
+          notes: formState.description,
+          status: 'pending_analysis' as const,
         };
         const newContractResult = await createContractMutation.execute(newContractArgs);
 
@@ -357,8 +357,7 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
         </div>
       </div>
 
-      {/* Optional Fields (Dates, Value, etc. - these are not directly in the simplified backend schema for createContract) */}
-      {/* These can be part of 'notes' or handled post-analysis */}
+
       <div className="space-y-4">
         <h3 className="text-lg font-medium text-foreground">Optional Details</h3>
         <Separator />
@@ -432,7 +431,7 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
           <div className="max-h-60 overflow-y-auto border rounded-md bg-card">
             {isLoadingVendors ? ( <div className="p-4 text-center text-muted-foreground">Loading vendors...</div> )
              : (filteredVendors && filteredVendors.length > 0) ? (
-              filteredVendors.map((vendor: VendorType) => ( // Make sure VendorType has _id
+              filteredVendors.map((vendor: VendorType) => ( 
                 <button type="button" key={vendor._id.toString()} className="flex items-center justify-between w-full p-3 text-left hover:bg-muted/50 cursor-pointer border-b last:border-0" onClick={() => selectVendor(vendor._id.toString())} >
                   <div> <p className="font-medium text-sm">{vendor.name}</p> </div>
                   {formState.vendorId === vendor._id.toString() && ( <Check className="ml-auto h-4 w-4 text-green-600 flex-shrink-0" /> )}
