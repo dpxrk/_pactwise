@@ -24,88 +24,70 @@ const analysisStatusOptions = [
     "failed",
 ] as const;
 
-// Type alias for the contract status literal union
 type ContractStatus = typeof contractStatusOptions[number];
-// Type alias for the analysis status literal union
 type AnalysisStatus = typeof analysisStatusOptions[number];
 
-// ============================================================================
-// CREATE (includes file upload initiation)
-// ============================================================================
-
-/**
- * 1. Generate a URL for the client to upload a file directly to Convex storage.
- * Requires authentication.
- */
 export const generateUploadUrl = mutation({
-  args: {}, // No arguments needed for a simple upload URL
+  args: {},
   handler: async (ctx) => {
-    // Authentication Check
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new ConvexError("Authentication required: User must be logged in to upload files.");
     }
-    // Generate and return the URL
-    const uploadUrl = await ctx.storage.generateUploadUrl();
-    return uploadUrl;
+    return await ctx.storage.generateUploadUrl();
   },
 });
 
-/**
- * 2. Creates a new contract record AFTER the file has been uploaded.
- * Links the contract to a vendor and the uploaded file (storageId).
- * Schedules the analysis action.
- * Requires authentication.
- */
 export const createContract = mutation({
   args: {
+    // --- ADD enterpriseId AS A REQUIRED ARGUMENT ---
+    enterpriseId: v.id("enterprises"), // Assuming you'll have an 'enterprises' table
     // Required fields
     vendorId: v.id("vendors"),
     title: v.string(),
-    storageId: v.id("_storage"), // The ID returned by the client after successful upload
+    storageId: v.id("_storage"),
     fileName: v.string(),
     fileType: v.string(),
-    // Optional initial status (defaults to 'pending_analysis' if not provided)
     status: v.optional(v.union(
         v.literal(contractStatusOptions[0]), v.literal(contractStatusOptions[1]),
         v.literal(contractStatusOptions[2]), v.literal(contractStatusOptions[3]),
         v.literal(contractStatusOptions[4]), v.literal(contractStatusOptions[5])
     )),
-    // Optional notes
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // 1. Authentication Check
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new ConvexError("Authentication required: User must be logged in to create a contract.");
     }
-    // Optional: Get userId if scoping contracts per user
-    // const userId = identity.subject;
 
-    // 2. Validation
     if (!args.title || args.title.trim() === "") {
         throw new ConvexError("Validation Error: Contract title cannot be empty.");
     }
-     // Check if the referenced vendor exists
     const vendor = await ctx.db.get(args.vendorId);
     if (!vendor) {
         throw new ConvexError(`Validation Error: Vendor with ID ${args.vendorId} not found.`);
     }
 
-    // 3. Prepare Contract Data
+    // --- VALIDATE enterpriseId if needed (e.g., check if it exists) ---
+    // const enterprise = await ctx.db.get(args.enterpriseId);
+    // if (!enterprise) {
+    //   throw new ConvexError(`Validation Error: Enterprise with ID ${args.enterpriseId} not found.`);
+    // }
+    // You might also want to check if the currently authenticated user
+    // belongs to this enterprise, if you store that link in Convex.
+
     const contractData = {
+      // --- STORE enterpriseId ---
+      enterpriseId: args.enterpriseId,
       vendorId: args.vendorId,
       title: args.title.trim(),
-      status: args.status || "pending_analysis", // Default status
+      status: args.status || "pending_analysis",
       storageId: args.storageId,
       fileName: args.fileName,
       fileType: args.fileType,
-      analysisStatus: "pending", // Initial analysis status
+      analysisStatus: "pending" as const, // Explicitly type
       notes: args.notes || undefined,
-      // Optional: Add userId for ownership
-      // userId: userId,
-      // Extracted fields are initially null/undefined
       extractedParties: undefined,
       extractedStartDate: undefined,
       extractedEndDate: undefined,
@@ -114,133 +96,43 @@ export const createContract = mutation({
       extractedScope: undefined,
       analysisError: undefined,
     };
-    // 4. Create Contract Record
-    const contractId = await ctx.db.insert("contracts", {
-      ...contractData,
-      analysisStatus: "pending" as const
-    });
 
-    // 5. Schedule Analysis Action
-    //    Run immediately after commit (delay 0)
+    const contractId = await ctx.db.insert("contracts", contractData);
+
     await ctx.scheduler.runAfter(0, api.contracts.analyzeContract, {
         contractId: contractId,
         storageId: args.storageId,
     });
 
-    console.log(`Contract created with ID: ${contractId}, analysis scheduled.`);
+    console.log(`Contract created with ID: ${contractId} for enterprise ${args.enterpriseId}, analysis scheduled.`);
     return contractId;
   },
 });
 
-// ============================================================================
-// READ
-// ============================================================================
+// ... (rest of your contracts.ts file: getContractsByVendor, getContractById, etc.)
+// IMPORTANT: Any query/mutation that should be enterprise-specific will also need
+// to accept `enterpriseId` as an argument or derive it if you create a Convex `users` table
+// that links Clerk users to enterprises.
 
-/**
- * Retrieves all contracts associated with a specific vendor.
- * Requires authentication.
- */
-export const getContractsByVendor = query({
-  args: {
-    vendorId: v.id("vendors"),
-  },
-  handler: async (ctx, args) => {
-    // 1. Authentication Check
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError("Authentication required to view contracts.");
-    }
-    // Optional: If scoping contracts by user, add filter here
-
-    // 2. Fetch Contracts
-    const contracts = await ctx.db
-      .query("contracts")
-      .withIndex("by_vendorId", (q) => q.eq("vendorId", args.vendorId))
-      .order("desc") // Order by creation time (most recent first)
-      .collect();
-
-    return contracts;
-  },
-});
-
-/**
- * Retrieves a single contract by its ID.
- * Requires authentication.
- */
-export const getContractById = query({
-  args: {
-    contractId: v.id("contracts"),
-  },
-  handler: async (ctx, args) => {
-    // 1. Authentication Check
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError("Authentication required to view contract details.");
-    }
-    // Optional: Check if user owns/has access to this specific contract
-
-    // 2. Fetch Contract
-    const contract = await ctx.db.get(args.contractId);
-
-    // 3. Handle Not Found
-    if (!contract) {
-      return null; // Or throw new ConvexError("Contract not found");
-    }
-
-    return contract;
-  },
-});
-
-/**
- * Retrieves the download/view URL for a contract's file using its storageId.
- * Requires authentication.
- */
-export const getContractFileUrl = query({
-    args: {
-        storageId: v.id("_storage"),
-    },
-    handler: async (ctx, args) => {
-        // 1. Authentication Check
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new ConvexError("Authentication required to get file URL.");
-        }
-        // Optional: Add fine-grained access check based on who owns the contract associated with this storageId
-
-        // 2. Get URL
-        const url = await ctx.storage.getUrl(args.storageId);
-
-        if (!url) {
-            // This could happen if the file was deleted or never existed.
-            console.error(`Failed to get URL for storageId: ${args.storageId}`);
-            return null;
-        }
-
-        return url;
-    }
-});
-
-/**
- * Retrieves all contracts in the system.
- * Requires authentication.
- */
+// Example for getContracts - making it enterprise-specific:
 export const getContracts = query({
-  args: {}, // No arguments needed
-  handler: async (ctx) => {
-    // 1. Authentication Check
+  args: {
+    // --- ADD enterpriseId AS A REQUIRED ARGUMENT ---
+    enterpriseId: v.id("enterprises"),
+  },
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new ConvexError("Authentication required to view contracts.");
     }
-    // Optional: If scoping contracts by user, add filter here
 
-    // 2. Fetch All Contracts
     const contracts = await ctx.db
       .query("contracts")
-      .order("desc") // Order by creation time (most recent first)
+      // --- FILTER BY enterpriseId ---
+      .withIndex("by_enterpriseId", (q) => q.eq("enterpriseId", args.enterpriseId))
+      .order("desc")
       .collect();
 
-    // 3. Fetch Vendor Data for Each Contract
     const contractsWithVendors = await Promise.all(
       contracts.map(async (contract) => {
         let vendor = null;
@@ -251,233 +143,253 @@ export const getContracts = query({
         }
         return {
           ...contract,
-          vendor: vendor || { name: "Unknown Vendor" }
+          vendor: vendor || { name: "Unknown Vendor" } // Provide a default/fallback
         };
       })
     );
-
     return contractsWithVendors;
   },
 });
 
-
-
-// ============================================================================
-// UPDATE
-// ============================================================================
-
-/**
- * Updates mutable fields of an existing contract record.
- * Typically used for changing title, status, or notes.
- * Avoid using this to update file info or analysis results directly.
- * Requires authentication.
- */
-export const updateContract = mutation({
-  args: {
-    // Required ID of the contract to update
-    contractId: v.id("contracts"),
-    // Optional fields to update
-    title: v.optional(v.string()),
-    status: v.optional(v.union(
-        v.literal(contractStatusOptions[0]), v.literal(contractStatusOptions[1]),
-        v.literal(contractStatusOptions[2]), v.literal(contractStatusOptions[3]),
-        v.literal(contractStatusOptions[4]), v.literal(contractStatusOptions[5])
-    )),
-    notes: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    // 1. Authentication Check
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError("Authentication required: User must be logged in to update a contract.");
-    }
-    // Optional: Check ownership if scoping by user
-
-    // 2. Fetch Existing Contract
-    const existingContract = await ctx.db.get(args.contractId);
-    if (!existingContract) {
-        throw new ConvexError(`Contract not found with ID: ${args.contractId}`);
-    }
-    // Optional: Ownership check here
-
-    // 3. Prepare Updates
-    const { contractId, ...updates } = args; // Exclude contractId from updates
-
-    // Basic Validation: Ensure title isn't updated to empty string if provided
-    if (updates.title !== undefined && updates.title.trim() === "") {
-        throw new ConvexError("Validation Error: Contract title cannot be empty.");
-    }
-    if(updates.title) updates.title = updates.title.trim();
-
-    // Remove undefined values
-    (Object.keys(updates) as Array<keyof typeof updates>).forEach(key => {
-      if (updates[key] === undefined) {
-        delete updates[key];
-      }
-    });
-
-    if (Object.keys(updates).length === 0) {
-        console.log("No fields provided to update for contract:", contractId);
-        return { success: true, message: "No fields provided to update." };
-    }
-
-    // 4. Apply Updates
-    await ctx.db.patch(contractId, updates);
-
-    console.log(`Contract updated with ID: ${contractId}. Updates applied:`, updates);
-    return { success: true };
-  },
-});
-
-
-// ============================================================================
-// DELETE
-// ============================================================================
-
-/**
- * Deletes a contract record AND its associated file from storage.
- * Requires authentication.
- */
-export const deleteContract = mutation({
-  args: {
-    contractId: v.id("contracts"),
-  },
-  handler: async (ctx, args) => {
-    // 1. Authentication Check
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError("Authentication required: User must be logged in to delete a contract.");
-    }
-    // Optional: Check ownership if scoping by user
-
-    // 2. Fetch Existing Contract
-    const contract = await ctx.db.get(args.contractId);
-    if (!contract) {
-        throw new ConvexError(`Contract not found with ID: ${args.contractId}`);
-    }
-    // Optional: Ownership check here
-
-    // 3. Delete Associated File from Storage
-    //    Attempt this first. If it fails, we won't delete the DB record.
-    try {
-        await ctx.storage.delete(contract.storageId);
-        console.log(`Deleted file from storage with storageId: ${contract.storageId}`);
-    } catch (error) {
-        console.error(`Failed to delete file from storage (storageId: ${contract.storageId}):`, error);
-        // Decide if you want to proceed with DB deletion or throw an error.
-        // Throwing an error is safer as it indicates an incomplete delete.
-        throw new ConvexError(`Failed to delete associated file from storage. Database record not deleted. Error: ${error instanceof Error ? error.message : String(error)}`);
-    }
-
-    // 4. Delete Contract Record from Database
-    await ctx.db.delete(args.contractId);
-
-    console.log(`Contract record deleted from DB with ID: ${args.contractId}`);
-    return { success: true };
-  },
-});
-
-
-// ============================================================================
-// ANALYSIS ACTION and related INTERNAL MUTATION (Copied from initial example)
-// ============================================================================
-
-/**
- * INTERNAL MUTATION: Updates contract with analysis results or status.
- * Should only be called internally by the `analyzeContract` action.
- */
-export const updateContractAnalysis = mutation({
-    // Make internal to prevent client-side calls if desired
-    // access: internal,
+// ... (Rest of the file: analyzeContract, updateContractAnalysis etc. remain the same for now)
+// updateContract, deleteContract etc. would also need to check for enterpriseId
+// or ensure the user has permission based on their enterprise.
+export const getContractsByVendor = query({
     args: {
-      contractId: v.id("contracts"),
-      analysisStatus: v.union(
-        v.literal(analysisStatusOptions[1]), // processing
-        v.literal(analysisStatusOptions[2]), // completed
-        v.literal(analysisStatusOptions[3])  // failed
-      ),
-      extractedData: v.optional(v.object({ // Structure matching schema optional fields
-        extractedParties: v.optional(v.array(v.string())),
-        extractedStartDate: v.optional(v.string()),
-        extractedEndDate: v.optional(v.string()),
-        extractedPaymentSchedule: v.optional(v.string()),
-        extractedPricing: v.optional(v.string()),
-        extractedScope: v.optional(v.string()),
-      })),
-      analysisError: v.optional(v.string()),
+      vendorId: v.id("vendors"),
+      // Optional: If you also want to ensure it's for the correct enterprise
+      enterpriseId: v.optional(v.id("enterprises")),
     },
     handler: async (ctx, args) => {
-       // Internal mutations skip user auth checks as they are called by trusted backend code
-       const { contractId, ...patchData } = args;
-       await ctx.db.patch(contractId, patchData);
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        throw new ConvexError("Authentication required to view contracts.");
+      }
+  
+      let query = ctx.db
+        .query("contracts")
+        .withIndex("by_vendorId", (q) => q.eq("vendorId", args.vendorId));
+  
+      // If enterpriseId is provided, further filter by it.
+      // This requires an index on [vendorId, enterpriseId] or querying all by vendorId
+      // and then filtering, or ensuring contracts table has an index by_enterprise_and_vendor
+      // For simplicity here, we'll fetch by vendorId and if enterpriseId is given, we'd filter results.
+      // A more efficient way is to ensure your schema supports this directly.
+      // For now, we'll assume getContractsByVendor is called in a context where enterprise is already known
+      // or handled at a higher level. If direct enterprise filtering is needed here, the query needs adjustment.
+  
+      const contracts = await query.order("desc").collect();
+  
+      // If enterpriseId was passed, filter in code (less efficient but works without schema change)
+      if (args.enterpriseId) {
+        return contracts.filter(c => c.enterpriseId === args.enterpriseId);
+      }
+      return contracts;
     },
-});
-
-/**
- * ACTION: Performs the analysis of the contract file content.
- * Fetches the file, attempts to extract text/data (using placeholders here),
- * and calls the internal mutation `updateContractAnalysis` to store results.
- */
-export const analyzeContract = action({
-  args: {
-    contractId: v.id("contracts"),
-    storageId: v.id("_storage"),
-  },
-  handler: async (ctx: ActionCtx, args: {
-    [x: string]: any; contractId: Id<"contracts">, storageId: Id<"_storage"> 
-}) => {
-    console.log(`[Action] Starting analysis for contract ${args.contractId}`);
-
-    // 1. Mark as processing
-    await ctx.runMutation(api.contracts.updateContractAnalysis, {
-      contractId: args.contractId,
-      analysisStatus: "processing",
-    });
-
-    try {
-      // 2. Get the file content (simplified placeholder logic)
-      const fileUrl = await ctx.storage.getUrl(args.storageId);
-      if (!fileUrl) throw new Error("File URL not found.");
-      const response = await fetch(fileUrl);
-      if (!response.ok) throw new Error(`Failed to fetch file: ${response.statusText}`);
-      const fileBlob = await response.blob();
-      let textContent = `Placeholder text for file type: ${fileBlob.type}. Full analysis requires external APIs or libraries.`;
-
-      // TODO: Replace placeholder logic with actual text extraction (e.g., pdf-parse)
-      //       and data extraction (e.g., OpenAI API call, AWS Textract, etc.)
-      console.log(`[Action] Extracted text (placeholder): ${textContent.substring(0, 100)}...`);
-
-      // 3. Perform Analysis (Placeholder Data)
-      //    Replace this with your actual analysis results.
-      const extractedData = {
-           extractedParties: ["Placeholder Party A", "Placeholder Party B", `${args.fileName}`],
-           extractedStartDate: "2024-01-01",
-           extractedEndDate: "2024-12-31",
-           extractedPaymentSchedule: "Monthly Net 30 (Placeholder)",
-           extractedPricing: "$1000/month (Placeholder)",
-           extractedScope: `Placeholder scope extracted from ${args.fileName}. Analysis depends on content.`,
-      };
-      console.log("[Action] Using placeholder extraction data:", extractedData);
-
-
-      // 4. Update the contract record with results
+  });
+  
+  export const getContractById = query({
+    args: {
+      contractId: v.id("contracts"),
+      // Optional: enterpriseId for an ownership/access check
+      enterpriseId: v.optional(v.id("enterprises")),
+    },
+    handler: async (ctx, args) => {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        throw new ConvexError("Authentication required to view contract details.");
+      }
+  
+      const contract = await ctx.db.get(args.contractId);
+      if (!contract) {
+        return null;
+      }
+  
+      // If enterpriseId is provided, verify the contract belongs to that enterprise
+      if (args.enterpriseId && contract.enterpriseId !== args.enterpriseId) {
+        // You might want to throw an error or return null based on your security model
+        console.warn(`Access denied: Contract ${args.contractId} does not belong to enterprise ${args.enterpriseId}`);
+        return null; // Or throw new ConvexError("Access denied to this contract.");
+      }
+      return contract;
+    },
+  });
+  
+  export const getContractFileUrl = query({
+      args: {
+          storageId: v.id("_storage"),
+      },
+      handler: async (ctx, args) => {
+          const identity = await ctx.auth.getUserIdentity();
+          if (!identity) {
+              throw new ConvexError("Authentication required to get file URL.");
+          }
+          const url = await ctx.storage.getUrl(args.storageId);
+          if (!url) {
+              console.error(`Failed to get URL for storageId: ${args.storageId}`);
+              return null;
+          }
+          return url;
+      }
+  });
+  
+  
+  export const updateContract = mutation({
+    args: {
+      contractId: v.id("contracts"),
+      enterpriseId: v.optional(v.id("enterprises")), // For permission check
+      title: v.optional(v.string()),
+      status: v.optional(v.union(
+          v.literal(contractStatusOptions[0]), v.literal(contractStatusOptions[1]),
+          v.literal(contractStatusOptions[2]), v.literal(contractStatusOptions[3]),
+          v.literal(contractStatusOptions[4]), v.literal(contractStatusOptions[5])
+      )),
+      notes: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        throw new ConvexError("Authentication required.");
+      }
+  
+      const existingContract = await ctx.db.get(args.contractId);
+      if (!existingContract) {
+          throw new ConvexError(`Contract not found.`);
+      }
+  
+      // Permission Check: Ensure the user is updating a contract within their enterprise
+      if (args.enterpriseId && existingContract.enterpriseId !== args.enterpriseId) {
+          throw new ConvexError("Permission denied to update this contract.");
+      }
+      // If enterpriseId is not passed from client, you might need to fetch it based on user identity
+      // or assume the check is done client-side before calling.
+  
+      const { contractId, enterpriseId: _enterpriseId, ...updates } = args;
+      if (updates.title !== undefined && updates.title.trim() === "") {
+          throw new ConvexError("Title cannot be empty.");
+      }
+      if(updates.title) updates.title = updates.title.trim();
+  
+      (Object.keys(updates) as Array<keyof typeof updates>).forEach(key => {
+        if (updates[key] === undefined) delete updates[key];
+      });
+  
+      if (Object.keys(updates).length === 0) {
+          return { success: true, message: "No fields to update." };
+      }
+  
+      await ctx.db.patch(contractId, updates);
+      return { success: true };
+    },
+  });
+  
+  export const deleteContract = mutation({
+    args: {
+      contractId: v.id("contracts"),
+      enterpriseId: v.optional(v.id("enterprises")), // For permission check
+    },
+    handler: async (ctx, args) => {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        throw new ConvexError("Authentication required.");
+      }
+  
+      const contract = await ctx.db.get(args.contractId);
+      if (!contract) {
+          throw new ConvexError(`Contract not found.`);
+      }
+  
+      if (args.enterpriseId && contract.enterpriseId !== args.enterpriseId) {
+          throw new ConvexError("Permission denied to delete this contract.");
+      }
+  
+      try {
+          await ctx.storage.delete(contract.storageId);
+      } catch (error) {
+          console.error(`Failed to delete file from storage (storageId: ${contract.storageId}):`, error);
+          throw new ConvexError(`Failed to delete associated file. DB record not deleted.`);
+      }
+  
+      await ctx.db.delete(args.contractId);
+      return { success: true };
+    },
+  });
+  
+  export const updateContractAnalysis = mutation({
+      args: {
+        contractId: v.id("contracts"),
+        analysisStatus: v.union(
+          v.literal(analysisStatusOptions[1]),
+          v.literal(analysisStatusOptions[2]),
+          v.literal(analysisStatusOptions[3])
+        ),
+        extractedData: v.optional(v.object({
+          extractedParties: v.optional(v.array(v.string())),
+          extractedStartDate: v.optional(v.string()),
+          extractedEndDate: v.optional(v.string()),
+          extractedPaymentSchedule: v.optional(v.string()),
+          extractedPricing: v.optional(v.string()),
+          extractedScope: v.optional(v.string()),
+        })),
+        analysisError: v.optional(v.string()),
+      },
+      handler: async (ctx, args) => {
+         const { contractId, ...patchData } = args;
+         await ctx.db.patch(contractId, patchData);
+      },
+  });
+  
+  export const analyzeContract = action({
+    args: {
+      contractId: v.id("contracts"),
+      storageId: v.id("_storage"),
+      // fileName might be useful for context in analysis, but not strictly required by the action's core logic
+      fileName: v.optional(v.string()),
+    },
+    handler: async (ctx: ActionCtx, args: {
+       contractId: Id<"contracts">, storageId: Id<"_storage"> , fileName?: string
+  }) => {
+      console.log(`[Action] Starting analysis for contract ${args.contractId}`);
+  
       await ctx.runMutation(api.contracts.updateContractAnalysis, {
         contractId: args.contractId,
-        analysisStatus: "completed",
-        extractedData: extractedData,
+        analysisStatus: "processing",
       });
-      console.log(`[Action] Analysis completed successfully for contract ${args.contractId}`);
-
-    } catch (error: any) {
-      console.error(`[Action] Analysis failed for contract ${args.contractId}:`, error);
-      // 5. Update the contract record with error status
-      await ctx.runMutation(api.contracts.updateContractAnalysis, {
-        contractId: args.contractId,
-        analysisStatus: "failed",
-        analysisError: error.message || "Unknown analysis error",
-      });
-    }
-  },
-});
-
-
+  
+      try {
+        const fileUrl = await ctx.storage.getUrl(args.storageId);
+        if (!fileUrl) throw new Error("File URL not found.");
+        const response = await fetch(fileUrl);
+        if (!response.ok) throw new Error(`Failed to fetch file: ${response.statusText}`);
+        const fileBlob = await response.blob();
+        let textContent = `Placeholder text for file type: ${fileBlob.type}. Full analysis requires external APIs. File: ${args.fileName || 'N/A'}`;
+  
+        console.log(`[Action] Extracted text (placeholder): ${textContent.substring(0, 100)}...`);
+  
+        const extractedData = {
+             extractedParties: ["Placeholder Party A", "Placeholder Party B", `${args.fileName || 'Unknown File'}`],
+             extractedStartDate: "2024-01-01", // Placeholder
+             extractedEndDate: "2024-12-31",   // Placeholder
+             extractedPaymentSchedule: "Monthly Net 30 (Placeholder)",
+             extractedPricing: "$1000/month (Placeholder)",
+             extractedScope: `Placeholder scope for ${args.fileName || 'the document'}. Analysis depends on actual content.`,
+        };
+        console.log("[Action] Using placeholder extraction data:", extractedData);
+  
+        await ctx.runMutation(api.contracts.updateContractAnalysis, {
+          contractId: args.contractId,
+          analysisStatus: "completed",
+          extractedData: extractedData,
+        });
+        console.log(`[Action] Analysis completed for contract ${args.contractId}`);
+  
+      } catch (error: any) {
+        console.error(`[Action] Analysis failed for contract ${args.contractId}:`, error);
+        await ctx.runMutation(api.contracts.updateContractAnalysis, {
+          contractId: args.contractId,
+          analysisStatus: "failed",
+          analysisError: error.message || "Unknown analysis error",
+        });
+      }
+    },
+  });

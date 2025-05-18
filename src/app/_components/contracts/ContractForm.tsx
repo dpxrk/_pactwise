@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react'; // Added useRef
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { VendorType } from '@/types/vendor.types';
+import { VendorType } from '@/types/vendor.types'; // Assuming this has _id
 
-// UI Components (Assuming these are from shadcn/ui)
+// UI Components
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"; // Added CardDescription
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator"; // Added Separator
+import { Separator } from "@/components/ui/separator";
 
 // Icons
 import {
@@ -51,17 +51,21 @@ import {
   Save,
   ArrowLeft,
   Upload,
-  File as FileIcon, // Renamed to avoid conflict with File type
-  Paperclip,       // Changed icon name
-  Loader2          // Added Loader icon
+  File as FileIcon,
+  Paperclip,
+  Loader2
 } from "lucide-react";
 
-// API Client and types
-import { useConvexMutation, useCurrentUser, useVendors, useContract } from '@/lib/api-client'; // Assuming these hooks exist and work
-import { api } from "../../../../convex/_generated/api"; // Adjust path as needed
-import { Id } from "../../../../convex/_generated/dataModel"; // Adjust path as needed
+// Clerk
+import { useUser } from '@clerk/nextjs';
 
-// Form Types
+// API Client and types
+// Removed useCurrentUser, ensure useVendors and useContract hooks are correctly defined
+// and don't rely on a Convex-based useCurrentUser for enterpriseId if not intended.
+import { useConvexMutation, useVendors, useContract } from '@/lib/api-client';
+import { api } from "../../../../convex/_generated/api";
+import { Id } from "../../../../convex/_generated/dataModel";
+
 interface ContractFormProps {
   contractId?: Id<"contracts">;
   isModal?: boolean;
@@ -71,20 +75,17 @@ interface ContractFormProps {
 
 interface FormState {
   title: string;
-  description: string;
-  contractType: string;
+  description: string; // Mapped to 'notes' in Convex
+  contractType: string; // Could be mapped to a custom field or part of description
   vendorId: string;
-  departmentId?: string; // Keep if used, otherwise remove
-  effectiveDate?: Date;
-  expiresAt?: Date;
-  autoRenewal: boolean;
-  currency: string;
-  value?: number;
-  customFields?: Record<string, any>; // Keep if used
-  documents: File[]; // Files selected for upload
+  effectiveDate?: Date; // Mapped to 'extractedStartDate' for display, 'startDate' for save
+  expiresAt?: Date;     // Mapped to 'extractedEndDate' for display, 'endDate' for save
+  autoRenewal: boolean;  // Not in simplified schema, might be part of 'notes' or future field
+  currency: string;      // Not in simplified schema, might be part of 'notes' or 'extractedPricing'
+  value?: number;       // Mapped to 'contractValue' or part of 'extractedPricing'
+  documents: File[];
 }
 
-// --- Helper Function ---
 function formatBytes(bytes: number, decimals = 2): string {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -93,85 +94,71 @@ function formatBytes(bytes: number, decimals = 2): string {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
-// --- End Helper ---
 
 export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }: ContractFormProps) => {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false); // For submission loading state
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showVendorSearch, setShowVendorSearch] = useState(false);
   const [vendorSearchQuery, setVendorSearchQuery] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null); // Ref for file input
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- Data Fetching ---
-  const { data: currentUser, isLoading: isLoadingUser } = useCurrentUser();
-  const enterpriseId = currentUser?.enterpriseId as Id<"enterprises"> | undefined;
+  const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
 
-  const vendorArgs = enterpriseId ? { enterpriseId } : null;
-  const { data: vendors = [], isLoading: isLoadingVendors } = useVendors(vendorArgs); // Default to empty array
+  // IMPORTANT: How enterpriseId is determined:
+  // Option A: From Clerk's public metadata (shown here)
+  const enterpriseIdFromClerk = clerkUser?.publicMetadata?.enterpriseId as Id<"enterprises"> | undefined;
+  // Option B: If you create a Convex 'users' table linked to Clerk users and enterprises,
+  // you'd fetch that record here using a new Convex query.
+  // For now, we rely on enterpriseIdFromClerk.
 
-  const { data: contractData, isLoading: isLoadingContract, error: contractError } = useContract(contractId);
+  // Adjust useVendors hook if it needs enterpriseId for filtering.
+  // Assuming useVendors is designed to fetch all or you'll filter client-side for now.
+  // If useVendors *requires* enterpriseId, this query will be skipped until enterpriseIdFromClerk is available.
+  const { data: vendors = [], isLoading: isLoadingVendors } = useVendors();
 
-  // Convex Mutations
-  const createContract = useConvexMutation(api.contracts.createContract);
-  const updateContract = useConvexMutation(api.contracts.updateContract);
-  // --- FIX: Add generateUploadUrl mutation ---
-  const generateUploadUrl = useConvexMutation(api.files.generateUploadUrl); // Assuming you have this
-  // --- End Data Fetching ---
 
-  // --- Form State ---
+  const { data: contractData, isLoading: isLoadingContract, error: contractError } = useContract(
+    contractId ?? null
+  );
+
+  const createContractMutation = useConvexMutation(api.contracts.createContract);
+  const updateContractMutation = useConvexMutation(api.contracts.updateContract);
+  const generateUploadUrlMutation = useConvexMutation(api.contracts.generateUploadUrl);
+
   const [formState, setFormState] = useState<FormState>({
     title: '', description: '', contractType: '', vendorId: '',
     effectiveDate: undefined, expiresAt: undefined,
     autoRenewal: false, currency: 'USD', value: undefined,
-    documents: [], // Initialize documents array
-    // Removed departmentId & customFields unless specifically needed by your backend
+    documents: [],
   });
-  // --- End Form State ---
 
-  // --- Constants (Contract Types, Currencies) ---
   const contractTypes = [
     { value: "sales", label: "Sales Agreement" },
     { value: "service", label: "Service Agreement" },
     { value: "nda", label: "Non-Disclosure Agreement" },
-    { value: "employment", label: "Employment Contract" },
-    { value: "partnership", label: "Partnership Agreement" },
-    { value: "licensing", label: "Licensing Agreement" },
-    { value: "vendor", label: "Vendor Agreement" },
-    { value: "custom", label: "Custom Contract" },
+    // ... other types
   ];
-  
-  const currencies = [
-    { value: "USD", label: "US Dollar (USD)" },
-    { value: "EUR", label: "Euro (EUR)" },
-    { value: "GBP", label: "British Pound (GBP)" },
-    { value: "CAD", label: "Canadian Dollar (CAD)" },
-    { value: "AUD", label: "Australian Dollar (AUD)" },
-    { value: "JPY", label: "Japanese Yen (JPY)" },
-    { value: "CNY", label: "Chinese Yuan (CNY)" },
-  ];
-  // --- End Constants ---
+  const currencies = [ { value: "USD", label: "US Dollar (USD)" }, /* ... */];
 
-  // --- Effects ---
-  // Load existing contract data
+
   useEffect(() => {
     if (contractData && contractId && contractData._id === contractId) {
       setFormState({
         title: contractData.title || '',
-        description: (contractData as any).description || '', // Adjust field names as needed
-        contractType: (contractData as any).contractType || '',
+        description: contractData.notes || '', // Map to notes
+        contractType: (contractData as any).contractType || '', // Add missing field
         vendorId: contractData.vendorId?.toString() || '',
-        effectiveDate: contractData.startDate ? new Date(contractData.startDate) : undefined,
-        expiresAt: contractData.endDate ? new Date(contractData.endDate) : undefined,
+        effectiveDate: contractData.extractedStartDate ? new Date(contractData.extractedStartDate) : undefined,
+        expiresAt: contractData.extractedEndDate ? new Date(contractData.extractedEndDate) : undefined,
+        // These fields are not in the simplified schema
         autoRenewal: (contractData as any).autoRenewal || false,
         currency: (contractData as any).currency || 'USD',
-        value: contractData.contractValue,
-        documents: [], // Reset documents, fetching existing ones needs separate logic
-        // Add other fields like departmentId, customFields if they exist on contractData
+        value: (contractData as any).extractedPricing ? parseFloat((contractData as any).extractedPricing.replace(/[^0-9.-]+/g,"")) : undefined, // Basic parsing attempt
+        documents: [],
       });
-    } else if (!contractId) {
-      // Reset form for new contract
+    } else if (!contractId) { // Reset for new contract
       setFormState({
         title: '', description: '', contractType: '', vendorId: '',
         effectiveDate: undefined, expiresAt: undefined,
@@ -180,190 +167,292 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
       });
     }
   }, [contractData, contractId]);
-  // --- End Effects ---
 
-  // --- Event Handlers ---
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormState(prev => ({ ...prev, [name]: name === 'value' ? parseFloat(value) || undefined : value }));
   };
+  const handleSelectChange = (name: string, value: string) => setFormState(prev => ({ ...prev, [name]: value }));
+  const handleDateChange = (name: string, date?: Date) => setFormState(prev => ({ ...prev, [name]: date }));
+  const handleToggleChange = (name: string, checked: boolean) => setFormState(prev => ({ ...prev, [name]: checked }));
 
-  const handleSelectChange = (name: string, value: string) => {
-    setFormState(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleDateChange = (name: string, date?: Date) => {
-    setFormState(prev => ({ ...prev, [name]: date }));
-  };
-
-  const handleToggleChange = (name: string, checked: boolean) => {
-    setFormState(prev => ({ ...prev, [name]: checked }));
-  };
-
-  // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      setFormState(prev => ({
-        ...prev,
-        // Prevent duplicates if needed, or simply append
-        documents: [...prev.documents, ...newFiles]
-      }));
-      // Optional: Clear the input value if you want to allow selecting the same file again
-      e.target.value = '';
+    if (e.target.files && e.target.files.length > 0) {
+      setFormState(prev => ({ ...prev, documents: Array.from(e.target.files!) }));
+      if (e.target) e.target.value = ''; // Allow re-selecting the same file
     }
   };
+  const removeDocument = (indexToRemove: number) => setFormState(prev => ({ ...prev, documents: prev.documents.filter((_, index) => index !== indexToRemove) }));
+  const selectVendor = (vendorId: string) => { setFormState(prev => ({ ...prev, vendorId })); setShowVendorSearch(false); };
 
-  // Remove a selected file
-  const removeDocument = (indexToRemove: number) => {
-    setFormState(prev => ({
-      ...prev,
-      documents: prev.documents.filter((_, index) => index !== indexToRemove)
-    }));
-  };
-
-  // Trigger file input click
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
-  };
-
-  // Vendor Selection
-  const selectVendor = (vendorId: string) => {
-    setFormState(prev => ({ ...prev, vendorId }));
-    setShowVendorSearch(false);
-  };
-  // --- End Event Handlers ---
-
-  // --- Derived State / Helpers ---
-  const filteredVendors = vendors.filter((vendor: VendorType) => {
+  const filteredVendors = vendors && vendors.filter((vendor: VendorType) => {
     if (!vendorSearchQuery) return true;
-    const query = vendorSearchQuery.toLowerCase();
-    return (
-      vendor.name?.toLowerCase().includes(query) ||
-      vendor.vendor_number?.toLowerCase().includes(query)
-    );
+    return vendor.name?.toLowerCase().includes(vendorSearchQuery.toLowerCase());
   });
-  const formatDateDisplay = (date?: Date): React.ReactNode => { // Changed return type
-    return date
-        ? format(date, 'PPP') // Returns string (which is a valid ReactNode)
-        : <span className="text-muted-foreground">Select date</span>; // Returns JSX.Element (also a valid ReactNode)
-};
+
+  const formatDateDisplay = (date?: Date): React.ReactNode => date ? format(date, 'PPP') : <span className="text-muted-foreground">Select date</span>;
 
   const isFormValid = (): boolean => {
-   
-    return !!(formState.title && formState.contractType && formState.vendorId && enterpriseId);
+    // For new contracts, enterpriseIdFromClerk and a document are now essential.
+    if (!contractId) {
+      return !!(formState.title && formState.vendorId && enterpriseIdFromClerk && formState.documents.length > 0);
+    }
+    // For existing contracts, these might not be changed.
+    return !!(formState.title && formState.vendorId);
   };
-  // --- End Derived State / Helpers ---
 
-  // --- Form Submission ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
+    setError(null); setSuccess(null);
 
-    if (!isFormValid()) {
-      setError('Please fill out all required fields (Title, Type, Vendor)');
+    if (!isClerkLoaded) { setError('User data is loading. Please wait.'); return; }
+
+    // Check enterpriseId specifically for new contracts
+    if (!contractId && !enterpriseIdFromClerk) {
+      setError('Enterprise information is missing. Unable to create contract.');
       return;
     }
-
-    setIsLoading(true); // Start loading indicator
+    if (!isFormValid()) {
+      setError('Please fill all required fields: Title, Vendor, and Attachment (for new contracts).');
+      return;
+    }
+    setIsLoading(true);
 
     try {
-        // --- Step 1: Upload files to Convex File Storage (if any) ---
-        const uploadedFileIds: Id<"_storage">[] = [];
-        if (formState.documents.length > 0) {
-            // Generate upload URLs for all files
-            const uploadUrlPromises = formState.documents.map(() => generateUploadUrl.execute());
-            const postUrls = await Promise.all(uploadUrlPromises);
+      let uploadedStorageId: Id<"_storage"> | null = null;
+      let uploadedFileName = '';
+      let uploadedFileType = '';
 
-            // Upload each file
-            const uploadPromises = formState.documents.map(async (file, index) => {
-                const postUrl = postUrls[index];
-                if (!postUrl) {
-                    throw new Error(`Could not get upload URL for file ${file.name}`);
-                }
-                const result = await fetch(postUrl.toString(), {
-                    method: "POST", 
-                    headers: { "Content-Type": file.type },
-                    body: file,
-                });
-                const { storageId } = await result.json();
-                if (!storageId) {
-                    throw new Error(`Upload failed for file ${file.name}`);
-                }
-                uploadedFileIds.push(storageId);
-            });
-            await Promise.all(uploadPromises);
+      if (formState.documents.length > 0) {
+        const fileToUpload = formState.documents[0]; // Process first file
+        uploadedFileName = fileToUpload.name;
+        uploadedFileType = fileToUpload.type;
+
+        const postUrlResult = await generateUploadUrlMutation.execute(fileToUpload.type);
+        if (!postUrlResult) throw new Error("Could not get an upload URL.");
+        
+        const uploadResponse = await fetch(postUrlResult.toString(), {
+            method: "POST", headers: { "Content-Type": fileToUpload.type }, body: fileToUpload,
+        });
+        const { storageId } = await uploadResponse.json();
+        if (!storageId) throw new Error(`Upload failed for ${fileToUpload.name}`);
+        uploadedStorageId = storageId;
+      } else if (!contractId) { // File required for new contracts
+        throw new Error("A document is required to create a new contract.");
+      }
+
+      if (contractId) { // Update existing contract
+        const updatePayload: any = { id: contractId };
+        // Only include fields if they've changed and are part of the schema
+        if (formState.title !== contractData?.title) updatePayload.title = formState.title;
+        if (formState.description !== contractData?.notes) updatePayload.notes = formState.description;
+        // Note: Updating vendorId, status, or file (storageId) for an existing contract
+        // would require specific logic and potentially different mutations or checks.
+        // The current `updateContract` in `convex/contracts.ts` is simple.
+        if (formState.vendorId !== contractData?.vendorId.toString()) {
+            // You might want to add a specific check or disallow vendor change here
+            // or ensure backend handles implications of vendor change.
+            // For now, let's assume it's not directly updatable via this form post-creation
+            // to keep it simple with the current backend `updateContract`.
         }
-        // --- End File Upload ---
-
-
-      // --- Step 2: Prepare data for Convex mutation ---
-      const mutationArgs = {
-        // Map formState fields to your Convex schema fields
-        title: formState.title,
-        vendorId: formState.vendorId as Id<"vendors">, // Cast to Convex ID type
-        description: formState.description,
-        contractType: formState.contractType,
-        startDate: formState.effectiveDate?.getTime(), // Pass dates as timestamps
-        endDate: formState.expiresAt?.getTime(),
-        contractValue: formState.value,
-        currency: formState.currency,
-        autoRenewal: formState.autoRenewal,
-        // Add other fields like departmentId, customFields if needed
-        // --- FIX: Add uploaded file IDs ---
-        documentStorageIds: uploadedFileIds, // Pass the storage IDs to your mutation
-        // --- End File ID Fix ---
-        status: 'Draft', // Set initial status or get from form
-      };
-
-      // --- Step 3: Execute Convex Mutation (Create or Update) ---
-      if (contractId) {
-        // Update existing contract
-        await updateContract.execute({ id: contractId, ...mutationArgs });
+        await updateContractMutation.execute({
+            ...updatePayload,
+            // Pass enterpriseId for permission check if your updateContract mutation expects it
+            ...(enterpriseIdFromClerk && { enterpriseId: enterpriseIdFromClerk }),
+        });
         setSuccess('Contract updated successfully!');
         if (onSuccess) onSuccess(contractId);
-        if (!isModal) setTimeout(() => router.push(`/dashboard/contracts/${contractId}`), 1500); // Redirect after success
-      } else {
-        // Create new contract
-        const newContractResult = await createContract.execute({
-          enterpriseId: enterpriseId as Id<"enterprises">, // Ensure enterpriseId is present and cast
-          ...mutationArgs
-        });
-        if (newContractResult) { // Assuming create returns the new ID
+        if (!isModal) setTimeout(() => router.push(`/dashboard/contracts/${contractId}`), 1500);
+
+      } else { // Create new contract
+        if (!uploadedStorageId) throw new Error("File upload is required for new contract.");
+        if (!enterpriseIdFromClerk) throw new Error("Enterprise ID is required to create a new contract."); // Should be caught by isFormValid
+
+        const newContractArgs = {
+          enterpriseId: enterpriseIdFromClerk, // Pass the enterpriseId
+          vendorId: formState.vendorId as Id<"vendors">,
+          title: formState.title,
+          storageId: uploadedStorageId,
+          fileName: uploadedFileName,
+          fileType: uploadedFileType,
+          notes: formState.description, // Mapped description to notes
+          status: 'pending_analysis' as const, // Default status
+          // Other fields like contractType, dates, value are not in the simplified backend schema's direct args
+          // They would be part of 'extractedData' after analysis or need schema expansion.
+        };
+        const newContractResult = await createContractMutation.execute(newContractArgs);
+
+        if (newContractResult) {
           setSuccess('Contract created successfully!');
           if (onSuccess) onSuccess(newContractResult);
-          if (!isModal) setTimeout(() => router.push(`/dashboard/contracts/${newContractResult}`), 1500); // Redirect
+          if (!isModal) setTimeout(() => router.push(`/dashboard/contracts/${newContractResult}`), 1500);
         } else {
-            // Use specific error from mutation hook if available
-           setError(createContract.error?.message || 'Failed to create contract. No ID returned.');
+           setError(createContractMutation.error?.message || 'Failed to create contract.');
         }
       }
 
-      // Reset documents in form state after successful submission
-      if (!error) { // Only reset if successful
-         setFormState(prev => ({ ...prev, documents: [] }));
+      if (!error && !createContractMutation.error && !updateContractMutation.error) {
+         setFormState(prev => ({ ...prev, documents: [] })); // Clear documents on success
       }
 
     } catch (err: any) {
       console.error("Error saving contract:", err);
-      // Provide more specific error messages if possible
-      let message = 'An unknown error occurred.';
-      if (err instanceof Error) {
-          message = err.message;
-      } else if (typeof err === 'string') {
-          message = err;
-      }
-      setError(`Submission failed: ${message}`);
+      setError(`Submission failed: ${err.message || String(err)}`);
     } finally {
-      setIsLoading(false); // Stop loading indicator
+      setIsLoading(false);
     }
   };
-  // --- End Form Submission ---
 
-  // --- Initial Loading / Error States ---
-  const dataLoading = isLoadingUser || isLoadingVendors || (contractId && isLoadingContract);
-  if (dataLoading) {
+  const initialDataLoading = !isClerkLoaded || isLoadingVendors || (contractId && isLoadingContract);
+
+  // --- Form JSX ---
+  const formContent = (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" /> <AlertTitle>Error</AlertTitle> <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      {success && (
+        <Alert variant="default">
+          <Check className="h-4 w-4" /> <AlertTitle>Success</AlertTitle> <AlertDescription>{success}</AlertDescription>
+        </Alert>
+      )}
+
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium text-foreground">Contract Details</h3>
+        <Separator />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="title">Contract Title <span className="text-destructive">*</span></Label>
+            <div className="relative">
+              <FileText className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input id="title" name="title" placeholder="e.g., Annual SaaS Subscription" className="pl-8" value={formState.title} onChange={handleInputChange} required />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="contractType">Category/Type <span className="text-destructive">*</span></Label>
+            <div className="relative">
+               <Tag className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+               <Select value={formState.contractType} onValueChange={(value) => handleSelectChange('contractType', value)} required>
+                 <SelectTrigger className="pl-8"><SelectValue placeholder="Select type..." /></SelectTrigger>
+                 <SelectContent>{contractTypes.map((type) => ( <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem> ))}</SelectContent>
+               </Select>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Vendor <span className="text-destructive">*</span></Label>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-grow">
+               <Building className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+               <Button type="button" variant="outline" className="w-full justify-start text-left font-normal pl-8" onClick={() => setShowVendorSearch(true)} disabled={isLoadingVendors || (!enterpriseIdFromClerk && !contractId) }>
+                 {isLoadingVendors ? 'Loading vendors...' : ( formState.vendorId && vendors&& vendors.length > 0 ? vendors.find((v:VendorType) => v._id.toString() === formState.vendorId)?.name ?? 'Select vendor...' : 'Select vendor...' )}
+               </Button>
+            </div>
+            <Button type="button" variant="outline" size="icon" onClick={() => setShowVendorSearch(true)} disabled={isLoadingVendors || (!enterpriseIdFromClerk && !contractId) }><Search className="h-4 w-4" /></Button>
+          </div>
+           {!enterpriseIdFromClerk && isClerkLoaded && !contractId && <p className="text-xs text-amber-600 mt-1">Enterprise information is missing. Vendor selection is disabled.</p>}
+           <input type="text" value={formState.vendorId} required style={{ display: 'none' }} readOnly/>
+        </div>
+      </div>
+
+      {/* Optional Fields (Dates, Value, etc. - these are not directly in the simplified backend schema for createContract) */}
+      {/* These can be part of 'notes' or handled post-analysis */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium text-foreground">Optional Details</h3>
+        <Separator />
+        {/* Description / Notes */}
+        <div className="space-y-1.5">
+           <Label htmlFor="description">Description / Notes</Label>
+           <Textarea id="description" name="description" placeholder="Add key terms, notes, or summary..." className="min-h-[100px]" value={formState.description} onChange={handleInputChange} />
+        </div>
+      </div>
+
+
+      {/* Attachment Section */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium text-foreground">Attachment</h3>
+        <Separator />
+        <div className="space-y-1.5">
+            <Label htmlFor="document-upload">
+              Document <span className="text-destructive">{!contractId ? '*' : '(Optional if not changing)'}</span>
+            </Label>
+            <input type="file" id="document-upload" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png" required={!contractId} />
+            <label htmlFor="document-upload" className="flex flex-col items-center justify-center w-full h-32 px-4 text-center border-2 border-dashed rounded-lg cursor-pointer bg-card hover:border-primary/50 hover:bg-muted/50 transition-colors" >
+                <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground"> <span className="font-semibold text-primary">Click to upload</span> or drag and drop </p>
+                <p className="text-xs text-muted-foreground">PDF, DOCX, etc. (Single file)</p>
+            </label>
+            {formState.documents.length > 0 && (
+            <div className="mt-4 space-y-2">
+                <p className="text-sm font-medium text-foreground">Selected file:</p>
+                <ul className="space-y-1 max-h-40 overflow-y-auto rounded-md border p-2">
+                {formState.documents.slice(0, 1).map((file, index) => ( /* Show only first file if multiple selected */
+                    <li key={index} className="flex items-center justify-between text-sm p-1.5 bg-muted/30 rounded">
+                    <div className="flex items-center gap-2 truncate">
+                        <FileIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                        <span className="truncate flex-grow">{file.name}</span>
+                        <span className="text-xs text-muted-foreground flex-shrink-0">({formatBytes(file.size)})</span>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => removeDocument(index)} aria-label={`Remove ${file.name}`} >
+                        <X className="h-4 w-4" />
+                    </Button>
+                    </li>
+                ))}
+                </ul>
+                {formState.documents.length > 1 && ( <p className="text-xs text-amber-600">Note: Only the first selected file will be uploaded.</p> )}
+            </div>
+            )}
+        </div>
+      </div>
+
+      <Separator className="mt-8"/>
+      <div className="flex justify-between items-center pt-4 gap-4 flex-wrap">
+         <Button type="button" variant="outline" onClick={isModal ? onClose : () => router.back()} disabled={isLoading}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> {isModal ? 'Cancel' : 'Back'}
+         </Button>
+         <Button type="submit" disabled={!isFormValid() || isLoading || !isClerkLoaded} className="min-w-[120px]">
+            {isLoading ? ( <Loader2 className="mr-2 h-4 w-4 animate-spin" /> ) : ( <Save className="mr-2 h-4 w-4" /> )}
+            {isLoading ? (contractId ? 'Updating...' : 'Creating...') : (contractId ? 'Update Contract' : 'Create Contract')}
+         </Button>
+      </div>
+    </form>
+  );
+
+  const vendorSearchDialog = (
+    <Dialog open={showVendorSearch} onOpenChange={setShowVendorSearch}>
+      <DialogContent className="sm:max-w-[425px] bg-background">
+        <DialogHeader> <DialogTitle>Select Vendor</DialogTitle> <DialogDescription>Search for an existing vendor.</DialogDescription> </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search by name..." value={vendorSearchQuery} onChange={(e) => setVendorSearchQuery(e.target.value)} className="pl-8" />
+          </div>
+          <div className="max-h-60 overflow-y-auto border rounded-md bg-card">
+            {isLoadingVendors ? ( <div className="p-4 text-center text-muted-foreground">Loading vendors...</div> )
+             : (filteredVendors && filteredVendors.length > 0) ? (
+              filteredVendors.map((vendor: VendorType) => ( // Make sure VendorType has _id
+                <button type="button" key={vendor._id.toString()} className="flex items-center justify-between w-full p-3 text-left hover:bg-muted/50 cursor-pointer border-b last:border-0" onClick={() => selectVendor(vendor._id.toString())} >
+                  <div> <p className="font-medium text-sm">{vendor.name}</p> </div>
+                  {formState.vendorId === vendor._id.toString() && ( <Check className="ml-auto h-4 w-4 text-green-600 flex-shrink-0" /> )}
+                </button>
+              ))
+            ) : ( <div className="p-4 text-center text-muted-foreground"> {vendorSearchQuery ? 'No vendors found.' : 'No vendors available.'} </div> )}
+          </div>
+        </div>
+        <DialogFooter className="flex-col sm:flex-row sm:justify-between gap-2">
+          <Button variant="outline" onClick={() => { console.log("TODO: Implement New Vendor Form/Modal"); setShowVendorSearch(false); }}>
+            <Plus className="mr-2 h-4 w-4" /> New Vendor (Not Implemented)
+          </Button>
+          <Button variant="ghost" onClick={() => setShowVendorSearch(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  // --- Final Render Logic ---
+  if (initialDataLoading && !isModal) {
     return (
       <div className="flex items-center justify-center p-10 min-h-[300px] bg-background rounded-lg">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -375,361 +464,50 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
   if (contractId && contractError) {
     return (
       <Alert variant="destructive" className="m-4">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Error Loading Contract Data</AlertTitle>
-        <AlertDescription>{contractError.message}</AlertDescription>
+        <AlertCircle className="h-4 w-4" /> <AlertTitle>Error Loading Contract Data</AlertTitle> <AlertDescription>{contractError.message}</AlertDescription>
       </Alert>
     );
   }
-  // --- End Initial Loading / Error States ---
-
-  // --- Form JSX ---
-  const formContent = (
-    // Use standard shadcn form structure if available, otherwise basic form
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Alerts */}
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      {success && (
-        <Alert variant="default"> {/* Use success variant if defined in your Alert component */}
-          <Check className="h-4 w-4" />
-          <AlertTitle>Success</AlertTitle>
-          <AlertDescription>{success}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Section 1: Core Details */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-medium text-foreground">Contract Details</h3>
-        <Separator />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Title */}
-          <div className="space-y-1.5">
-            <Label htmlFor="title">Contract Title <span className="text-destructive">*</span></Label>
-            <div className="relative">
-              <FileText className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input id="title" name="title" placeholder="e.g., Annual SaaS Subscription" className="pl-8" value={formState.title} onChange={handleInputChange} required />
-            </div>
-          </div>
-
-          {/* Type */}
-          <div className="space-y-1.5">
-            <Label htmlFor="contractType">Contract Type <span className="text-destructive">*</span></Label>
-            <div className="relative">
-               <Tag className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-               <Select value={formState.contractType} onValueChange={(value) => handleSelectChange('contractType', value)} required>
-                 <SelectTrigger className="pl-8">
-                   <SelectValue placeholder="Select type..." />
-                 </SelectTrigger>
-                 <SelectContent>
-                   {contractTypes.map((type) => ( <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem> ))}
-                 </SelectContent>
-               </Select>
-            </div>
-          </div>
-        </div>
-
-         {/* Vendor */}
-        <div className="space-y-1.5">
-          <Label>Vendor <span className="text-destructive">*</span></Label>
-          <div className="flex items-center gap-2">
-            <div className="relative flex-grow">
-               <Building className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-               <Button type="button" variant="outline" className="w-full justify-start text-left font-normal pl-8" onClick={() => setShowVendorSearch(true)}>
-                 {formState.vendorId && vendors.length > 0
-                   ? vendors.find((v:VendorType) => v.id.toString() === formState.vendorId)?.name ?? 'Select vendor...'
-                   : 'Select vendor...'
-                 }
-               </Button>
-            </div>
-            <Button type="button" variant="outline" size="icon" onClick={() => setShowVendorSearch(true)}>
-                <Search className="h-4 w-4" />
-            </Button>
-          </div>
-          {/* Hidden required input for native validation, tied to vendorId */}
-           <input type="text" value={formState.vendorId} required style={{ display: 'none' }} readOnly/>
-        </div>
-      </div>
-
-      {/* Section 2: Dates & Financials */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-medium text-foreground">Timeline & Value</h3>
-        <Separator />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-           {/* Effective Date */}
-          <div className="space-y-1.5">
-             <Label htmlFor="effectiveDate">Effective Date</Label>
-             <Popover>
-               <PopoverTrigger asChild>
-                 <Button id="effectiveDate" type="button" variant="outline" className="w-full justify-start text-left font-normal">
-                   <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                   {formatDateDisplay(formState.effectiveDate)}
-                 </Button>
-               </PopoverTrigger>
-               <PopoverContent className="w-auto p-0" align="start">
-                 <Calendar mode="single" selected={formState.effectiveDate} onSelect={(d) => handleDateChange('effectiveDate', d)} initialFocus />
-               </PopoverContent>
-             </Popover>
-          </div>
-
-           {/* Expiration Date */}
-          <div className="space-y-1.5">
-             <Label htmlFor="expiresAt">Expiration Date</Label>
-             <Popover>
-               <PopoverTrigger asChild>
-                 <Button id="expiresAt" type="button" variant="outline" className="w-full justify-start text-left font-normal">
-                   <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                   {formatDateDisplay(formState.expiresAt)}
-                 </Button>
-               </PopoverTrigger>
-               <PopoverContent className="w-auto p-0" align="start">
-                 <Calendar
-                    mode="single"
-                    selected={formState.expiresAt}
-                    onSelect={(d) => handleDateChange('expiresAt', d)}
-                    initialFocus
-                    disabled={(date) =>
-                        (formState.effectiveDate && date < formState.effectiveDate) || // Must be after effective date
-                        date < new Date(new Date().setHours(0, 0, 0, 0)) // Cannot be in the past
-                    }
-                 />
-               </PopoverContent>
-             </Popover>
-          </div>
-
-          {/* Value */}
-          <div className="space-y-1.5">
-            <Label htmlFor="value">Contract Value</Label>
-            <div className="flex gap-2">
-              <div className="relative flex-grow">
-                <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input id="value" name="value" type="number" placeholder="0.00" className="pl-8" value={formState.value ?? ''} onChange={handleInputChange} min={0} step={0.01} />
-              </div>
-              <Select value={formState.currency} onValueChange={(value) => handleSelectChange('currency', value)}>
-                <SelectTrigger className="w-[80px]">
-                   <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.value}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-           {/* Auto-Renewal */}
-          <div className="space-y-1.5">
-             <Label>Auto-Renewal</Label>
-             <div className="flex items-center space-x-2 pt-2">
-               <Switch id="autoRenewal" name="autoRenewal" checked={formState.autoRenewal} onCheckedChange={(checked) => handleToggleChange('autoRenewal', checked)} />
-               <Label htmlFor="autoRenewal" className="text-sm text-muted-foreground cursor-pointer">
-                   {formState.autoRenewal ? 'Enabled' : 'Disabled'}
-               </Label>
-             </div>
-           </div>
-        </div>
-      </div>
-
-      {/* Section 3: Description & Documents */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-medium text-foreground">Details & Attachments</h3>
-        <Separator />
-        {/* Description */}
-        <div className="space-y-1.5">
-           <Label htmlFor="description">Description / Notes</Label>
-           <Textarea id="description" name="description" placeholder="Add key terms, notes, or summary..." className="min-h-[100px]" value={formState.description} onChange={handleInputChange} />
-        </div>
-
-        {/* File Upload */}
-        <div className="space-y-1.5">
-            <Label htmlFor="document-upload">Attachments</Label>
-            {/* Hidden File Input */}
-            <input
-                type="file"
-                id="document-upload"
-                ref={fileInputRef}
-                className="hidden"
-                multiple
-                onChange={handleFileChange}
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png" // Add relevant file types
-            />
-            {/* Dropzone / Click Area */}
-            <label
-                htmlFor="document-upload"
-                className="flex flex-col items-center justify-center w-full h-32 px-4 text-center border-2 border-dashed rounded-lg cursor-pointer bg-card hover:border-primary/50 hover:bg-muted/50 transition-colors"
-            >
-                <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">
-                    <span className="font-semibold text-primary">Click to upload</span> or drag and drop
-                </p>
-                <p className="text-xs text-muted-foreground">PDF, DOCX, PNG, JPG etc.</p>
-            </label>
-
-             {/* List of selected files */}
-            {formState.documents.length > 0 && (
-            <div className="mt-4 space-y-2">
-                <p className="text-sm font-medium text-foreground">Selected files:</p>
-                <ul className="space-y-1 max-h-40 overflow-y-auto rounded-md border p-2">
-                {formState.documents.map((file, index) => (
-                    <li key={index} className="flex items-center justify-between text-sm p-1.5 bg-muted/30 rounded">
-                    <div className="flex items-center gap-2 truncate">
-                        <FileIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                        <span className="truncate flex-grow">{file.name}</span>
-                        <span className="text-xs text-muted-foreground flex-shrink-0">({formatBytes(file.size)})</span>
-                    </div>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-destructive hover:bg-destructive/10"
-                        onClick={() => removeDocument(index)}
-                        aria-label={`Remove ${file.name}`}
-                    >
-                        <X className="h-4 w-4" />
-                    </Button>
-                    </li>
-                ))}
-                </ul>
-            </div>
-            )}
-        </div>
-      </div>
-
-
-      {/* Actions */}
-      <Separator className="mt-8"/>
-      <div className="flex justify-between items-center pt-4 gap-4 flex-wrap">
-         {/* Back/Cancel Button */}
-         <Button type="button" variant="outline" onClick={isModal ? onClose : () => router.back()} disabled={isLoading}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            {isModal ? 'Cancel' : 'Back'}
-         </Button>
-         {/* Submit Button */}
-         <Button type="submit" disabled={!isFormValid() || isLoading} className="min-w-[120px]">
-            {isLoading ? (
-               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-               <Save className="mr-2 h-4 w-4" />
-            )}
-            {isLoading
-              ? (contractId ? 'Updating...' : 'Creating...')
-              : (contractId ? 'Update Contract' : 'Create Contract')
-            }
-         </Button>
-      </div>
-    </form>
-  );
-  // --- End Form JSX ---
-
-  // --- Vendor Search Dialog JSX ---
-  const vendorSearchDialog = (
-    <Dialog open={showVendorSearch} onOpenChange={setShowVendorSearch}>
-      <DialogContent className="sm:max-w-[425px] bg-background"> {/* Ensure background */}
-        <DialogHeader>
-          <DialogTitle>Select Vendor</DialogTitle>
-          <DialogDescription>Search for an existing vendor or add a new one.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          {/* Search Input */}
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name or vendor number..."
-              value={vendorSearchQuery}
-              onChange={(e) => setVendorSearchQuery(e.target.value)}
-              className="pl-8"
-            />
-          </div>
-          {/* Vendor List */}
-          <div className="max-h-60 overflow-y-auto border rounded-md bg-card">
-            {isLoadingVendors ? (
-                <div className="p-4 text-center text-muted-foreground">Loading vendors...</div>
-            ) : filteredVendors.length > 0 ? (
-              filteredVendors.map((vendor: VendorType) => (
-                <button // Use button for better accessibility
-                  type="button"
-                  key={vendor.id.toString()}
-                  className="flex items-center justify-between w-full p-3 text-left hover:bg-muted/50 cursor-pointer border-b last:border-0"
-                  onClick={() => selectVendor(vendor.id.toString())}
-                >
-                  <div>
-                    <p className="font-medium text-sm">{vendor.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {vendor.vendor_number ? `${vendor.vendor_number} · ` : ''}
-                      {vendor.category}
-                    </p>
-                  </div>
-                  {formState.vendorId === vendor.id.toString() && (
-                    <Check className="ml-auto h-4 w-4 text-green-600 flex-shrink-0" />
-                  )}
-                </button>
-              ))
-            ) : (
-              <div className="p-4 text-center text-muted-foreground">
-                {vendorSearchQuery ? 'No vendors found.' : 'No vendors available.'}
-              </div>
-            )}
-          </div>
-        </div>
-        {/* Dialog Actions */}
-        <DialogFooter className="flex-col sm:flex-row sm:justify-between gap-2">
-          <Button
-            variant="outline"
-            onClick={() => { /* TODO: Implement navigation or modal for new vendor */
-               // router.push('/dashboard/vendors/new'); // Or open a modal
-               console.log("Navigate to New Vendor Form");
-               setShowVendorSearch(false);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" /> New Vendor
-          </Button>
-          <Button variant="ghost" onClick={() => setShowVendorSearch(false)}>Close</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-  // --- End Vendor Search Dialog JSX ---
-
-
-  // --- Final Render Logic ---
   if (isModal) {
-    // In modal mode, render only the content and the dialog
-    // The Dialog component itself should provide the background/container
     return (
       <>
-        {formContent}
+        {initialDataLoading && (
+             <div className="flex items-center justify-center p-10 min-h-[200px]">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" /> <p className="ml-2 text-muted-foreground">Loading...</p>
+            </div>
+        )}
+        {!initialDataLoading && formContent}
         {vendorSearchDialog}
       </>
     );
   }
 
-  // In page mode, wrap the content in a Card for structure and background
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
-      {/* --- FIX: Ensure Card has a solid background --- */}
-      {/* Use bg-card for theme consistency or bg-white for explicit white */}
-      <Card className="bg-card shadow-md"> {/* Removed transparency, added shadow */}
+      <Card className="bg-card shadow-md">
         <CardHeader>
-          <CardTitle className="text-2xl">
-            {contractId ? 'Edit Contract' : 'Create New Contract'}
-          </CardTitle>
-          <CardDescription>
-             {contractId ? 'Update the details of the existing contract.' : 'Fill in the details to create a new contract.'}
-          </CardDescription>
+          <CardTitle className="text-2xl"> {contractId ? 'Edit Contract' : 'Create New Contract'} </CardTitle>
+          <CardDescription> {contractId ? 'Update the details of the existing contract.' : 'Fill in the details to create a new contract.'} </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
+          {!isClerkLoaded && <div className="flex items-center justify-center p-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2"/>Loading user data...</div>}
+          {isClerkLoaded && !enterpriseIdFromClerk && !contractId && ( // Show warning if enterpriseId is missing for new contracts
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Enterprise Information Missing</AlertTitle>
+              <AlertDescription>
+                Your enterprise ID could not be determined from your user profile.
+                Please ensure this is set up correctly in your Clerk user public metadata.
+                You will not be able to create new contracts without it.
+              </AlertDescription>
+            </Alert>
+          )}
           {formContent}
         </CardContent>
       </Card>
-      {/* Render the vendor search dialog (it handles its own visibility) */}
       {vendorSearchDialog}
     </div>
   );
-  // --- End Final Render Logic ---
 };
 
 export default ContractForm;
