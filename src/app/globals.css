@@ -34,9 +34,9 @@
     --radius: 0.25rem; /* Reduced radius for more refined look */
 
     /* Gold accent color for luxury feel */
-    --elegant-gold: 38 55% 58%; /* More muted, sophisticated gold */
-    --elegant-gold-light: 38 50% 70%; /* Lighter, subtle version */  
-    --elegant-gold-dark: 38 50% 45%; /* Deeper, richer version */
+    --elegant-gold: 38 55% 58%;
+    --elegant-gold-light: 38 50% 70%;
+    --elegant-gold-dark: 38 50% 45%; 
 
     /* Chart colors */
     --chart-1: 215 70% 35%;
@@ -137,7 +137,6 @@
     cursor: pointer !important;
   }
 
-  /* Removed the conflicting .text-gradient-gold definition from here */
   
    .animate-fade-in-up {
     animation: fade-in-up 0.7s ease-out forwards;
@@ -154,7 +153,11 @@
 
 .bg-gold {
   background-color: hsl(var(--elegant-gold));
+
+  
 }
+
+
 
 .from-gold {
   --tw-gradient-from: hsl(var(--elegant-gold)) var(--tw-gradient-from-position);
@@ -235,12 +238,10 @@ select,
   cursor: pointer;
 }
 
-/* Add this for staggered animations */
 .stagger-children > * {
-  opacity: 0; /* Start hidden for animation */
+  opacity: 0; 
 }
 @layer utilities {
-  /* ... (other utilities) ... */
   .gold-gradient {
     background: linear-gradient(135deg, hsl(var(--gold)) 0%, hsl(var(--gold-dark)) 100%);
   }
@@ -273,27 +274,4 @@ select,
   .animation-delay-600 { animation-delay: 600ms; }
   .animation-delay-800 { animation-delay: 800ms; } /* Added more delays */
   .animation-delay-1000 { animation-delay: 1000ms; }
-}
-
-/* ... (rest of your keyframes and other styles) */
-
-/* Keyframes for delicate-sweep-in (already in tailwind.config.js, but ensure it's being picked up) */
-/* If Tailwind's JIT doesn't pick it up for some reason, you might need it here, but ideally, config is enough */
-
-@keyframes delicate-sweep-in {
-  0% {
-    opacity: 0;
-    transform: translateY(35px) rotateX(-15deg) scale(0.97);
-    filter: blur(2px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) rotateX(0deg) scale(1);
-    filter: blur(0px);
-  }
-}
-
-.stagger-children > * {
-  opacity: 0; /* Start hidden for animation */
-  transform-style: preserve-3d; /* Good for 3D transforms */
 }

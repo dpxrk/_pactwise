@@ -20,8 +20,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 // --- FIX: Import the CORRECT hooks from api-client ---
 import {
-  useContractAnalytics, // <-- Use this hook
-  useCurrentUser,       // <-- Use this to get enterpriseId
   useConvexQuery        // <-- Keep this for expiringContracts (if it doesn't need enterpriseId)
 } from "@/lib/api-client"; // Adjust path if necessary
 import { api } from "../../../../convex/_generated/api";

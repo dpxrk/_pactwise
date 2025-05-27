@@ -7,9 +7,14 @@ import { Footer } from "@/app/_components/homepage/Footer";
 import  LoadingSpinner  from "@/app/_components/common/LoadingSpinner"
 import "@/app/globals.css"
 
+
+import AuthRedirectHandler from "../app/../lib/AuthRedirectHandler"
+
 const LandingPage = () => {
   return (
     <div className="relative min-h-screen bg-background/50 overflow-hidden">
+   
+    <AuthRedirectHandler />
       <div className="relative z-10 flex flex-col min-h-screen">
         <Navigation />
 

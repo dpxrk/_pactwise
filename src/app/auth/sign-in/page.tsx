@@ -39,6 +39,8 @@ export default function SignInPage() {
             routing="path" 
             path="/auth/sign-in" 
             signUpUrl="/auth/sign-up"
+            forceRedirectUrl="/dashboard"
+            fallbackRedirectUrl="/dashboard"
             appearance={{
               elements: {
                 formButtonPrimary: 

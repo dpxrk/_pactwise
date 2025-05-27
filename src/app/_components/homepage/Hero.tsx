@@ -4,12 +4,11 @@ import { ArrowRight, Bot, Zap, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/app/_components/common/Container";
 
-
 export const Hero = () => {
   return (
-
     <div className="relative pt-24 pb-20 md:pt-32 md:pb-28 bg-gradient-to-b from-slate-50 to-transparent overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Kept subtle background animations for "life" */}
         <div className="absolute top-0 right-0 w-1/3 h-1/3 bg-gradient-to-br from-gold/10 to-transparent animate-gentle-pulse" />
         <div className="absolute bottom-0 left-0 w-1/4 h-1/4 bg-gradient-to-tr from-primary/5 to-transparent animate-gentle-pulse animation-delay-2000" />
         <div className="absolute top-1/4 left-1/3 w-1 h-16 bg-gold/30 animate-float" />
@@ -41,7 +40,7 @@ export const Hero = () => {
 
           <div className="mt-10 flex flex-wrap justify-center gap-4 text-sm">
             <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm rounded-full px-4 py-2 border border-gold/20 hover:shadow-luxury-sm transition-shadow duration-300">
-              <Bot className="w-4 h-4 text-gold" />
+              <Bot className="w-4 h-4 text-gold" /> {/* text-gold will be standard, not gradient here unless you add text-gradient-gold */}
               <span className="text-primary/80">Autonomous AI Agents</span>
             </div>
             <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm rounded-full px-4 py-2 border border-gold/20 hover:shadow-luxury-sm transition-shadow duration-300">

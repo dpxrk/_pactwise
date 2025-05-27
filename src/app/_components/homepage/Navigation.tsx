@@ -10,8 +10,6 @@ import { useRouter } from "next/navigation";
 import { useAuth, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 
 const navItems = [
-  // { href: "#features", label: "Features" },
-  // { href: "#benefits", label: "Benefits" },
   { href: "#contact", label: "Contact" },
 ];
 
@@ -48,17 +46,25 @@ export const Navigation = () => {
                 >
                   Dashboard
                 </Button>
-                <UserButton  />
+                <UserButton afterSignOutUrl="/" />
               </div>
             ) : (
               <div className="flex items-center space-x-4">
-                <SignInButton mode="modal">
+                <SignInButton 
+                  mode="modal"
+                  forceRedirectUrl="/dashboard"
+                  fallbackRedirectUrl="/dashboard"
+                >
                   <Button variant="outline" className="border-gold/50 text-primary hover:bg-gold/5">
                     Sign In
                   </Button>
                 </SignInButton>
-                <SignUpButton mode="modal">
-                <Button variant="outline" className="border-gold/50 text-primary hover:bg-gold/5 w-half">
+                <SignUpButton 
+                  mode="modal"
+                  forceRedirectUrl="/dashboard"
+                  fallbackRedirectUrl="/dashboard"
+                >
+                  <Button variant="outline" className="border-gold/50 text-primary hover:bg-gold/5 w-half">
                     Sign Up
                   </Button>
                 </SignUpButton>
@@ -103,13 +109,21 @@ export const Navigation = () => {
                       </div>
                     ) : (
                       <div className="flex flex-col gap-4">
-                        <SignInButton mode="modal">
+                        <SignInButton 
+                          mode="modal"
+                          forceRedirectUrl="/dashboard"
+                          fallbackRedirectUrl="/dashboard"
+                        >
                           <Button variant="outline" className="border-gold/50 text-primary hover:bg-gold/5 w-full">
                             Sign In
                           </Button>
                         </SignInButton>
-                        <SignUpButton mode="modal">
-                        <Button variant="outline" className="border-gold/50 text-primary hover:bg-gold/5 w-full">
+                        <SignUpButton 
+                          mode="modal"
+                          forceRedirectUrl="/dashboard"
+                          fallbackRedirectUrl="/dashboard"
+                        >
+                          <Button variant="outline" className="border-gold/50 text-primary hover:bg-gold/5 w-full">
                             Sign Up
                           </Button>
                         </SignUpButton>

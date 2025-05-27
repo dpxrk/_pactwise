@@ -3,7 +3,7 @@
 import { Shield, FileText, Users, BarChart2, Bot, Brain, Zap, Eye } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Container } from "@/app/_components/common/Container";
-import React from 'react'; // Removed useEffect, useRef
+import React from 'react';
 import { cn } from "@/lib/utils";
 
 const features = [
@@ -59,9 +59,8 @@ const features = [
 
 export const Features = () => {
   return (
-    <section className="relative bg-gradient-to-t from-slate-50/50 to-transparent perspective">
+    <section className="relative bg-gradient-to-t from-slate-50/50 to-transparent">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Decorative elements can still have Tailwind's built-in animations if desired, or remove these too */}
         <div className="absolute bottom-0 right-1/4 w-1/3 h-1/3 bg-gradient-to-tl from-gold/5 to-transparent animate-gentle-pulse" />
         <div className="absolute top-1/3 left-0 w-1/4 h-1/4 bg-gradient-to-tr from-primary/5 to-transparent animate-gentle-pulse animation-delay-2000" />
       </div>
@@ -95,13 +94,12 @@ export const Features = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { icon: <Bot className="w-10 h-10 text-gradient-gold text-gold" />, title: "Financial Agent", desc: "Analyzes costs, identifies savings, and monitors financial compliance with precision." },
-              { icon: <Shield className="w-10 h-10 text-primary text-gold" />, title: "Legal Agent", desc: "Reviews contracts for legal compliance, risk assessment, and regulatory alignment meticulously." },
-              { icon: <BarChart2 className="w-10 h-10 text-gradient-gold text-gold" />, title: "Analytics Agent", desc: "Generates insights, tracks KPIs, and provides predictive analytics for strategic decision making." }
+              { icon: <Bot className="w-10 h-10 text-gradient-gold" />, title: "Financial Agent", desc: "Analyzes costs, identifies savings, and monitors financial compliance with precision." },
+              { icon: <Shield className="w-10 h-10 text-primary" />, title: "Legal Agent", desc: "Reviews contracts for legal compliance, risk assessment, and regulatory alignment meticulously." },
+              { icon: <BarChart2 className="w-10 h-10 text-gradient-gold" />, title: "Analytics Agent", desc: "Generates insights, tracks KPIs, and provides predictive analytics for strategic decision making." }
             ].map((agent, idx) => (
               <div key={idx} className="text-center">
                 <div className="w-20 h-20 bg-card/50 border border-gold/20 rounded-full flex items-center justify-center mx-auto mb-5 shadow-luxury-sm group hover:bg-gold/10 transition-all duration-300 transform group-hover:scale-105">
-                   
                   {React.cloneElement(agent.icon, { className: cn(agent.icon.props.className, "transform transition-transform duration-300 group-hover:scale-110") })}
                 </div>
                 <h4 className="font-semibold text-xl text-primary mb-2">{agent.title}</h4>
@@ -123,7 +121,6 @@ export const Features = () => {
             >
               <CardHeader className="pb-4">
                 <div className="mb-4 p-3 bg-primary/5 rounded-lg inline-block group-hover:bg-gold/10 transition-colors duration-300 transform group-hover:scale-105">
-                 
                   {React.cloneElement(feature.icon, { className: "h-10 w-10 text-gradient-gold transition-transform duration-300 group-hover:scale-110" })}
                 </div>
                 <CardTitle className="text-xl font-serif text-primary group-hover:text-gradient-gold transition-colors duration-300">
