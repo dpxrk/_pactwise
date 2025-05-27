@@ -26,6 +26,7 @@ import {
   Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Agent } from "@/types/agents.types";
 
 export const AgentDashboard = () => {
   const [isInitializing, setIsInitializing] = useState(false);
@@ -300,7 +301,7 @@ export const AgentDashboard = () => {
         <TabsContent value="agents">
           <div className="grid gap-4">
             {agents && agents.length > 0 ? (
-              agents.map((agent) => (
+              agents.map((agent:Agent) => (
                 <Card key={agent._id}>
                   <CardHeader>
                     <div className="flex justify-between items-center">
@@ -368,7 +369,7 @@ export const AgentDashboard = () => {
         <TabsContent value="insights">
           <div className="space-y-4">
             {recentInsights && recentInsights.length > 0 ? (
-              recentInsights.map((insight) => (
+              recentInsights.map((insight:any) => (
                 <Card key={insight._id} className={cn(!insight.isRead && "border-l-4 border-l-blue-500")}>
                   <CardHeader>
                     <div className="flex justify-between items-start">
@@ -423,7 +424,7 @@ export const AgentDashboard = () => {
         <TabsContent value="logs">
           <div className="space-y-2">
             {recentLogs && recentLogs.length > 0 ? (
-              recentLogs.map((log) => (
+              recentLogs.map((log:any) => (
                 <div
                   key={log._id}
                   className={cn(
