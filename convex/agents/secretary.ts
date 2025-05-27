@@ -422,7 +422,7 @@ async function monitorTaskQueue(
 }
 
 async function generateIntakeInsights(
-  ctx: any, // Consider MutationCtx
+  ctx: any, 
   agentId: Id<"agents">
 ): Promise<void> {
   const thirtyDaysAgoTimestamp = Date.now() - (30 * 24 * 60 * 60 * 1000);
