@@ -13,10 +13,13 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
-import type * as auth from "../auth.js";
+import type * as agent_schema from "../agent_schema.js";
+import type * as agents_financial from "../agents/financial.js";
+import type * as agents_legal from "../agents/legal.js";
+import type * as agents_manager from "../agents/manager.js";
+import type * as agents_secretary from "../agents/secretary.js";
 import type * as contracts from "../contracts.js";
 import type * as server from "../server.js";
-import type * as users from "../users.js";
 import type * as vendors from "../vendors.js";
 
 /**
@@ -28,10 +31,13 @@ import type * as vendors from "../vendors.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
-  auth: typeof auth;
+  agent_schema: typeof agent_schema;
+  "agents/financial": typeof agents_financial;
+  "agents/legal": typeof agents_legal;
+  "agents/manager": typeof agents_manager;
+  "agents/secretary": typeof agents_secretary;
   contracts: typeof contracts;
   server: typeof server;
-  users: typeof users;
   vendors: typeof vendors;
 }>;
 export declare const api: FilterApi<

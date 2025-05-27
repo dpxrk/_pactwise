@@ -159,19 +159,19 @@ export const Footer = () => {
               <li className="flex items-center justify-center space-x-2">
                 <Mail className="h-3 w-3 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
-                  daniel.park2@richemont.com
+                  danielpark0503@gmail.com
                 </span>
               </li>
               <li className="flex items-center justify-center space-x-2">
                 <Phone className="h-3 w-3 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
-                  +1 (917) 656-9998
+                  +1 (908) 239 4019
                 </span>
               </li>
               <li className="flex items-center justify-center space-x-2">
                 <MapPin className="h-3 w-3 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
-                  New York, NY 10022
+                  New York
                 </span>
               </li>
             </ul>

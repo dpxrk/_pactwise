@@ -1,7 +1,7 @@
 // convex/schema.ts
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { agentTables } from "./agent-schema";
+import { agentTables } from "./agent_schema";
 
 // ============================================================================
 // OPTIONS / ENUMS
