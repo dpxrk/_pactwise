@@ -835,14 +835,14 @@ async function compareWithSimilarContracts(ctx: any, contract: any): Promise<any
 
   const currentValue = parseContractValue(contract.extractedPricing || "0");
   const similarValues = similarContracts
-    .map(c => parseContractValue(c.extractedPricing || "0"))
-    .filter(v => v > 0);
+    .map((c:any) => parseContractValue(c.extractedPricing || "0"))
+    .filter((v:any) => v > 0);
 
   if (similarValues.length === 0 || currentValue === 0) {
     return { priceVariance: 0, potentialSavings: 0 };
   }
 
-  const averageSimilar = similarValues.reduce((a, b) => a + b, 0) / similarValues.length;
+  const averageSimilar = similarValues.reduce((a:any, b:any) => a + b, 0) / similarValues.length;
   const variance = ((currentValue - averageSimilar) / averageSimilar) * 100;
   const savings = variance > 0 ? currentValue - averageSimilar : 0;
 
@@ -852,4 +852,351 @@ async function compareWithSimilarContracts(ctx: any, contract: any): Promise<any
     averageMarketPrice: averageSimilar,
     sampleSize: similarValues.length,
   };
+}
+
+async function assessFinancialRisk(ctx: any, agentId: Id<"agents">, task: any): Promise<any> {
+  const contract = await ctx.db.get(task.contractId);
+  if (!contract) {
+    throw new Error("Contract not found for risk assessment");
+  }
+
+  const riskFactors = [];
+  let riskScore = 0;
+
+  // Assess contract value risk
+  const value = parseContractValue(contract.extractedPricing || "0");
+  if (value > FINANCIAL_CONFIG.thresholds.criticalSpend) {
+    riskFactors.push("Very high contract value");
+    riskScore += 30;
+  } else if (value > FINANCIAL_CONFIG.thresholds.highValue) {
+    riskFactors.push("High contract value");
+    riskScore += 15;
+  }
+
+  // Assess payment terms risk
+  if (contract.extractedPaymentSchedule) {
+    const paymentAnalysis = analyzePaymentTerms(contract.extractedPaymentSchedule);
+    if (paymentAnalysis.hasUnfavorableTerms) {
+      riskFactors.push("Unfavorable payment terms");
+      riskScore += 10;
+    }
+  }
+
+  // Assess duration risk
+  if (contract.extractedStartDate && contract.extractedEndDate) {
+    const duration = Math.ceil(
+      (new Date(contract.extractedEndDate).getTime() - new Date(contract.extractedStartDate).getTime()) / 
+      (1000 * 60 * 60 * 24)
+    );
+    if (duration > 1095) { // More than 3 years
+      riskFactors.push("Long-term commitment");
+      riskScore += 15;
+    }
+  }
+
+  const riskLevel = riskScore > 40 ? "high" : riskScore > 20 ? "medium" : "low";
+
+  return {
+    riskScore,
+    riskLevel,
+    riskFactors,
+    recommendations: generateRiskRecommendations(riskFactors, riskLevel),
+  };
+}
+
+async function verifyPaymentTerms(ctx: any, agentId: Id<"agents">, task: any): Promise<any> {
+  const contract = await ctx.db.get(task.contractId);
+  if (!contract) {
+    throw new Error("Contract not found for payment verification");
+  }
+
+  const verification = {
+    isValid: true,
+    issues: [] as string[],
+    recommendations: [] as string[],
+  };
+
+  if (!contract.extractedPaymentSchedule) {
+    verification.isValid = false;
+    verification.issues.push("No payment schedule found in contract");
+    verification.recommendations.push("Review contract for payment terms");
+    return verification;
+  }
+
+  const paymentAnalysis = analyzePaymentTerms(contract.extractedPaymentSchedule);
+  
+  if (paymentAnalysis.hasUnfavorableTerms) {
+    verification.issues.push(paymentAnalysis.concern);
+    verification.recommendations.push("Consider renegotiating payment terms");
+  }
+
+  // Check for reasonable payment frequency
+  if (paymentAnalysis.frequency === "unknown") {
+    verification.issues.push("Payment frequency unclear");
+    verification.recommendations.push("Clarify payment schedule with vendor");
+  }
+
+  return verification;
+}
+
+async function compareCosts(ctx: any, agentId: Id<"agents">, task: any): Promise<any> {
+  const contract = await ctx.db.get(task.contractId);
+  if (!contract) {
+    throw new Error("Contract not found for cost comparison");
+  }
+
+  const comparison = await compareWithSimilarContracts(ctx, contract);
+  
+  return {
+    currentValue: parseContractValue(contract.extractedPricing || "0"),
+    marketAverage: comparison.averageMarketPrice || 0,
+    variance: comparison.priceVariance,
+    potentialSavings: comparison.potentialSavings,
+    recommendation: comparison.priceVariance > 15 
+      ? "Consider renegotiation - price significantly above market"
+      : "Price appears competitive",
+  };
+}
+
+async function updateAgentMetrics(
+  ctx: any,
+  agentId: Id<"agents">,
+  runData: {
+    runTime: number;
+    tasksProcessed: number;
+    portfolioInsights: number;
+    paymentAlerts: number;
+    savingsFound: number;
+    anomaliesDetected: number;
+  }
+): Promise<void> {
+  const agent = await ctx.db.get(agentId);
+  if (!agent) return;
+
+  const existingMetrics = (agent.metrics as FinancialAgentMetrics) || {
+    totalRuns: 0,
+    successfulRuns: 0,
+    failedRuns: 0,
+    averageRunTime: 0,
+    contractsAnalyzed: 0,
+    totalValueAnalyzed: 0,
+    risksIdentified: 0,
+    savingsIdentified: 0,
+    paymentsTracked: 0,
+    anomaliesDetected: 0,
+  };
+
+  const newMetrics: FinancialAgentMetrics = {
+    ...existingMetrics,
+    totalRuns: existingMetrics.totalRuns + 1,
+    successfulRuns: existingMetrics.successfulRuns + 1,
+    averageRunTime: 
+      ((existingMetrics.averageRunTime * existingMetrics.totalRuns) + runData.runTime) / 
+      (existingMetrics.totalRuns + 1),
+    lastRunDuration: runData.runTime,
+    contractsAnalyzed: (existingMetrics.contractsAnalyzed || 0) + runData.tasksProcessed,
+    anomaliesDetected: (existingMetrics.anomaliesDetected || 0) + runData.anomaliesDetected,
+    insightsGenerated: (existingMetrics.insightsGenerated || 0) + 
+      runData.portfolioInsights + runData.paymentAlerts + runData.savingsFound + runData.anomaliesDetected,
+  };
+
+  await ctx.db.patch(agentId, {
+    status: "active",
+    lastSuccess: new Date().toISOString(),
+    runCount: (agent.runCount || 0) + 1,
+    metrics: newMetrics,
+  });
+}
+
+async function handleAgentError(ctx: any, agentId: Id<"agents">, error: any): Promise<void> {
+  await ctx.db.insert("agentLogs", {
+    agentId,
+    level: "error",
+    message: "Financial agent failed",
+    data: { error: error instanceof Error ? error.message : String(error) },
+    timestamp: new Date().toISOString(),
+    category: "agent_execution",
+  });
+
+  const agent = await ctx.db.get(agentId);
+  if (agent) {
+    const existingMetrics = (agent.metrics as FinancialAgentMetrics) || {
+      totalRuns: 0,
+      successfulRuns: 0,
+      failedRuns: 0,
+      averageRunTime: 0,
+    };
+
+    await ctx.db.patch(agentId, {
+      status: "error",
+      errorCount: (agent.errorCount || 0) + 1,
+      lastError: error instanceof Error ? error.message : String(error),
+      metrics: {
+        ...existingMetrics,
+        totalRuns: existingMetrics.totalRuns + 1,
+        failedRuns: existingMetrics.failedRuns + 1,
+      },
+    });
+  }
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+
+
+function calculateAnnualizedValue(contract: any): number {
+  const totalValue = parseContractValue(contract.extractedPricing || "0");
+  
+  if (!contract.extractedStartDate || !contract.extractedEndDate) {
+    return totalValue; // Assume annual if no dates
+  }
+
+  try {
+    const startDate = new Date(contract.extractedStartDate);
+    const endDate = new Date(contract.extractedEndDate);
+    const durationDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (durationDays <= 0) return totalValue;
+    
+    const annualizedValue = (totalValue / durationDays) * 365;
+    return annualizedValue;
+  } catch (error) {
+    return totalValue; // Fallback if date parsing fails
+  }
+}
+
+function calculateCostPerUnit(contract: any): number {
+  const totalValue = parseContractValue(contract.extractedPricing || "0");
+  
+  // Extract potential unit information from scope or pricing
+  const scope = contract.extractedScope || "";
+  const pricing = contract.extractedPricing || "";
+  
+  // Simple heuristics to find units
+  const unitMatches = [...scope.matchAll(/(\d+)\s*(users?|licenses?|seats?|months?)/gi)];
+  
+  if (unitMatches.length > 0) {
+    const units = parseInt(unitMatches[0][1]);
+    if (units > 0) {
+      return totalValue / units;
+    }
+  }
+  
+  return totalValue; // Return total if no units found
+}
+
+function calculatePaybackPeriod(contract: any): number {
+  // Simple payback calculation - would need more business logic
+  const value = parseContractValue(contract.extractedPricing || "0");
+  const estimatedMonthlySavings = value * 0.1; // Assume 10% monthly benefit
+  
+  if (estimatedMonthlySavings <= 0) return Infinity;
+  
+  return value / estimatedMonthlySavings; // Months to payback
+}
+
+function calculateTCO(contract: any): number {
+  const baseValue = parseContractValue(contract.extractedPricing || "0");
+  
+  // Add estimated additional costs (implementation, training, maintenance)
+  const implementationCost = baseValue * 0.15; // 15% for setup
+  const maintenanceCost = baseValue * 0.1; // 10% annual maintenance
+  
+  return baseValue + implementationCost + maintenanceCost;
+}
+
+function calculateStatistics(values: number[]): { mean: number; stdDev: number; median: number } {
+  if (values.length === 0) return { mean: 0, stdDev: 0, median: 0 };
+  
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  
+  const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+  const stdDev = Math.sqrt(variance);
+  
+  const sorted = [...values].sort((a, b) => a - b);
+  const median = sorted.length % 2 === 0 
+    ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+    : sorted[Math.floor(sorted.length / 2)];
+  
+  return { mean, stdDev, median };
+}
+
+function calculateGrowthRate(values: number[]): number {
+  if (values.length < 2) return 0;
+  
+  // Simple linear regression to find growth trend
+  const n = values.length;
+  const xSum = n * (n - 1) / 2; // Sum of indices 0, 1, 2, ...
+  const ySum = values.reduce((a, b) => a + b, 0);
+  const xySum = values.reduce((sum, val, index) => sum + (val * index), 0);
+  const xxSum = n * (n - 1) * (2 * n - 1) / 6; // Sum of squares
+  
+  const slope = (n * xySum - xSum * ySum) / (n * xxSum - xSum * xSum);
+  const avgValue = ySum / n;
+  
+  return avgValue > 0 ? slope / avgValue : 0; // Growth rate as percentage
+}
+
+function parsePaymentSchedule(scheduleText: string): Array<{ amount: number; dueDate: Date }> {
+  const payments: Array<{ amount: number; dueDate: Date }> = [];
+  
+  // Simple parsing - in reality, this would be much more sophisticated
+  const lines = scheduleText.split('\n');
+  
+  for (const line of lines) {
+    // Look for patterns like "$1,000 due on 2024-01-15"
+    const match = line.match(/\$?([\d,]+)\s*(?:due\s*(?:on|by))?\s*(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})/i);
+    
+    if (match) {
+      const amount = parseFloat(match[1].replace(/,/g, ''));
+      let dateStr = match[2];
+      
+      // Convert MM/DD/YYYY to YYYY-MM-DD
+      if (dateStr.includes('/')) {
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+          dateStr = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+        }
+      }
+      
+      try {
+        const dueDate = new Date(dateStr);
+        if (!isNaN(dueDate.getTime())) {
+          payments.push({ amount, dueDate });
+        }
+      } catch (error) {
+        console.warn('Failed to parse payment date:', dateStr);
+      }
+    }
+  }
+  
+  return payments;
+}
+
+function generateRiskRecommendations(riskFactors: string[], riskLevel: string): string[] {
+  const recommendations = [];
+  
+  if (riskLevel === "high") {
+    recommendations.push("Require additional approval levels for this contract");
+    recommendations.push("Consider breaking contract into smaller phases");
+  }
+  
+  if (riskFactors.includes("Very high contract value")) {
+    recommendations.push("Implement milestone-based payments");
+    recommendations.push("Require performance bonds or guarantees");
+  }
+  
+  if (riskFactors.includes("Unfavorable payment terms")) {
+    recommendations.push("Negotiate more favorable payment schedule");
+    recommendations.push("Consider alternative payment structures");
+  }
+  
+  if (riskFactors.includes("Long-term commitment")) {
+    recommendations.push("Include periodic review clauses");
+    recommendations.push("Add early termination options");
+  }
+  
+  return recommendations;
 }
