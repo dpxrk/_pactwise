@@ -136,6 +136,15 @@
   .cursor-pointer-important {
     cursor: pointer !important;
   }
+
+  /* Removed the conflicting .text-gradient-gold definition from here */
+  
+   .animate-fade-in-up {
+    animation: fade-in-up 0.7s ease-out forwards;
+  }
+  .animation-delay-200 { animation-delay: 200ms; }
+  .animation-delay-400 { animation-delay: 400ms; }
+  .animation-delay-600 { animation-delay: 600ms; }
 }
 
 
@@ -190,6 +199,19 @@
   }
 }
 
+/* Keyframes for fade-in-up */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
 .animate-gradient {
   animation: gradient 8s ease infinite;
 }
@@ -211,4 +233,67 @@ select,
 .radio,
 .switch {
   cursor: pointer;
+}
+
+/* Add this for staggered animations */
+.stagger-children > * {
+  opacity: 0; /* Start hidden for animation */
+}
+@layer utilities {
+  /* ... (other utilities) ... */
+  .gold-gradient {
+    background: linear-gradient(135deg, hsl(var(--gold)) 0%, hsl(var(--gold-dark)) 100%);
+  }
+  
+  .text-shadow-sm {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+  
+  .border-gold {
+    border-color: hsl(var(--gold) / 0.2);
+  }
+  
+  .backdrop-blur-xs {
+    backdrop-filter: blur(2px);
+  }
+  
+  .subtle-shadow {
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  .cursor-pointer-important {
+    cursor: pointer !important;
+  }
+  
+   .animate-delicate-sweep-in { /* Ensure this class is available if not using Tailwind's animate-* directly */
+    animation: delicate-sweep-in 0.8s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+  .animation-delay-200 { animation-delay: 200ms; }
+  .animation-delay-400 { animation-delay: 400ms; }
+  .animation-delay-600 { animation-delay: 600ms; }
+  .animation-delay-800 { animation-delay: 800ms; } /* Added more delays */
+  .animation-delay-1000 { animation-delay: 1000ms; }
+}
+
+/* ... (rest of your keyframes and other styles) */
+
+/* Keyframes for delicate-sweep-in (already in tailwind.config.js, but ensure it's being picked up) */
+/* If Tailwind's JIT doesn't pick it up for some reason, you might need it here, but ideally, config is enough */
+
+@keyframes delicate-sweep-in {
+  0% {
+    opacity: 0;
+    transform: translateY(35px) rotateX(-15deg) scale(0.97);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotateX(0deg) scale(1);
+    filter: blur(0px);
+  }
+}
+
+.stagger-children > * {
+  opacity: 0; /* Start hidden for animation */
+  transform-style: preserve-3d; /* Good for 3D transforms */
 }

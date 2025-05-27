@@ -18,21 +18,21 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export const Footer = () => {
   const currentYear = new Date().getFullYear();
-  const [email, setEmail] = React.useState("");
-  const [subscriptionStatus, setSubscriptionStatus] = React.useState("");
+  // const [email, setEmail] = React.useState("");
+  // const [subscriptionStatus, setSubscriptionStatus] = React.useState("");
 
-  const handleSubscribe = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubscriptionStatus("Thank you for subscribing!");
-    setEmail("");
-  };
+  // const handleSubscribe = (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setSubscriptionStatus("Thank you for subscribing!");
+  //   setEmail("");
+  // };
 
   return (
     <footer className="bg-background border-t">
       <div className="container px-4 py-8 mx-auto">
         {/* Newsletter Section */}
         <div className="mb-8 pb-8 border-b">
-          <div className="max-w-xl mx-auto text-center">
+          {/* <div className="max-w-xl mx-auto text-center">
             <h3 className="text-xl font-semibold mb-3">Stay Updated</h3>
             <p className="text-sm text-muted-foreground mb-4">
               Subscribe to our newsletter for the latest updates on contract
@@ -59,7 +59,7 @@ export const Footer = () => {
                 <AlertDescription>{subscriptionStatus}</AlertDescription>
               </Alert>
             )}
-          </div>
+          </div> */}
         </div>
 
         {/* Main Categories */}
@@ -75,14 +75,14 @@ export const Footer = () => {
           </div>
         </div>
 
-        {/* Subcategories */}
+    
         <div className="grid grid-cols-3 gap-8 mb-8">
-          {/* Solutions Subcategories */}
+        
           <div className="flex justify-center">
             <ul className="space-y-1.5 text-center">
               <li>
                 <a
-                  href="#"
+                  // href="#"
                   className="text-xs text-muted-foreground hover:text-primary transition-colors"
                 >
                   Contract Management
@@ -98,7 +98,7 @@ export const Footer = () => {
               </li>
               <li>
                 <a
-                  href="#"
+                  // href="#"
                   className="text-xs text-muted-foreground hover:text-primary transition-colors"
                 >
                   E-Signature Platform
@@ -106,7 +106,7 @@ export const Footer = () => {
               </li>
               <li>
                 <a
-                  href="#"
+                  // href="#"
                   className="text-xs text-muted-foreground hover:text-primary transition-colors"
                 >
                   Template Library
@@ -126,22 +126,15 @@ export const Footer = () => {
                   Documentation
                 </a>
               </li>
-              <li>
-                <a
-                  href="#"
-                  className="text-xs text-muted-foreground hover:text-primary transition-colors"
-                >
-                  API Reference
-                </a>
-              </li>
-              <li>
+             
+              {/* <li>
                 <a
                   href="#"
                   className="text-xs text-muted-foreground hover:text-primary transition-colors"
                 >
                   Customer Stories
                 </a>
-              </li>
+              </li> */}
               <li>
                 <a
                   href="#"

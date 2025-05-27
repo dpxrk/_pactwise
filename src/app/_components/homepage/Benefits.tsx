@@ -69,9 +69,9 @@ export const Benefits = () => {
                 </div>
               </div>
 
-              <div className="mt-6 rounded-lg bg-muted p-6 text-center">
+              {/* <div className="mt-6 rounded-lg bg-muted p-6 text-center">
                 [Analytics Dashboard Preview]
-              </div>
+              </div> */}
             </CardContent>
           </Card>
         </div>
