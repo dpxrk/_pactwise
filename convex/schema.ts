@@ -44,6 +44,16 @@ const contractTypeOptions = [
 
 export type ContractTypeEnum = typeof contractTypeOptions[number];
 
+// User role options
+const userRoleOptions = [
+  "owner",        // Enterprise owner/admin - full control
+  "admin",        // Full access to enterprise - can manage users
+  "manager",      // Can manage contracts and vendors + view analytics
+  "user",         // Can add/edit contracts and vendors (normal user)
+  "viewer",       // Read-only access
+] as const;
+
+export type UserRole = typeof userRoleOptions[number];
 
 
 // ============================================================================
@@ -60,6 +70,31 @@ export default defineSchema({
     // createdAt: v.optional(v.number()), // Use Convex's _creationTime automatically
   })
   .index("by_name", ["name"]),
+
+ // ===== USERS =====
+ users: defineTable({
+  // Clerk integration
+  clerkId: v.string(), // Clerk's user ID (from identity.subject)
+  email: v.string(),
+  firstName: v.optional(v.string()),
+  lastName: v.optional(v.string()),
+  
+  // Enterprise association
+  enterpriseId: v.id("enterprises"),
+  role: v.union(...userRoleOptions.map(option => v.literal(option))),
+  
+  // User preferences (optional)
+  isActive: v.optional(v.boolean()),
+  lastLoginAt: v.optional(v.string()), // ISO date string
+  
+  // Metadata
+  createdAt: v.string(), // ISO date string
+  updatedAt: v.optional(v.string()),
+})
+.index("by_clerkId", ["clerkId"]) // Primary lookup
+.index("by_enterprise", ["enterpriseId"])
+.index("by_email", ["email"]),
+
 
   // ===== VENDORS =====
   vendors: defineTable({

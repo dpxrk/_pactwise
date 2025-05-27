@@ -20,6 +20,7 @@ import type * as agents_manager from "../agents/manager.js";
 import type * as agents_secretary from "../agents/secretary.js";
 import type * as contracts from "../contracts.js";
 import type * as server from "../server.js";
+import type * as users from "../users.js";
 import type * as vendors from "../vendors.js";
 
 /**
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   "agents/secretary": typeof agents_secretary;
   contracts: typeof contracts;
   server: typeof server;
+  users: typeof users;
   vendors: typeof vendors;
 }>;
 export declare const api: FilterApi<
