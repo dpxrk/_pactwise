@@ -281,7 +281,8 @@ export const getAgentLogs = query({
       throw new Error("Authentication required");
     }
 
-    let logs;
+    const limit = args.limit || 50;
+    let logs: Array<any> = [];
 
     // Use the most efficient index based on provided arguments
     if (args.agentId && args.level) {
@@ -289,36 +290,39 @@ export const getAgentLogs = query({
       logs = await ctx.db
         .query("agentLogs")
         .withIndex("by_agent_and_level", (q) => 
-          q.eq("agentId", args.agentId).eq("level", args.level)
+          q.eq("agentId", args.agentId!).eq("level", args.level!)
         )
         .order("desc")
-        .take(args.limit || 50);
+        .take(limit);
     } else if (args.agentId) {
-      // Use agent index and filter by level
-      logs = await ctx.db
+      // Use agent index
+      let agentLogs = await ctx.db
         .query("agentLogs")
-        .withIndex("by_agent", (q) => q.eq("agentId", args.agentId))
+        .withIndex("by_agent", (q) => q.eq("agentId", args.agentId!))
         .order("desc")
         .collect();
       
+      // Filter by level if provided
       if (args.level) {
-        logs = logs.filter((log) => log.level === args.level);
+        agentLogs = agentLogs.filter((log) => log.level === args.level);
       }
-      logs = logs.slice(0, args.limit || 50);
+      
+      // Apply limit
+      logs = agentLogs.slice(0, limit);
     } else if (args.level) {
       // Use level index
       logs = await ctx.db
         .query("agentLogs")
-        .withIndex("by_level", (q) => q.eq("level", args.level))
+        .withIndex("by_level", (q) => q.eq("level", args.level!))
         .order("desc")
-        .take(args.limit || 50);
+        .take(limit);
     } else {
-      // No filters - use timestamp index
+      // No filters - use timestamp index for most recent logs
       logs = await ctx.db
         .query("agentLogs")
         .withIndex("by_timestamp")
         .order("desc")
-        .take(args.limit || 50);
+        .take(limit);
     }
 
     // Enrich with agent information
