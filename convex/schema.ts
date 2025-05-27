@@ -1,6 +1,7 @@
 // convex/schema.ts
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { agentTables } from "./agent-schema";
 
 // ============================================================================
 // OPTIONS / ENUMS
@@ -9,13 +10,11 @@ import { v } from "convex/values";
 const contractStatusOptions = [
   "draft", "pending_analysis", "active", "expired", "terminated", "archived",
 ] as const;
-// You can export this type if you need it in other backend files, though often it's derived where used.
-// export type ContractStatus = typeof contractStatusOptions[number];
+
 
 const analysisStatusOptions = [
     "pending", "processing", "completed", "failed",
 ] as const;
-// export type AnalysisStatus = typeof analysisStatusOptions[number];
 
 const vendorCategoryOptions = [
   "technology",    // e.g., Software providers, IT services
@@ -29,7 +28,7 @@ const vendorCategoryOptions = [
   "consulting",    // e.g., Management consultants, strategy advisors
   "other"          // For any categories not explicitly listed
 ] as const;
-// Exporting for potential use in other backend files or for clarity
+
 export type VendorCategory = typeof vendorCategoryOptions[number];
 
 const contractTypeOptions = [
@@ -42,8 +41,10 @@ const contractTypeOptions = [
   "partnership",     // Partnership Agreement
   "other"            // For any types not explicitly listed
 ] as const;
-// Exporting for potential use
+
 export type ContractTypeEnum = typeof contractTypeOptions[number];
+
+
 
 // ============================================================================
 // SCHEMA DEFINITION
@@ -64,7 +65,6 @@ export default defineSchema({
   vendors: defineTable({
     // --- Link to an enterprise ---
     enterpriseId: v.id("enterprises"), // Required: Ensures vendor is scoped to an enterprise
-
     // --- Core vendor info ---
     name: v.string(),
     contactEmail: v.optional(v.string()),
@@ -73,7 +73,6 @@ export default defineSchema({
     notes: v.optional(v.string()),
     website: v.optional(v.string()),
 
-    // --- NEW: Vendor category ---
     category: v.optional(
       v.union(
         ...vendorCategoryOptions.map(option => v.literal(option))
@@ -140,4 +139,7 @@ export default defineSchema({
   .index("by_contractType_and_enterpriseId", ["enterpriseId", "contractType"]), // Query by contract type within an enterprise
   // Consider an index on enterpriseId alone if you often list all contracts for an enterprise without other filters
   // .index("by_enterpriseId_only", ["enterpriseId"]) // Redundant if you have more specific enterpriseId indexes
+
+
+  ...agentTables,
 });
