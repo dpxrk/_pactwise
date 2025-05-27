@@ -1,23 +1,24 @@
 // src/types/agents.types.ts
-import { Id } from "../../convex/_generated/dataModel";
+import { Id } from "../../convex/_generated/dataModel"; // Assuming this path is correct
 
 // ============================================================================
 // CORE AGENT ENUMS AND CONSTANTS
+// (Derived from your agent-schema.ts and discussion)
 // ============================================================================
 
-// Agent system status options
+/** Agent system status options */
 export const agentSystemStatusOptions = [
   "stopped", "starting", "running", "paused", "error"
 ] as const;
 export type AgentSystemStatus = typeof agentSystemStatusOptions[number];
 
-// Individual agent status options
+/** Individual agent status options */
 export const agentStatusOptions = [
   "inactive", "active", "busy", "error", "disabled"
 ] as const;
 export type AgentStatus = typeof agentStatusOptions[number];
 
-// Agent types/roles in the system
+/** Agent types/roles in the system - **Ensure this matches agent-schema.ts** */
 export const agentTypeOptions = [
   "manager",        // System coordination and management
   "secretary",      // Administrative tasks and notifications
@@ -36,40 +37,40 @@ export const agentTypeOptions = [
 ] as const;
 export type AgentType = typeof agentTypeOptions[number];
 
-// Insight/analysis types
+/** Insight/analysis types - **Ensure this matches agent-schema.ts** */
 export const insightTypeOptions = [
-  "contract_analysis",     // Contract content analysis
-  "financial_risk",        // Financial risk assessment
-  "expiration_warning",    // Contract expiration alerts
-  "legal_review",          // Legal compliance issues
-  "compliance_alert",      // Regulatory compliance warnings
-  "performance_metric",    // Performance and KPI insights
-  "cost_optimization",     // Cost-saving opportunities
+  "contract_analysis",    // Contract content analysis
+  "financial_risk",       // Financial risk assessment
+  "expiration_warning",   // Contract expiration alerts
+  "legal_review",         // Legal compliance issues
+  "compliance_alert",     // Regulatory compliance warnings
+  "performance_metric",   // Performance and KPI insights
+  "cost_optimization",    // Cost-saving opportunities
   "vendor_risk",          // Vendor risk assessment
-  "renewal_opportunity",   // Contract renewal suggestions
-  "negotiation_insight",   // Contract negotiation recommendations
+  "renewal_opportunity",  // Contract renewal suggestions
+  "negotiation_insight",  // Contract negotiation recommendations
   "audit_finding",        // Audit-related discoveries
   "anomaly_detection",    // Unusual patterns or outliers
   "trend_analysis",       // Historical trend insights
   "recommendation",       // General recommendations
-  "alert",               // General system alerts
-  "report",              // Automated reports
+  "alert",                // General system alerts
+  "report",               // Automated reports
 ] as const;
 export type InsightType = typeof insightTypeOptions[number];
 
-// Task status for agent task queue
+/** Task status for agent task queue - **Ensure this matches agent-schema.ts** */
 export const taskStatusOptions = [
   "pending", "in_progress", "completed", "failed", "cancelled", "timeout"
 ] as const;
 export type TaskStatus = typeof taskStatusOptions[number];
 
-// Task priority levels
+/** Task priority levels - **Ensure this matches agent-schema.ts** */
 export const taskPriorityOptions = [
   "low", "medium", "high", "critical"
 ] as const;
 export type TaskPriority = typeof taskPriorityOptions[number];
 
-// Log levels
+/** Log levels - **Ensure this matches agent-schema.ts** */
 export const logLevelOptions = [
   "debug", "info", "warn", "error", "critical"
 ] as const;
@@ -79,18 +80,7 @@ export type LogLevel = typeof logLevelOptions[number];
 // CORE AGENT SYSTEM TYPES
 // ============================================================================
 
-export interface AgentSystemType {
-  _id: Id<"agentSystem">;
-  _creationTime: number;
-  isRunning: boolean;
-  status: AgentSystemStatus;
-  lastStarted?: string;
-  lastStopped?: string;
-  errorMessage?: string;
-  config?: AgentSystemConfig;
-  metrics?: AgentSystemMetrics;
-}
-
+/** Configuration settings for the agent system. */
 export interface AgentSystemConfig {
   maxConcurrentTasks: number;
   taskTimeoutMinutes: number;
@@ -107,40 +97,36 @@ export interface AgentSystemConfig {
   };
 }
 
+/** Metrics related to the overall agent system performance. */
 export interface AgentSystemMetrics {
   totalTasksProcessed: number;
   totalInsightsGenerated: number;
-  systemUptime: number;
-  averageTaskDuration?: number;
-  errorRate?: number;
-  lastHealthCheck?: string;
-  performanceScore?: number;
+  systemUptime: number; // Duration in seconds
+  averageTaskDuration?: number; // Duration in milliseconds
+  errorRate?: number; // Percentage (0-1)
+  lastHealthCheck?: string; // ISO 8601 date-time string
+  performanceScore?: number; // Abstract score, e.g., 0-100
 }
+
+/** Represents the overall state and configuration of the agent system. */
+export interface AgentSystem {
+  _id: Id<"agentSystem">;
+  _creationTime: number; // Convex automatic field (Unix timestamp ms)
+  isRunning: boolean;
+  status: AgentSystemStatus;
+  lastStarted?: string; // ISO 8601 date-time string
+  lastStopped?: string; // ISO 8601 date-time string
+  errorMessage?: string;
+  config?: AgentSystemConfig; // Reflects the more detailed structure
+  metrics?: AgentSystemMetrics; // Reflects the more detailed structure
+}
+
 
 // ============================================================================
 // INDIVIDUAL AGENT TYPES
 // ============================================================================
 
-export interface AgentType {
-  _id: Id<"agents">;
-  _creationTime: number;
-  name: string;
-  type: AgentType;
-  status: AgentStatus;
-  description?: string;
-  isEnabled: boolean;
-  lastRun?: string;
-  lastSuccess?: string;
-  runCount: number;
-  errorCount: number;
-  lastError?: string;
-  config?: AgentConfig;
-  metrics?: AgentMetrics;
-  createdAt: string;
-  updatedAt?: string;
-}
-
-// Base agent configuration (extended by specific agent types)
+/** Base agent configuration, intended to be extended by specific agent types. */
 export interface AgentConfig {
   runIntervalMinutes?: number;
   retryAttempts?: number;
@@ -149,35 +135,58 @@ export interface AgentConfig {
   priority?: TaskPriority;
   dependencies?: Id<"agents">[];
   triggers?: AgentTrigger[];
-  [key: string]: any; // Allow agent-specific config
+  /** Allows for agent-specific configuration fields not explicitly defined. */
+  [key: string]: any;
 }
 
-// Agent trigger conditions
-export interface AgentTrigger {
-  type: "schedule" | "event" | "condition" | "manual";
-  schedule?: string; // Cron expression for scheduled triggers
-  event?: string; // Event name for event-based triggers
-  condition?: string; // Condition expression for conditional triggers
-  enabled: boolean;
-}
-
-// Base agent metrics (extended by specific agent types)
+/** Base agent metrics, intended to be extended by specific agent types. */
 export interface AgentMetrics {
   totalRuns: number;
   successfulRuns: number;
   failedRuns: number;
-  averageRunTime: number;
-  lastRunDuration?: number;
-  dataProcessed?: number;
+  averageRunTime: number; // Duration in milliseconds
+  lastRunDuration?: number; // Duration in milliseconds
+  dataProcessed?: number; // e.g., number of items, bytes
   insightsGenerated?: number;
-  [key: string]: any; // Allow agent-specific metrics
+  /** Allows for agent-specific metric fields not explicitly defined. */
+  [key: string]: any;
 }
 
+/** Represents an individual agent within the system. */
+export interface Agent {
+  _id: Id<"agents">;
+  // _creationTime: number; // Convex automatic field. Use 'createdAt' string as primary if that's the app logic.
+  name: string;
+  type: AgentType;
+  status: AgentStatus;
+  description?: string;
+  isEnabled: boolean;
+  lastRun?: string; // ISO 8601 date-time string
+  lastSuccess?: string; // ISO 8601 date-time string
+  runCount: number;
+  errorCount: number;
+  lastError?: string;
+  config?: AgentConfig; // Reflects the more detailed base structure
+  metrics?: AgentMetrics; // Reflects the more detailed base structure
+  createdAt: string; // ISO 8601 date-time string, as per your schema
+  updatedAt?: string; // ISO 8601 date-time string, as per your schema
+}
+
+/** Defines conditions that can trigger an agent's operation. */
+export interface AgentTrigger {
+  type: "schedule" | "event" | "condition" | "manual";
+  schedule?: string; // Cron expression for 'schedule' type
+  event?: string;    // Event name for 'event' type
+  condition?: string; // Condition expression for 'condition' type
+  enabled: boolean;
+}
+
+
 // ============================================================================
-// SPECIFIC AGENT TYPE CONFIGURATIONS
+// SPECIFIC AGENT TYPE CONFIGURATIONS (Extending AgentConfig)
 // ============================================================================
 
-// Manager Agent Configuration
+/** Configuration specific to Manager Agents. */
 export interface ManagerAgentConfig extends AgentConfig {
   healthCheckIntervalMinutes: number;
   taskCleanupHours: number;
@@ -186,7 +195,7 @@ export interface ManagerAgentConfig extends AgentConfig {
   systemMetricsCollectionInterval: number;
 }
 
-// Financial Agent Configuration
+/** Configuration specific to Financial Agents. */
 export interface FinancialAgentConfig extends AgentConfig {
   riskThresholds: {
     low: number;
@@ -198,7 +207,7 @@ export interface FinancialAgentConfig extends AgentConfig {
   reportingFrequency: "daily" | "weekly" | "monthly";
 }
 
-// Legal Agent Configuration
+/** Configuration specific to Legal Agents. */
 export interface LegalAgentConfig extends AgentConfig {
   jurisdictions: string[];
   complianceFrameworks: string[];
@@ -207,7 +216,7 @@ export interface LegalAgentConfig extends AgentConfig {
   flaggedTerms: string[];
 }
 
-// Notification Agent Configuration
+/** Configuration specific to Notification Agents. */
 export interface NotificationAgentConfig extends AgentConfig {
   channels: {
     email: boolean;
@@ -224,11 +233,11 @@ export interface NotificationAgentConfig extends AgentConfig {
   };
 }
 
-// Analytics Agent Configuration
+/** Configuration specific to Analytics Agents. */
 export interface AnalyticsAgentConfig extends AgentConfig {
-  reportTypes: string[];
+  reportTypes: string[]; // e.g., ["monthly_summary", "performance_dashboard"]
   dataRetentionDays: number;
-  aggregationLevels: string[];
+  aggregationLevels: string[]; // e.g., ["daily", "weekly", "monthly"]
   realTimeAnalysis: boolean;
   machineLearningEnabled: boolean;
 }
@@ -237,73 +246,61 @@ export interface AnalyticsAgentConfig extends AgentConfig {
 // AGENT INSIGHTS AND ANALYSIS
 // ============================================================================
 
-export interface AgentInsightType {
+/** Represents an insight or piece of analysis generated by an agent. */
+export interface AgentInsight {
   _id: Id<"agentInsights">;
-  _creationTime: number;
+  // _creationTime: number; // Convex automatic. Use 'createdAt' string as primary if that's app logic.
   agentId: Id<"agents">;
   type: InsightType;
   title: string;
   description: string;
   priority: TaskPriority;
-  contractId?: Id<"contracts">;
-  vendorId?: Id<"vendors">;
+  contractId?: Id<"contracts">; // Assuming 'contracts' table exists
+  vendorId?: Id<"vendors">;   // Assuming 'vendors' table exists
   data?: InsightData;
   actionRequired: boolean;
   actionTaken: boolean;
   actionDetails?: string;
   isRead: boolean;
-  expiresAt?: string;
-  createdAt: string;
-  readAt?: string;
-  tags?: string[];
-  confidence?: number; // 0-1 confidence score for AI-generated insights
+  expiresAt?: string; // ISO 8601 date-time string
+  createdAt: string;  // ISO 8601 date-time string, as per your schema
+  readAt?: string;    // ISO 8601 date-time string
+  tags?: string[];    // Added field
+  confidence?: number; // Added field (0-1 score)
 }
 
-// Structured insight data based on type
+/** Structured data payload for an AgentInsight, varying by insight type. */
 export interface InsightData {
-  // Contract Analysis
   contractRisk?: {
     score: number;
     factors: string[];
     recommendations: string[];
   };
-  
-  // Financial Analysis
   financialImpact?: {
     amount: number;
     currency: string;
     type: "cost" | "saving" | "risk";
     timeframe: string;
   };
-  
-  // Compliance Analysis
   complianceIssues?: {
     framework: string;
     violations: string[];
     severity: "low" | "medium" | "high" | "critical";
     remediation: string[];
   };
-  
-  // Performance Metrics
   performanceData?: {
     metric: string;
     current: number;
     target: number;
     trend: "improving" | "declining" | "stable";
   };
-  
-  // Trend Analysis
   trendData?: {
     period: string;
-    dataPoints: Array<{
-      date: string;
-      value: number;
-    }>;
+    dataPoints: Array<{ date: string; value: number; }>;
     pattern: string;
     forecast?: number;
   };
-  
-  // Custom data for specific insights
+  /** Allows for other types of structured insight data. */
   [key: string]: any;
 }
 
@@ -311,12 +308,13 @@ export interface InsightData {
 // AGENT TASK MANAGEMENT
 // ============================================================================
 
-export interface AgentTaskType {
+/** Represents a task to be performed by an agent. */
+export interface AgentTask {
   _id: Id<"agentTasks">;
-  _creationTime: number;
+  // _creationTime: number; // Convex automatic. Use 'createdAt' string as primary if that's app logic.
   assignedAgentId: Id<"agents">;
   createdByAgentId?: Id<"agents">;
-  taskType: string;
+  taskType: string; // Consider a union type if a finite set of task types exists
   status: TaskStatus;
   priority: TaskPriority;
   title: string;
@@ -326,15 +324,16 @@ export interface AgentTaskType {
   data?: TaskData;
   result?: TaskResult;
   errorMessage?: string;
-  scheduledFor?: string;
-  startedAt?: string;
-  completedAt?: string;
-  createdAt: string;
-  dependencies?: Id<"agentTasks">[];
-  retryCount?: number;
-  maxRetries?: number;
+  scheduledFor?: string; // ISO 8601 date-time string
+  startedAt?: string;    // ISO 8601 date-time string
+  completedAt?: string;  // ISO 8601 date-time string
+  createdAt: string;     // ISO 8601 date-time string, as per your schema
+  dependencies?: Id<"agentTasks">[]; // Added field
+  retryCount?: number;              // Added field
+  maxRetries?: number;              // Added field
 }
 
+/** Data payload for an AgentTask. */
 export interface TaskData {
   input?: any;
   parameters?: Record<string, any>;
@@ -342,6 +341,7 @@ export interface TaskData {
   metadata?: Record<string, any>;
 }
 
+/** Result payload from an AgentTask execution. */
 export interface TaskResult {
   success: boolean;
   output?: any;
@@ -355,23 +355,25 @@ export interface TaskResult {
 // AGENT LOGGING
 // ============================================================================
 
-export interface AgentLogType {
+/** Represents a log entry generated by an agent or the agent system. */
+export interface AgentLog {
   _id: Id<"agentLogs">;
-  _creationTime: number;
-  agentId: Id<"agents">;
+  // _creationTime: number; // Convex automatic. 'timestamp' string is the primary event time.
+  agentId: Id<"agents">; // Or a system identifier if not from a specific agent
   level: LogLevel;
   message: string;
   data?: LogData;
   taskId?: Id<"agentTasks">;
-  timestamp: string;
-  category?: string;
-  source?: string;
-  userId?: string; // If action was triggered by a user
+  timestamp: string; // ISO 8601 date-time string of when the event occurred
+  category?: string; // Added field (e.g., "task_execution", "system_health")
+  source?: string;   // Added field (e.g., "FinancialAgent", "APIService")
+  userId?: string;   // Added field (ID of user whose action might have initiated this)
 }
 
+/** Structured data for an AgentLog. */
 export interface LogData {
   error?: Error | string;
-  duration?: number;
+  duration?: number; // Duration of an operation in milliseconds
   context?: Record<string, any>;
   stackTrace?: string;
   requestId?: string;
@@ -383,52 +385,57 @@ export interface LogData {
 // AGENT COMMUNICATION AND EVENTS
 // ============================================================================
 
+/** Represents an event within the agent system. */
 export interface AgentEvent {
-  type: string;
-  source: Id<"agents">;
-  target?: Id<"agents">;
+  type: string; // Consider a union type for known event types
+  source: Id<"agents"> | "system";
+  target?: Id<"agents"> | "system";
   data?: any;
-  timestamp: string;
+  timestamp: string; // ISO 8601 date-time string
   priority: TaskPriority;
 }
 
+/** Represents a message passed between agents or system components. */
 export interface AgentMessage {
-  from: Id<"agents">;
-  to: Id<"agents">;
+  from: Id<"agents"> | "system";
+  to: Id<"agents"> | "system";
   type: "request" | "response" | "notification" | "alert";
   payload: any;
   correlationId?: string;
-  timestamp: string;
+  timestamp: string; // ISO 8601 date-time string
 }
 
 // ============================================================================
-// AGENT WORKFLOW AND ORCHESTRATION
+// AGENT WORKFLOW AND ORCHESTRATION (Managed outside Convex tables per discussion)
 // ============================================================================
 
+/** Defines a workflow consisting of multiple steps executed by agents. */
 export interface AgentWorkflow {
-  id: string;
+  id: string; // User-defined unique identifier
   name: string;
   description?: string;
   steps: WorkflowStep[];
   triggers: AgentTrigger[];
   enabled: boolean;
   version: number;
-  createdAt: string;
-  updatedAt?: string;
+  createdAt: string; // ISO 8601 date-time string, application-managed
+  updatedAt?: string; // ISO 8601 date-time string, application-managed
 }
 
+/** A single step within an AgentWorkflow. */
 export interface WorkflowStep {
-  id: string;
+  id: string; // Unique identifier for the step within the workflow
   agentId: Id<"agents">;
-  action: string;
+  action: string; // Specific action for the agent
   inputs?: Record<string, any>;
   conditions?: WorkflowCondition[];
   onSuccess?: string; // Next step ID
   onFailure?: string; // Next step ID
-  timeout?: number;
+  timeout?: number;   // In seconds
   retries?: number;
 }
 
+/** A condition that can be evaluated within a workflow. */
 export interface WorkflowCondition {
   field: string;
   operator: "eq" | "ne" | "gt" | "lt" | "gte" | "lte" | "in" | "contains";
@@ -439,29 +446,31 @@ export interface WorkflowCondition {
 // AGENT PERFORMANCE AND MONITORING
 // ============================================================================
 
+/** Report detailing the performance of a specific agent over a period. */
 export interface AgentPerformanceReport {
   agentId: Id<"agents">;
   period: {
-    start: string;
-    end: string;
+    start: string; // ISO 8601 date-time string
+    end: string;   // ISO 8601 date-time string
   };
   metrics: {
     totalTasks: number;
     completedTasks: number;
     failedTasks: number;
-    averageCompletionTime: number;
-    successRate: number;
-    errorRate: number;
-    throughput: number; // Tasks per hour
+    averageCompletionTime: number; // In milliseconds
+    successRate: number; // 0-1
+    errorRate: number;   // 0-1
+    throughput: number;  // Tasks per hour
   };
   insights: {
     performance: "excellent" | "good" | "fair" | "poor";
     recommendations: string[];
     trends: string[];
   };
-  generatedAt: string;
+  generatedAt: string; // ISO 8601 date-time string
 }
 
+/** Overall health status of the agent system and its components. */
 export interface SystemHealthStatus {
   overall: "healthy" | "warning" | "critical";
   agents: Array<{
@@ -469,42 +478,45 @@ export interface SystemHealthStatus {
     name: string;
     status: AgentStatus;
     health: "healthy" | "warning" | "critical";
-    lastCheck: string;
+    lastCheck: string; // ISO 8601 date-time string
   }>;
   resources: {
-    cpu: number;
-    memory: number;
-    storage: number;
-    network: number;
+    cpuUsage: number;     // Percentage
+    memoryUsage: number;  // Percentage
+    storageAvailable: number; // Percentage or GB
+    networkThroughput: number; // Mbps or similar
   };
   alerts: Array<{
-    level: "info" | "warning" | "error";
+    level: "info" | "warning" | "error" | "critical"; // Use LogLevel?
     message: string;
-    timestamp: string;
+    timestamp: string; // ISO 8601 date-time string
+    source?: string;
   }>;
 }
 
 // ============================================================================
-// UTILITY TYPES AND INTERFACES
+// UTILITY TYPES AND INTERFACES (For UI or enriched data)
 // ============================================================================
 
-// Type for enriched data (with additional computed fields)
-export interface EnrichedAgentInsight extends AgentInsightType {
+/** Enriched AgentInsight with denormalized agent and related entity information. */
+export interface EnrichedAgentInsight extends AgentInsight {
   agentName: string;
-  agentType: AgentType;
+  agentType?: AgentType; // Can be undefined if agent is not found
   relatedContractTitle?: string;
   relatedVendorName?: string;
 }
 
-export interface EnrichedAgentLog extends AgentLogType {
+/** Enriched AgentLog with denormalized agent and task information. */
+export interface EnrichedAgentLog extends AgentLog {
   agentName: string;
-  agentType: AgentType;
+  agentType?: AgentType; // Can be undefined if agent is not found
   taskTitle?: string;
 }
 
-export interface EnrichedAgentTask extends AgentTaskType {
+/** Enriched AgentTask with denormalized agent and related entity information. */
+export interface EnrichedAgentTask extends AgentTask {
   agentName: string;
-  agentType: AgentType;
+  agentType?: AgentType; // Can be undefined if agent is not found
   creatorName?: string;
   relatedContractTitle?: string;
   relatedVendorName?: string;
@@ -517,19 +529,23 @@ export interface CreateAgentData {
   description?: string;
   config?: AgentConfig;
   isEnabled?: boolean;
+  // createdAt will be set by backend logic
 }
 
 export interface UpdateAgentData {
   name?: string;
   description?: string;
-  config?: AgentConfig;
+  config?: Partial<AgentConfig>; // Allow partial updates
   isEnabled?: boolean;
+  type?: AgentType; // Usually not changed, but possible
+  status?: AgentStatus;
+  // updatedAt will be set by backend logic
 }
 
 // API response types
 export interface AgentSystemStatusResponse {
-  system: AgentSystemType | null;
-  agents: AgentType[];
+  system: AgentSystem | null;
+  agents: Agent[];
   stats: {
     totalAgents: number;
     activeAgents: number;
@@ -547,10 +563,10 @@ export interface AgentOperationResult {
 }
 
 // ============================================================================
-// CONSTANTS AND MAPPINGS
+// CONSTANTS AND MAPPINGS (Ensure these use the updated ...Options arrays)
 // ============================================================================
 
-// Human-readable labels for enums
+/** Human-readable labels for AgentType enum values. */
 export const AGENT_TYPE_LABELS: Record<AgentType, string> = {
   manager: "System Manager",
   secretary: "Administrative Assistant",
@@ -568,6 +584,7 @@ export const AGENT_TYPE_LABELS: Record<AgentType, string> = {
   monitor: "System Monitor",
 };
 
+/** Human-readable labels for InsightType enum values. */
 export const INSIGHT_TYPE_LABELS: Record<InsightType, string> = {
   contract_analysis: "Contract Analysis",
   financial_risk: "Financial Risk",
@@ -587,17 +604,38 @@ export const INSIGHT_TYPE_LABELS: Record<InsightType, string> = {
   report: "Report",
 };
 
+/** Color mappings for TaskPriority (e.g., for Tailwind CSS classes). */
 export const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  low: "bg-green-100 text-green-800",
-  medium: "bg-yellow-100 text-yellow-800",
-  high: "bg-orange-100 text-orange-800",
-  critical: "bg-red-100 text-red-800",
+  low: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  medium: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  high: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200", // Or bg-amber-100 etc.
+  critical: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
+/** Color mappings for AgentStatus (e.g., for Tailwind CSS classes). */
 export const STATUS_COLORS: Record<AgentStatus, string> = {
-  inactive: "bg-gray-100 text-gray-800",
-  active: "bg-green-100 text-green-800",
-  busy: "bg-blue-100 text-blue-800",
-  error: "bg-red-100 text-red-800",
-  disabled: "bg-red-100 text-red-800",
+  inactive: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
+  active: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  busy: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  error: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  disabled: "bg-neutral-200 text-neutral-600 dark:bg-neutral-600 dark:text-neutral-300",
+};
+
+/** Color mappings for LogLevel (e.g., for Tailwind CSS classes). */
+export const LOG_LEVEL_COLORS: Record<LogLevel, string> = {
+    debug: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+    info: "bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200", // Or blue
+    warn: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+    error: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+    critical: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200", // Or a more intense red
+};
+
+/** Color mappings for TaskStatus (e.g., for Tailwind CSS classes). */
+export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
+    pending: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
+    in_progress: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    completed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+    failed: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+    cancelled: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+    timeout: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
 };
