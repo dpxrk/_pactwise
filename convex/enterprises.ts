@@ -1,7 +1,7 @@
 // convex/enterprises.ts
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
-import { ConvexError } from "convex/values";
+import { v, ConvexError } from "convex/values";
+import { UserRole, userRoleOptions } from "./schema";
 
 /**
  * Create a new enterprise with the current user as owner
@@ -33,10 +33,10 @@ export const createEnterpriseWithOwner = mutation({
 
     // Create user as owner
     await ctx.db.insert("users", {
-      clerkId: identity.subject,
-      email: identity.email || "",
-      firstName: identity.given_name || undefined,
-      lastName: identity.family_name || undefined,
+      clerkId: String(identity.subject),
+      email: typeof identity.email === "string" ? identity.email : "",
+      firstName: typeof identity.given_name === "string" ? identity.given_name : undefined,
+      lastName: typeof identity.family_name === "string" ? identity.family_name : undefined,
       enterpriseId,
       role: "owner",
       isActive: true,
@@ -72,9 +72,7 @@ export const createInvitation = mutation({
     role: v.union(
       v.literal("owner"),
       v.literal("admin"),
-      v.literal("manager"),
-      v.literal("user"),
-      v.literal("viewer")
+      v.literal("member")
     ),
   },
   handler: async (ctx, args) => {
@@ -98,6 +96,8 @@ export const createInvitation = mutation({
 
     // Generate unique token
     const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+
+    
     
     // Create invitation (expires in 7 days)
     const expiresAt = new Date();
@@ -106,7 +106,7 @@ export const createInvitation = mutation({
     await ctx.db.insert("invitations", {
       enterpriseId: currentUser.enterpriseId,
       email: args.email,
-      role: args.role,
+      role: args.role === "member" ? "user" : args.role,
       invitedBy: currentUser._id,
       token,
       expiresAt: expiresAt.toISOString(),
@@ -169,4 +169,17 @@ export const acceptInvitation = mutation({
       return existingUser._id;
     } else {
       // Create new user
-      return awa
+      return await ctx.db.insert("users", { // Completed the line here
+        clerkId: identity.subject,
+        email: identity.email || "",
+        firstName: typeof identity.given_name === "string" ? identity.given_name : undefined,
+        lastName: typeof identity.family_name === "string" ? identity.family_name : undefined,
+        enterpriseId: invitation.enterpriseId,
+        role: invitation.role,
+        isActive: true,
+        lastLoginAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      });
+    }
+  },
+});

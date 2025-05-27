@@ -44,13 +44,13 @@ const contractTypeOptions = [
 
 export type ContractTypeEnum = typeof contractTypeOptions[number];
 
-// User role options
-const userRoleOptions = [
-  "owner",        // Enterprise owner/admin - full control
-  "admin",        // Full access to enterprise - can manage users
-  "manager",      // Can manage contracts and vendors + view analytics
-  "user",         // Can add/edit contracts and vendors (normal user)
-  "viewer",       // Read-only access
+// User role options - Aligned with ROLE_PERMISSIONS.md
+export const userRoleOptions = [
+  "owner",   // Level 5
+  "admin",   // Level 4
+  "manager", // Level 3
+  "user",    // Level 2
+  "viewer",  // Level 1
 ] as const;
 
 export type UserRole = typeof userRoleOptions[number];
@@ -61,120 +61,80 @@ export type UserRole = typeof userRoleOptions[number];
 // ============================================================================
 export default defineSchema({
   // ===== ENTERPRISES =====
-  // Stores basic information about enterprises/organizations.
   enterprises: defineTable({
-    name: v.string(), // Name of the enterprise
+    name: v.string(),
     domain:v.optional(v.string())
-    // Consider adding:
-    // ownerUserId: v.optional(v.string()), // Clerk User ID of the enterprise owner/creator
-    // subscriptionPlan: v.optional(v.string()), // e.g., "free", "pro", "enterprise"
-    // createdAt: v.optional(v.number()), // Use Convex's _creationTime automatically
   })
   .index("by_domain", ["domain"]),
 
  // ===== USERS =====
  users: defineTable({
-  // Clerk integration
-  clerkId: v.string(), // Clerk's user ID (from identity.subject)
+  clerkId: v.string(),
   email: v.string(),
   firstName: v.optional(v.string()),
   lastName: v.optional(v.string()),
-  
-  // Enterprise association
   enterpriseId: v.id("enterprises"),
   role: v.union(...userRoleOptions.map(option => v.literal(option))),
-  
-  // User preferences (optional)
   isActive: v.optional(v.boolean()),
-  lastLoginAt: v.optional(v.string()), // ISO date string
-  
-  // Metadata
-  createdAt: v.string(), // ISO date string
+  lastLoginAt: v.optional(v.string()),
+  createdAt: v.string(),
   updatedAt: v.optional(v.string()),
 })
-.index("by_clerkId", ["clerkId"]) // Primary lookup
+.index("by_clerkId", ["clerkId"])
 .index("by_enterprise", ["enterpriseId"])
 .index("by_email", ["email"]),
 
-
   // ===== VENDORS =====
   vendors: defineTable({
-    // --- Link to an enterprise ---
-    enterpriseId: v.id("enterprises"), // Required: Ensures vendor is scoped to an enterprise
-    // --- Core vendor info ---
+    enterpriseId: v.id("enterprises"),
     name: v.string(),
     contactEmail: v.optional(v.string()),
     contactPhone: v.optional(v.string()),
     address: v.optional(v.string()),
     notes: v.optional(v.string()),
     website: v.optional(v.string()),
-
     category: v.optional(
       v.union(
         ...vendorCategoryOptions.map(option => v.literal(option))
       )
     ),
-    // Consider adding more vendor-specific fields from your 'oldcode.txt' or frontend needs, e.g.:
-    // taxId: v.optional(v.string()),
-    // riskLevel: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
-    // status: v.optional(v.union(v.literal("active"), v.literal("inactive"))), // If different from contract status
   })
-  .index("by_name", ["name"]) // For searching/sorting by name
-  .index("by_enterpriseId", ["enterpriseId"]) // For querying vendors by enterprise
-  .index("by_category_and_enterpriseId", ["enterpriseId", "category"]), // For filtering by category within an enterprise
+  .index("by_name", ["name"])
+  .index("by_enterpriseId", ["enterpriseId"])
+  .index("by_category_and_enterpriseId", ["enterpriseId", "category"]),
 
   // ===== CONTRACTS =====
   contracts: defineTable({
-    // --- Link to an enterprise ---
-    enterpriseId: v.id("enterprises"), // Required: Links to the 'enterprises' table
-
-    // --- Core Contract Info ---
-    vendorId: v.id("vendors"), // Link to the 'vendors' table
+    enterpriseId: v.id("enterprises"),
+    vendorId: v.id("vendors"),
     title: v.string(),
     status: v.union(
         ...contractStatusOptions.map(option => v.literal(option))
     ),
-    // --- NEW: Contract Type field ---
     contractType: v.optional(
       v.union(
         ...contractTypeOptions.map(option => v.literal(option))
       )
     ),
-
-    // --- File Information ---
-    storageId: v.id("_storage"), // ID of the file in Convex storage
+    storageId: v.id("_storage"),
     fileName: v.string(),
-    fileType: v.string(), // MIME type
-
-    // --- Extracted Information (populated by analysis action) ---
+    fileType: v.string(),
     extractedParties: v.optional(v.array(v.string())),
-    extractedStartDate: v.optional(v.string()), // Store as ISO string or Convex timestamp if preferred
-    extractedEndDate: v.optional(v.string()),   // Store as ISO string or Convex timestamp if preferred
+    extractedStartDate: v.optional(v.string()),
+    extractedEndDate: v.optional(v.string()),
     extractedPaymentSchedule: v.optional(v.string()),
     extractedPricing: v.optional(v.string()),
     extractedScope: v.optional(v.string()),
-
-    // --- Analysis Process Tracking ---
     analysisStatus: v.optional(v.union(
         ...analysisStatusOptions.map(option => v.literal(option))
     )),
-    analysisError: v.optional(v.string()), // Store error messages if analysis fails
-
-    // --- Optional user notes ---
+    analysisError: v.optional(v.string()),
     notes: v.optional(v.string()),
-
-    // Consider adding more contract-specific fields from 'oldcode.txt' or requirements, e.g.:
-    // contractValue: v.optional(v.number()),
-    // currency: v.optional(v.string()),
-    // renewalTerms: v.optional(v.string()),
-    // terminationClause: v.optional(v.string()),
   })
-  .index("by_vendorId_and_enterpriseId", ["enterpriseId", "vendorId"]) // Query contracts by vendor within an enterprise
-  .index("by_status_and_enterpriseId", ["enterpriseId", "status"]) // Query contracts by status within an enterprise
-  .index("by_analysisStatus_and_enterpriseId", ["enterpriseId", "analysisStatus"]) // Query by analysis status within an enterprise
-  .index("by_contractType_and_enterpriseId", ["enterpriseId", "contractType"]), // Query by contract type within an enterprise
-  // Consider an index on enterpriseId alone if you often list all contracts for an enterprise without other filters
-  // .index("by_enterpriseId_only", ["enterpriseId"]) // Redundant if you have more specific enterpriseId indexes
+  .index("by_vendorId_and_enterpriseId", ["enterpriseId", "vendorId"])
+  .index("by_status_and_enterpriseId", ["enterpriseId", "status"])
+  .index("by_analysisStatus_and_enterpriseId", ["enterpriseId", "analysisStatus"])
+  .index("by_contractType_and_enterpriseId", ["enterpriseId", "contractType"]),
 
   invitations: defineTable({
     enterpriseId: v.id("enterprises"),
@@ -188,10 +148,6 @@ export default defineSchema({
   .index("by_email", ["email"])
   .index("by_token", ["token"])
   .index("by_enterprise", ["enterpriseId"]),
-
-
-  
-
 
   ...agentTables,
 });

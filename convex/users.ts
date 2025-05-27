@@ -2,111 +2,134 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
-
-const userRoleOptions = [
-  "owner", "admin", "manager", "viewer"
-] as const;
+import { UserRole, userRoleOptions } from "./schema"; // Import from schema
 
 // ============================================================================
 // USER MANAGEMENT
 // ============================================================================
 
 /**
- * Get or create user from Clerk authentication
+ * Get user from Clerk authentication. Returns the user document or null if not found/not authenticated.
  */
 export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      return null;
+      return null; // Not authenticated
     }
 
-    // Look for existing user
+    // Look for existing user by Clerk ID
     const existingUser = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
       .first();
 
-    return existingUser;
+    return existingUser; // Returns user document or null
   },
 });
 
 /**
- * Create or update user from Clerk data
+ * Create or update user from Clerk data.
+ * This function is typically called after a user signs in or signs up.
  */
 export const upsertUser = mutation({
   args: {
-    enterpriseId: v.optional(v.id("enterprises")), // Make optional
-    invitationToken: v.optional(v.string()),
+    // enterpriseId might be passed if a user is joining a specific enterprise directly,
+    // e.g. after creating it or if determined by another flow.
+    enterpriseId: v.optional(v.id("enterprises")),
+    invitationToken: v.optional(v.string()), // For joining via invitation
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new ConvexError("Authentication required");
+    if (!identity) {
+      throw new ConvexError("Authentication required: No user identity found.");
+    }
 
-    // Check for existing user
+    // Check for existing user by Clerk ID
     const existingUser = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
       .first();
     
     if (existingUser) {
-      // User already exists, just update login time
+      // User already exists, update last login time
+      // Optionally, update other fields like name if they can change in Clerk
       await ctx.db.patch(existingUser._id, {
         lastLoginAt: new Date().toISOString(),
+        firstName: typeof identity.given_name === "string" ? identity.given_name : undefined,
+        lastName: typeof identity.family_name === "string" ? identity.family_name : undefined,
+        email: identity.email || existingUser.email, // Ensure email is kept up-to-date
       });
       return existingUser._id;
     }
 
-    // New user - determine enterprise
-    let enterpriseId = args.enterpriseId;
-    let role: UserRole = "viewer"; // Default role
+    // New user: Determine enterprise and role
+    let resolvedEnterpriseId = args.enterpriseId;
+    let resolvedRole: UserRole = "user"; // Default role as per ROLE_PERMISSIONS.md
 
-    // 1. Check invitation
+    // 1. Process invitation token if provided
     if (args.invitationToken) {
+      const invitationToken = args.invitationToken as string;
       const invitation = await ctx.db
         .query("invitations")
-        .withIndex("by_token", (q) => q.eq("token", args.invitationToken))
+        .withIndex("by_token", (q) => q.eq("token", invitationToken))
+        .filter(q => q.eq(q.field("email"), identity.email)) // Match email
+        .filter(q => q.eq(q.field("acceptedAt"), undefined)) // Not yet accepted
+        .filter(q => q.gt(q.field("expiresAt"), new Date().toISOString())) // Not expired
         .first();
       
-      if (invitation && invitation.email === identity.email) {
-        enterpriseId = invitation.enterpriseId;
-        role = invitation.role;
+      if (invitation) {
+        resolvedEnterpriseId = invitation.enterpriseId;
+        resolvedRole = invitation.role;
         
         // Mark invitation as accepted
         await ctx.db.patch(invitation._id, {
           acceptedAt: new Date().toISOString(),
         });
+      } else {
+        // Optional: Handle invalid/expired token explicitly, or let it fall through
+        console.warn(`Invalid or expired invitation token: ${args.invitationToken} for email ${identity.email}`);
       }
     }
 
-    // 2. Check domain matching
-    if (!enterpriseId && identity.email) {
+    // 2. If no enterprise from invitation or args, try domain matching
+    if (!resolvedEnterpriseId && identity.email) {
       const domain = identity.email.split('@')[1];
-      const enterprise = await ctx.db
-        .query("enterprises")
-        .withIndex("by_domain", (q) => q.eq("domain", domain))
-        .first();
-      
-      if (enterprise) {
-        enterpriseId = enterprise._id;
+      if (domain) {
+        const enterpriseByDomain = await ctx.db
+          .query("enterprises")
+          .withIndex("by_domain", (q) => q.eq("domain", domain))
+          .first();
+        
+        if (enterpriseByDomain) {
+          resolvedEnterpriseId = enterpriseByDomain._id;
+          // Users joining via domain match typically get 'user' role by default
+          // unless specific logic dictates otherwise.
+        }
       }
     }
 
-    // 3. If still no enterprise, they need to create one or be invited
-    if (!enterpriseId) {
-      throw new ConvexError("No enterprise found. Please create an enterprise or use an invitation link.");
+    // 3. Enterprise ID is crucial. If still not resolved, it's an issue.
+    // This scenario implies the user needs to create an enterprise or be explicitly added to one.
+    // `createEnterpriseWithOwner` handles the first user/owner case.
+    if (!resolvedEnterpriseId) {
+      // This could happen if a user signs up without an invitation and their domain doesn't match an existing enterprise.
+      // The frontend flow should guide them to create an enterprise or request access.
+      throw new ConvexError(
+        "Enterprise not found. Please create an enterprise or use a valid invitation."
+      );
     }
 
-    // Create the user
+    // Create the new user document
     const userId = await ctx.db.insert("users", {
       clerkId: identity.subject,
-      email: identity.email || "",
-      firstName: identity.given_name || undefined,
-      lastName: identity.family_name || undefined,
-      enterpriseId,
-      role,
-      isActive: true,
+      email: identity.email || "", // Ensure email is always set
+      firstName: typeof identity.given_name === "string" ? identity.given_name : undefined,
+      lastName: typeof identity.family_name === "string" ? identity.family_name : undefined,
+      enterpriseId: resolvedEnterpriseId,
+      role: resolvedRole,
+      isActive: true, // New users are active by default
       lastLoginAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     });
@@ -116,7 +139,8 @@ export const upsertUser = mutation({
 });
 
 /**
- * Get users for an enterprise
+ * Get all users for a specific enterprise.
+ * Requires the current user to be part of that enterprise.
  */
 export const getEnterpriseUsers = query({
   args: {
@@ -125,19 +149,20 @@ export const getEnterpriseUsers = query({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError("Authentication required");
+      throw new ConvexError("Authentication required: User must be logged in.");
     }
 
-    // Verify current user has access to this enterprise
+    // Verify current user belongs to the target enterprise to view its users
     const currentUser = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
       .first();
 
     if (!currentUser || currentUser.enterpriseId !== args.enterpriseId) {
-      throw new ConvexError("Access denied to this enterprise");
+      throw new ConvexError("Access denied: You are not authorized to view users for this enterprise.");
     }
 
+    // Fetch users for the specified enterprise
     const users = await ctx.db
       .query("users")
       .withIndex("by_enterprise", (q) => q.eq("enterpriseId", args.enterpriseId))
@@ -148,11 +173,17 @@ export const getEnterpriseUsers = query({
 });
 
 
-export const getEnterpriseByEmail = query({
+/**
+ * Get enterprise details by email domain.
+ * Useful for sign-up flows to suggest an enterprise.
+ */
+export const getEnterpriseByEmailDomain = query({ // Renamed for clarity
   args: { email: v.string() },
   handler: async (ctx, args) => {
     const domain = args.email.split('@')[1];
-    if (!domain) return null;
+    if (!domain) {
+        return null; // Or throw new ConvexError("Invalid email format: Domain missing.");
+    }
     
     return await ctx.db
       .query("enterprises")
@@ -162,66 +193,76 @@ export const getEnterpriseByEmail = query({
 });
 
 /**
- * Update user role (admin only)
+ * Update a user's role within their enterprise.
+ * Only callable by 'owner' or 'admin' of the same enterprise.
+ * Admins cannot modify Owners.
  */
 export const updateUserRole = mutation({
   args: {
-    userId: v.id("users"),
-    role: v.union(...userRoleOptions.map(r => v.literal(r))),
+    userIdToUpdate: v.id("users"), // ID of the user whose role is being changed
+    newRole: v.union(...userRoleOptions.map(r => v.literal(r))), // Use the imported userRoleOptions
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError("Authentication required");
+      throw new ConvexError("Authentication required.");
     }
 
-    // Get current user
+    // Get the current (acting) user
     const currentUser = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
       .first();
 
     if (!currentUser) {
-      throw new ConvexError("User not found");
+      throw new ConvexError("Current user not found.");
     }
 
-    // Check if current user has permission (owner or admin)
+    // Permission Check: Only 'owner' or 'admin' can update roles
     if (currentUser.role !== "owner" && currentUser.role !== "admin") {
-      throw new ConvexError("Permission denied: Only owners and admins can update user roles");
+      throw new ConvexError("Permission denied: Only Owners or Admins can update user roles.");
     }
 
-    // Get target user
-    const targetUser = await ctx.db.get(args.userId);
+    // Get the target user (the user whose role is to be updated)
+    const targetUser = await ctx.db.get(args.userIdToUpdate);
     if (!targetUser) {
-      throw new ConvexError("Target user not found");
+      throw new ConvexError("Target user not found.");
     }
 
-    // Check if target user is in same enterprise
+    // Ensure both users are in the same enterprise
     if (targetUser.enterpriseId !== currentUser.enterpriseId) {
-      throw new ConvexError("Cannot update user from different enterprise");
+      throw new ConvexError("Cannot update user roles across different enterprises.");
     }
 
-    // Prevent non-owners from changing owner role
-    if (targetUser.role === "owner" && currentUser.role !== "owner") {
-      throw new ConvexError("Only owners can modify owner roles");
+    // Role-specific restrictions from ROLE_PERMISSIONS.md
+    // Admin cannot modify Owner roles
+    if (targetUser.role === "owner" && currentUser.role === "admin") {
+      throw new ConvexError("Admins cannot modify the roles of Owners.");
+    }
+    // Owners cannot be demoted by anyone but another Owner (implicitly handled if there's only one owner,
+    // but good to be explicit if multiple owners were possible and had different levels)
+    // If demoting an Owner, the current user must be an Owner.
+    if (targetUser.role === "owner" && args.newRole !== "owner" && currentUser.role !== "owner") {
+        throw new ConvexError("Only an Owner can change another Owner's role to a non-Owner role.");
     }
 
-    
-    await ctx.db.patch(args.userId, {
-      role: args.role,
-      updatedAt: new Date().toISOString(),
+
+    // Perform the update
+    await ctx.db.patch(args.userIdToUpdate, {
+      role: args.newRole,
+      updatedAt: new Date().toISOString(), // Update timestamp
     });
 
-    return { success: true };
+    return { success: true, message: `User role updated to ${args.newRole}.` };
   },
 });
 
 // ============================================================================
-// HELPER FUNCTIONS
+// HELPER QUERIES
 // ============================================================================
 
 /**
- * Check if current user has permission for an enterprise
+ * Check if the current authenticated user has a specific level of access to an enterprise.
  */
 export const hasEnterpriseAccess = query({
   args: {
@@ -231,40 +272,49 @@ export const hasEnterpriseAccess = query({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      return false;
+      return false; // Not authenticated
     }
 
-    const accessUser = await ctx.db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
       .first();
 
-    if (!accessUser || accessUser.enterpriseId !== args.enterpriseId) {
-      return false;
+    if (!user || user.enterpriseId !== args.enterpriseId) {
+      return false; // User not found or does not belong to the specified enterprise
     }
 
+    // If no specific role is required, just belonging to the enterprise is enough
     if (!args.requiredRole) {
-      return true; // Just check enterprise access
+      return true;
     }
 
-    // Check role hierarchy
-    const roleHierarchy = { owner: 5, admin: 4, manager: 3, user:2, viewer: 1 };
-    const userLevel = roleHierarchy[accessUser.role];
+    // Role hierarchy based on ROLE_PERMISSIONS.md
+    // Owner (Level 5), Admin (Level 4), Manager (Level 3), User (Level 2), Viewer (Level 1)
+    const roleHierarchy: Record<UserRole, number> = {
+      owner: 5,
+      admin: 4,
+      manager: 3,
+      user: 2,
+      viewer: 1,
+    };
+
+    const userLevel = roleHierarchy[user.role];
     const requiredLevel = roleHierarchy[args.requiredRole];
 
-    return userLevel >= requiredLevel;
+    return userLevel >= requiredLevel; // User's role level must be greater than or equal to required
   },
 });
 
 /**
- * Get current user's enterprise and role info
+ * Get the current user's context including their enterprise and role information.
  */
 export const getUserContext = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      return null;
+      return null; // User not authenticated
     }
 
     const user = await ctx.db
@@ -273,7 +323,10 @@ export const getUserContext = query({
       .first();
 
     if (!user) {
-      return null;
+      // This case implies the user is authenticated with Clerk but doesn't have a corresponding user record in Convex.
+      // This might happen if upsertUser hasn't completed or failed.
+      // Frontend should ideally handle this by prompting for enterprise creation/joining.
+      return { user: null, enterprise: null, message: "User record not found in Convex. Please complete setup." };
     }
 
     const enterprise = await ctx.db.get(user.enterpriseId);
@@ -281,15 +334,18 @@ export const getUserContext = query({
     return {
       user: {
         _id: user._id,
+        clerkId: user.clerkId,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
+        isActive: user.isActive,
       },
       enterprise: enterprise ? {
         _id: enterprise._id,
         name: enterprise.name,
-      } : null,
+        domain: enterprise.domain,
+      } : null, // Enterprise might be null if ID is stale, though unlikely with proper data integrity.
     };
   },
 });
