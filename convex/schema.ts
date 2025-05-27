@@ -64,12 +64,13 @@ export default defineSchema({
   // Stores basic information about enterprises/organizations.
   enterprises: defineTable({
     name: v.string(), // Name of the enterprise
+    domain:v.optional(v.string())
     // Consider adding:
     // ownerUserId: v.optional(v.string()), // Clerk User ID of the enterprise owner/creator
     // subscriptionPlan: v.optional(v.string()), // e.g., "free", "pro", "enterprise"
     // createdAt: v.optional(v.number()), // Use Convex's _creationTime automatically
   })
-  .index("by_name", ["name"]),
+  .index("by_domain", ["domain"]),
 
  // ===== USERS =====
  users: defineTable({
@@ -174,6 +175,22 @@ export default defineSchema({
   .index("by_contractType_and_enterpriseId", ["enterpriseId", "contractType"]), // Query by contract type within an enterprise
   // Consider an index on enterpriseId alone if you often list all contracts for an enterprise without other filters
   // .index("by_enterpriseId_only", ["enterpriseId"]) // Redundant if you have more specific enterpriseId indexes
+
+  invitations: defineTable({
+    enterpriseId: v.id("enterprises"),
+    email: v.string(),
+    role: v.union(...userRoleOptions.map(r => v.literal(r))),
+    invitedBy: v.id("users"),
+    token: v.string(),
+    expiresAt: v.string(),
+    acceptedAt: v.optional(v.string()),
+  })
+  .index("by_email", ["email"])
+  .index("by_token", ["token"])
+  .index("by_enterprise", ["enterpriseId"]),
+
+
+  
 
 
   ...agentTables,

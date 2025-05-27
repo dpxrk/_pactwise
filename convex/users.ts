@@ -37,46 +37,81 @@ export const getCurrentUser = query({
  */
 export const upsertUser = mutation({
   args: {
-    enterpriseId: v.id("enterprises"),
-    role: v.optional(v.union(...userRoleOptions.map(r => v.literal(r)))),
+    enterpriseId: v.optional(v.id("enterprises")), // Make optional
+    invitationToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError("Authentication required");
-    }
+    if (!identity) throw new ConvexError("Authentication required");
 
-    // Check if user already exists
+    // Check for existing user
     const existingUser = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
       .first();
-
-    if (existingUser && identity) {
-      // Update existing user
+    
+    if (existingUser) {
+      // User already exists, just update login time
       await ctx.db.patch(existingUser._id, {
-        email: typeof identity.email === "string" ? identity.email : existingUser.email,
-        firstName: typeof identity.given_name === "string" ? identity.given_name : existingUser.firstName,
-        lastName: typeof identity.family_name === "string" ? identity.family_name : existingUser.lastName,
         lastLoginAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       });
       return existingUser._id;
-    } else {
-      // Create new user
-      const userId = await ctx.db.insert("users", {
-        clerkId: identity.subject,
-        email: typeof identity.email === "string" ? identity.email : "",
-        firstName: typeof identity.given_name === "string" ? identity.given_name : undefined,
-        lastName: typeof identity.family_name === "string" ? identity.family_name : undefined,
-        enterpriseId: args.enterpriseId,
-        role: args.role || "viewer",
-        isActive: true,
-        lastLoginAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-      });
-      return userId;
     }
+
+    // New user - determine enterprise
+    let enterpriseId = args.enterpriseId;
+    let role: UserRole = "viewer"; // Default role
+
+    // 1. Check invitation
+    if (args.invitationToken) {
+      const invitation = await ctx.db
+        .query("invitations")
+        .withIndex("by_token", (q) => q.eq("token", args.invitationToken))
+        .first();
+      
+      if (invitation && invitation.email === identity.email) {
+        enterpriseId = invitation.enterpriseId;
+        role = invitation.role;
+        
+        // Mark invitation as accepted
+        await ctx.db.patch(invitation._id, {
+          acceptedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    // 2. Check domain matching
+    if (!enterpriseId && identity.email) {
+      const domain = identity.email.split('@')[1];
+      const enterprise = await ctx.db
+        .query("enterprises")
+        .withIndex("by_domain", (q) => q.eq("domain", domain))
+        .first();
+      
+      if (enterprise) {
+        enterpriseId = enterprise._id;
+      }
+    }
+
+    // 3. If still no enterprise, they need to create one or be invited
+    if (!enterpriseId) {
+      throw new ConvexError("No enterprise found. Please create an enterprise or use an invitation link.");
+    }
+
+    // Create the user
+    const userId = await ctx.db.insert("users", {
+      clerkId: identity.subject,
+      email: identity.email || "",
+      firstName: identity.given_name || undefined,
+      lastName: identity.family_name || undefined,
+      enterpriseId,
+      role,
+      isActive: true,
+      lastLoginAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    });
+
+    return userId;
   },
 });
 
@@ -109,6 +144,20 @@ export const getEnterpriseUsers = query({
       .collect();
 
     return users;
+  },
+});
+
+
+export const getEnterpriseByEmail = query({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const domain = args.email.split('@')[1];
+    if (!domain) return null;
+    
+    return await ctx.db
+      .query("enterprises")
+      .withIndex("by_domain", (q) => q.eq("domain", domain))
+      .first();
   },
 });
 
