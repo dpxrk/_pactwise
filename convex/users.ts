@@ -53,13 +53,11 @@ export const upsertUser = mutation({
       .first();
     
     if (existingUser) {
-      // User already exists, update last login time
-      // Optionally, update other fields like name if they can change in Clerk
       await ctx.db.patch(existingUser._id, {
         lastLoginAt: new Date().toISOString(),
         firstName: typeof identity.given_name === "string" ? identity.given_name : undefined,
         lastName: typeof identity.family_name === "string" ? identity.family_name : undefined,
-        email: identity.email || existingUser.email, // Ensure email is kept up-to-date
+        email: identity.email || existingUser.email, 
       });
       return existingUser._id;
     }
