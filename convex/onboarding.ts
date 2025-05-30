@@ -259,6 +259,7 @@ export const checkPendingInvitations = query({
             token: inv.token,
             role: inv.role,
             enterpriseName: enterprise?.name || 'Unknown',
+            enterpriseId: inv.enterpriseId, // <<< --- ADD THIS LINE
             inviterName: inviter 
               ? `${inviter.firstName || ''} ${inviter.lastName || ''}`.trim() || inviter.email
               : 'Unknown',

@@ -1,7 +1,7 @@
 // src/lib/api-client.ts
 import { useState, useMemo } from 'react';
 import { api } from "../../convex/_generated/api"; // Correct path to generated API
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import type {
     FunctionReference,
     FunctionArgs,
@@ -64,6 +64,35 @@ export function useConvexMutation<
     } catch (err) {
       const caughtError = err instanceof Error ? err : new Error(String(err));
       console.error(`Mutation failed:`, caughtError);
+      setError(caughtError);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { execute, isLoading, error };
+}
+
+
+export function useConvexAction<Action extends FunctionReference<"action">> (
+  actionFn: Action
+) {
+  const actionRunner = useAction(actionFn);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const execute = async (
+    args: FunctionArgs<Action>
+  ): Promise<FunctionReturnType<Action> | null> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await actionRunner(args);
+      return result as FunctionReturnType<Action>;
+    } catch (err) {
+      const caughtError = err instanceof Error ? err : new Error(String(err));
+      console.error(`Action failed:`, caughtError);
       setError(caughtError);
       return null;
     } finally {
@@ -161,11 +190,35 @@ interface UseContractsArgs {
  */
 export const useContracts = (args: UseContractsArgs | null | undefined | typeof SKIP_TOKEN) => {
     return useConvexQuery(
-        api.contracts.getContracts, // Assuming this is your main query for listing contracts
-        args === SKIP_TOKEN || !args || !args.enterpriseId ? SKIP_TOKEN : args
+        api.contracts.getContracts,
+        args === SKIP_TOKEN || !args || !args.enterpriseId
+            ? SKIP_TOKEN
+            : {
+                  ...args,
+                  // Explicitly narrow status to allowed values if present
+                  status: args.status as
+                      | "draft"
+                      | "pending_analysis"
+                      | "active"
+                      | "expired"
+                      | "terminated"
+                      | "archived"
+                      | "all"
+                      | undefined,
+                  contractType: args.contractType as
+                      | "other"
+                      | "nda"
+                      | "msa"
+                      | "sow"
+                      | "saas"
+                      | "lease"
+                      | "employment"
+                      | "partnership"
+                      | "all"
+                      | undefined,
+              }
     );
-};
-
+  }
 
 /**
  * Args type for fetching contracts by vendor.
@@ -220,22 +273,6 @@ export const useContractFileUrl = (storageId: Id<"_storage"> | null | undefined 
         storageId === SKIP_TOKEN || !storageId ? SKIP_TOKEN : { storageId }
     );
 };
-
-// ============================================================================
-// Enterprise & User Related Hooks (Placeholders or examples if needed later)
-// ============================================================================
-// If you create a `users` table in Convex linked to Clerk users and enterprises:
-// export const useCurrentUserWithEnterprise = () => {
-//   return useConvexQuery(api.users.getCurrentUserWithEnterprise, {});
-// };
-
-// If you have an `enterprises` table and want to fetch enterprise details:
-// export const useEnterprise = (enterpriseId: Id<"enterprises"> | null | undefined | typeof SKIP_TOKEN) => {
-//   return useConvexQuery(
-//     api.enterprises.getEnterpriseById, // Assuming you create such a function
-//     enterpriseId === SKIP_TOKEN || !enterpriseId ? SKIP_TOKEN : { enterpriseId }
-//   );
-// };
 
 
 // ============================================================================
