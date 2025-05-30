@@ -1,36 +1,28 @@
 // convex/vendors.ts
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel"; // Ensure Id is imported
+import { Id } from "./_generated/dataModel"; 
 import { ConvexError } from "convex/values";
-import { api } from "./_generated/api"; // Needed for checking contracts on delete
+import { api } from "./_generated/api"; 
 
-// Define the vendor category options (mirroring schema.ts for validation consistency)
-// This ensures that the values passed from the client match what the schema expects.
+
 const vendorCategoryOptions = [
   "technology", "marketing", "legal", "finance", "hr",
   "facilities", "logistics", "manufacturing", "consulting", "other"
 ] as const;
-// Optional: export type VendorCategory = typeof vendorCategoryOptions[number];
-// This type can be useful if you need to reference it elsewhere in the backend,
-// though for args validation, v.union with v.literal is typically used directly.
 
 // ============================================================================
 // CREATE
 // ============================================================================
 export const createVendor = mutation({
   args: {
-    // --- REQUIRED: enterpriseId to scope the vendor ---
     enterpriseId: v.id("enterprises"),
-    // Required field for vendor name
-    name: v.string(),
-    // Optional fields based on your schema
+    name: v.string(),   
     contactEmail: v.optional(v.string()),
     contactPhone: v.optional(v.string()),
     address: v.optional(v.string()),
     notes: v.optional(v.string()),
     website: v.optional(v.string()),
-    // --- NEW: Optional category field ---
     category: v.optional(
       v.union(
         ...vendorCategoryOptions.map(option => v.literal(option))
@@ -42,27 +34,51 @@ export const createVendor = mutation({
     if (!identity) {
       throw new ConvexError("Authentication required: User must be logged in to create a vendor.");
     }
-    // Optional: Further validation - check if the user (identity.subject)
-    // belongs to the provided args.enterpriseId if you store user-enterprise relationships.
+    
+    // Get current user to check permissions
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!currentUser || currentUser.enterpriseId !== args.enterpriseId) {
+      throw new ConvexError("Access denied: You can only create vendors for your enterprise.");
+    }
+
+    // Check role permissions (viewers cannot create)
+    if (currentUser.role === "viewer") {
+      throw new ConvexError("Permission denied: Viewers cannot create vendors.");
+    }
 
     if (!args.name || args.name.trim() === "") {
         throw new ConvexError("Validation Error: Vendor name cannot be empty.");
     }
-    // Optional: Validate enterpriseId exists
-    // const enterprise = await ctx.db.get(args.enterpriseId);
-    // if (!enterprise) {
-    //   throw new ConvexError(`Enterprise with ID ${args.enterpriseId} not found.`);
-    // }
+    
+    // Check for duplicate vendor names
+    const existingVendor = await ctx.db
+      .query("vendors")
+      .withIndex("by_name", (q) => q.eq("name", args.name.trim()))
+      .filter((q) => q.eq(q.field("enterpriseId"), args.enterpriseId))
+      .first();
+
+    if (existingVendor) {
+      throw new ConvexError("A vendor with this name already exists in your enterprise.");
+    }
+
+    // Validate email format if provided
+    if (args.contactEmail && !isValidEmail(args.contactEmail)) {
+      throw new ConvexError("Invalid email format.");
+    }
 
     const vendorId = await ctx.db.insert("vendors", {
-      enterpriseId: args.enterpriseId, // Store the enterpriseId
+      enterpriseId: args.enterpriseId,
       name: args.name.trim(),
-      contactEmail: args.contactEmail || undefined,
+      contactEmail: args.contactEmail?.toLowerCase() || undefined,
       contactPhone: args.contactPhone || undefined,
       address: args.address || undefined,
       notes: args.notes || undefined,
       website: args.website || undefined,
-      category: args.category || undefined, // Store the category
+      category: args.category || undefined,
     });
 
     console.log(`Vendor created with ID: ${vendorId} for enterprise ${args.enterpriseId}`);
@@ -84,16 +100,35 @@ export const getVendors = query({
         v.literal("all") // Special value to fetch all categories for the enterprise
       )
     ),
-    // You could add other filters like status, searchTerm, etc.
-    // status: v.optional(v.string()),
-    // searchTerm: v.optional(v.string()),
+    // Search query
+    searchQuery: v.optional(v.string()),
+    // Pagination
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
+    // Sorting
+    sortBy: v.optional(v.union(
+      v.literal("name"),
+      v.literal("contractCount"),
+      v.literal("totalValue"),
+      v.literal("lastActivity")
+    )),
+    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new ConvexError("Authentication required to view vendors.");
     }
-    // Optional: Validate user's access to this enterpriseId
+    
+    // Verify user has access to this enterprise
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!currentUser || currentUser.enterpriseId !== args.enterpriseId) {
+      throw new ConvexError("Access denied: You can only view vendors from your enterprise.");
+    }
 
     // Base query for the enterprise
     let queryBuilder = ctx.db
@@ -102,8 +137,6 @@ export const getVendors = query({
 
     // Apply category filter if provided and not "all"
     if (args.category && args.category !== "all") {
-        // This requires a composite index on ["enterpriseId", "category"]
-        // The index name "by_category_and_enterprise" must match your schema.ts
         queryBuilder = ctx.db
           .query("vendors")
           .withIndex("by_category_and_enterpriseId", (q) =>
@@ -111,23 +144,96 @@ export const getVendors = query({
           );
     }
 
-  
-    const vendors = await queryBuilder.order("asc").collect(); // Orders by name ascending due to index order
+    let vendors = await queryBuilder.order("asc").collect();
 
-    // Optionally, enrich vendors with contract counts or other related data
-    // Be mindful of N+1 query performance if doing this for many vendors.
+    // Apply search filter if provided
+    if (args.searchQuery && args.searchQuery.trim().length > 0) {
+      const searchLower = args.searchQuery.toLowerCase().trim();
+      vendors = vendors.filter(vendor => 
+        vendor.name.toLowerCase().includes(searchLower) ||
+        vendor.contactEmail?.toLowerCase().includes(searchLower) ||
+        vendor.website?.toLowerCase().includes(searchLower) ||
+        vendor.notes?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Enrich vendors with contract data and calculate metrics
     const vendorsWithDetails = await Promise.all(
         vendors.map(async (vendor) => {
             const contracts = await ctx.db
                 .query("contracts")
-                // Assuming index on ["enterpriseId", "vendorId"] exists as "by_vendorId_and_enterpriseId"
-                .withIndex("by_vendorId_and_enterpriseId", q => q.eq("enterpriseId", args.enterpriseId).eq("vendorId", vendor._id))
+                .withIndex("by_vendorId_and_enterpriseId", q => 
+                  q.eq("enterpriseId", args.enterpriseId).eq("vendorId", vendor._id)
+                )
                 .collect();
-            return { ...vendor, contractCount: contracts.length };
+            
+            const activeContracts = contracts.filter(c => c.status === "active");
+            const totalValue = contracts.reduce((sum, contract) => {
+              const value = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
+              return sum + value;
+            }, 0);
+
+            // Get last activity (most recent contract creation or update)
+            const lastActivity = contracts.reduce((latest, contract) => {
+              const contractTime = contract._creationTime || 0;
+              return contractTime > latest ? contractTime : latest;
+            }, 0);
+
+            return { 
+              ...vendor, 
+              contractCount: contracts.length,
+              activeContractCount: activeContracts.length,
+              totalValue,
+              lastActivity,
+              hasActiveContracts: activeContracts.length > 0,
+            };
         })
     );
 
-    return vendorsWithDetails;
+    // Sort vendors
+    let sortedVendors = [...vendorsWithDetails];
+    if (args.sortBy) {
+      sortedVendors.sort((a, b) => {
+        let aVal, bVal;
+        switch (args.sortBy) {
+          case "name":
+            aVal = a.name.toLowerCase();
+            bVal = b.name.toLowerCase();
+            break;
+          case "contractCount":
+            aVal = a.contractCount;
+            bVal = b.contractCount;
+            break;
+          case "totalValue":
+            aVal = a.totalValue;
+            bVal = b.totalValue;
+            break;
+          case "lastActivity":
+            aVal = a.lastActivity;
+            bVal = b.lastActivity;
+            break;
+          default:
+            return 0;
+        }
+
+        if (args.sortOrder === "desc") {
+          return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+        } else {
+          return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+        }
+      });
+    }
+
+    // Apply pagination
+    const limit = args.limit || 50;
+    const offset = args.offset || 0;
+    const paginatedVendors = sortedVendors.slice(offset, offset + limit);
+
+    return {
+      vendors: paginatedVendors,
+      total: sortedVendors.length,
+      hasMore: offset + limit < sortedVendors.length,
+    };
   },
 });
 
@@ -143,6 +249,15 @@ export const getVendorById = query({
         throw new ConvexError("Authentication required to view vendor details.");
     }
 
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!currentUser || currentUser.enterpriseId !== args.enterpriseId) {
+      throw new ConvexError("Access denied.");
+    }
+
     const vendor = await ctx.db.get(args.vendorId);
 
     if (!vendor) {
@@ -151,18 +266,49 @@ export const getVendorById = query({
 
     // --- Security Check: Ensure the fetched vendor belongs to the specified enterprise ---
     if (vendor.enterpriseId !== args.enterpriseId) {
-      // You might want to log this attempt or handle it more silently
       console.warn(`User attempted to access vendor ${args.vendorId} not belonging to their enterprise ${args.enterpriseId}.`);
-      return null; // Or throw new ConvexError("Access denied to this vendor.");
+      return null;
     }
 
-    // Optionally, fetch related data like contracts for this vendor
+    // Fetch related data
     const contracts = await ctx.db
         .query("contracts")
-        .withIndex("by_vendorId_and_enterpriseId", q => q.eq("enterpriseId", args.enterpriseId).eq("vendorId", vendor._id))
+        .withIndex("by_vendorId_and_enterpriseId", q => 
+          q.eq("enterpriseId", args.enterpriseId).eq("vendorId", vendor._id)
+        )
         .collect();
 
-    return { ...vendor, contracts }; // Return vendor with its contracts
+    // Calculate vendor metrics
+    const activeContracts = contracts.filter(c => c.status === "active");
+    const totalValue = contracts.reduce((sum, contract) => {
+      const value = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
+      return sum + value;
+    }, 0);
+
+    // Get contract value breakdown
+    const contractsByStatus = contracts.reduce((acc, contract) => {
+      acc[contract.status] = (acc[contract.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const contractsByType = contracts.reduce((acc, contract) => {
+      const type = contract.contractType || "other";
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return { 
+      ...vendor, 
+      contracts,
+      metrics: {
+        totalContracts: contracts.length,
+        activeContracts: activeContracts.length,
+        totalValue,
+        averageContractValue: contracts.length > 0 ? totalValue / contracts.length : 0,
+        contractsByStatus,
+        contractsByType,
+      },
+    };
   },
 });
 
@@ -187,13 +333,25 @@ export const updateVendor = mutation({
         ...vendorCategoryOptions.map(option => v.literal(option))
       )
     ),
-    // Add other updatable fields like status or riskLevel here if they are in your schema
-    // status: v.optional(v.union(v.literal("active"), v.literal("inactive"))),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new ConvexError("Authentication required: User must be logged in to update a vendor.");
+    }
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!currentUser || currentUser.enterpriseId !== args.enterpriseId) {
+      throw new ConvexError("Access denied.");
+    }
+
+    // Check role permissions
+    if (currentUser.role === "viewer") {
+      throw new ConvexError("Permission denied: Viewers cannot update vendors.");
     }
 
     const existingVendor = await ctx.db.get(args.vendorId);
@@ -211,7 +369,33 @@ export const updateVendor = mutation({
     if (updates.name !== undefined && updates.name.trim() === "") {
         throw new ConvexError("Validation Error: Vendor name cannot be empty.");
     }
-    if(updates.name) updates.name = updates.name.trim();
+    if(updates.name) {
+      updates.name = updates.name.trim();
+      
+      // Check for duplicate names
+      const duplicateVendor = await ctx.db
+        .query("vendors")
+        .withIndex("by_name", (q) => q.eq("name", updates.name!))
+        .filter((q) => 
+          q.and(
+            q.eq(q.field("enterpriseId"), existingVendor.enterpriseId),
+            q.neq(q.field("_id"), args.vendorId)
+          )
+        )
+        .first();
+
+      if (duplicateVendor) {
+        throw new ConvexError("A vendor with this name already exists.");
+      }
+    }
+
+    // Validate email if provided
+    if (updates.contactEmail !== undefined && updates.contactEmail && !isValidEmail(updates.contactEmail)) {
+      throw new ConvexError("Invalid email format.");
+    }
+    if (updates.contactEmail) {
+      updates.contactEmail = updates.contactEmail.toLowerCase();
+    }
 
     // Remove undefined values so patch only applies provided fields
     (Object.keys(updates) as Array<keyof typeof updates>).forEach(key => {
@@ -247,6 +431,20 @@ export const deleteVendor = mutation({
       throw new ConvexError("Authentication required: User must be logged in to delete a vendor.");
     }
 
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!currentUser || currentUser.enterpriseId !== args.enterpriseId) {
+      throw new ConvexError("Access denied.");
+    }
+
+    // Check role permissions (only admins and owners can delete)
+    if (currentUser.role !== "owner" && currentUser.role !== "admin") {
+      throw new ConvexError("Permission denied: Only owners and admins can delete vendors.");
+    }
+
     const existingVendor = await ctx.db.get(args.vendorId);
     if (!existingVendor) {
         throw new ConvexError(`Vendor not found with ID: ${args.vendorId}`);
@@ -260,7 +458,7 @@ export const deleteVendor = mutation({
     // Check for Associated Contracts (Safety Check within the correct enterprise)
     const associatedContracts = await ctx.db
       .query("contracts")
-      .withIndex("by_vendorId_and_enterpriseId", (q) => // Use the composite index
+      .withIndex("by_vendorId_and_enterpriseId", (q) =>
           q.eq("enterpriseId", args.enterpriseId).eq("vendorId", args.vendorId)
       )
       .collect();
@@ -277,3 +475,272 @@ export const deleteVendor = mutation({
     return { success: true };
   },
 });
+
+// ============================================================================
+// ANALYTICS
+// ============================================================================
+
+/**
+ * Get vendor analytics and statistics
+ */
+export const getVendorAnalytics = query({
+  args: {
+    enterpriseId: v.id("enterprises"),
+    timeRange: v.optional(v.union(
+      v.literal("30days"),
+      v.literal("90days"),
+      v.literal("1year"),
+      v.literal("all")
+    )),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required.");
+    }
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!currentUser || currentUser.enterpriseId !== args.enterpriseId) {
+      throw new ConvexError("Access denied.");
+    }
+
+    const vendors = await ctx.db
+      .query("vendors")
+      .withIndex("by_enterpriseId", (q) => q.eq("enterpriseId", args.enterpriseId))
+      .collect();
+
+    const contracts = await ctx.db
+      .query("contracts")
+      .withIndex("by_status_and_enterpriseId", (q) => 
+        q.eq("enterpriseId", args.enterpriseId)
+      )
+      .collect();
+
+    // Calculate time range filter
+    let startDate: Date | null = null;
+    if (args.timeRange && args.timeRange !== "all") {
+      startDate = new Date();
+      switch (args.timeRange) {
+        case "30days":
+          startDate.setDate(startDate.getDate() - 30);
+          break;
+        case "90days":
+          startDate.setDate(startDate.getDate() - 90);
+          break;
+        case "1year":
+          startDate.setFullYear(startDate.getFullYear() - 1);
+          break;
+      }
+    }
+
+    // Filter contracts by time range
+    const filteredContracts = startDate 
+      ? contracts.filter(c => c._creationTime && c._creationTime > startDate.getTime())
+      : contracts;
+
+    // Calculate analytics
+    const analytics = {
+      totalVendors: vendors.length,
+      vendorsByCategory: {} as Record<string, number>,
+      topVendorsByValue: [] as Array<{ vendor: any; totalValue: number; contractCount: number }>,
+      topVendorsByContracts: [] as Array<{ vendor: any; contractCount: number; totalValue: number }>,
+      vendorsWithActiveContracts: 0,
+      vendorsWithoutContracts: 0,
+      totalSpend: 0,
+      averageContractValue: 0,
+      categorySpend: {} as Record<string, number>,
+    };
+
+    // Group contracts by vendor
+    const contractsByVendor = new Map<string, any[]>();
+    filteredContracts.forEach(contract => {
+      const vendorId = contract.vendorId.toString();
+      if (!contractsByVendor.has(vendorId)) {
+        contractsByVendor.set(vendorId, []);
+      }
+      contractsByVendor.get(vendorId)!.push(contract);
+    });
+
+    // Analyze each vendor
+    vendors.forEach(vendor => {
+      // Category breakdown
+      const category = vendor.category || "other";
+      analytics.vendorsByCategory[category] = (analytics.vendorsByCategory[category] || 0) + 1;
+
+      // Get vendor contracts
+      const vendorContracts = contractsByVendor.get(vendor._id.toString()) || [];
+      const activeContracts = vendorContracts.filter(c => c.status === "active");
+      
+      if (activeContracts.length > 0) {
+        analytics.vendorsWithActiveContracts++;
+      }
+      if (vendorContracts.length === 0) {
+        analytics.vendorsWithoutContracts++;
+      }
+
+      // Calculate total value
+      const totalValue = vendorContracts.reduce((sum, contract) => {
+        const value = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
+        return sum + value;
+      }, 0);
+
+      analytics.totalSpend += totalValue;
+      analytics.categorySpend[category] = (analytics.categorySpend[category] || 0) + totalValue;
+
+      // Add to top vendors lists
+      if (vendorContracts.length > 0) {
+        const vendorData = {
+          vendor: {
+            _id: vendor._id,
+            name: vendor.name,
+            category: vendor.category,
+          },
+          totalValue,
+          contractCount: vendorContracts.length,
+        };
+        analytics.topVendorsByValue.push(vendorData);
+        analytics.topVendorsByContracts.push(vendorData);
+      }
+    });
+
+    // Sort and limit top vendors
+    analytics.topVendorsByValue.sort((a, b) => b.totalValue - a.totalValue);
+    analytics.topVendorsByValue = analytics.topVendorsByValue.slice(0, 10);
+
+    analytics.topVendorsByContracts.sort((a, b) => b.contractCount - a.contractCount);
+    analytics.topVendorsByContracts = analytics.topVendorsByContracts.slice(0, 10);
+
+    // Calculate average contract value
+    if (filteredContracts.length > 0) {
+      analytics.averageContractValue = analytics.totalSpend / filteredContracts.length;
+    }
+
+    return analytics;
+  },
+});
+
+/**
+ * Get vendor categories with counts
+ */
+export const getVendorCategories = query({
+  args: {
+    enterpriseId: v.id("enterprises"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required.");
+    }
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!currentUser || currentUser.enterpriseId !== args.enterpriseId) {
+      throw new ConvexError("Access denied.");
+    }
+
+    const vendors = await ctx.db
+      .query("vendors")
+      .withIndex("by_enterpriseId", (q) => q.eq("enterpriseId", args.enterpriseId))
+      .collect();
+
+    const categories = vendorCategoryOptions.map(category => {
+      const count = vendors.filter(v => v.category === category).length;
+      return { category, count };
+    });
+
+    // Add count for vendors without category
+    const uncategorizedCount = vendors.filter(v => !v.category).length;
+    if (uncategorizedCount > 0) {
+      categories.push({ category: "other", count: uncategorizedCount });
+    }
+
+    return categories.filter(c => c.count > 0);
+  },
+});
+
+// ============================================================================
+// BULK OPERATIONS
+// ============================================================================
+
+/**
+ * Bulk update vendor categories
+ */
+export const bulkUpdateCategories = mutation({
+  args: {
+    enterpriseId: v.id("enterprises"),
+    updates: v.array(v.object({
+      vendorId: v.id("vendors"),
+      category: v.union(
+        ...vendorCategoryOptions.map(option => v.literal(option))
+      ),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required.");
+    }
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!currentUser || currentUser.enterpriseId !== args.enterpriseId) {
+      throw new ConvexError("Access denied.");
+    }
+
+    if (currentUser.role !== "owner" && currentUser.role !== "admin") {
+      throw new ConvexError("Permission denied: Only owners and admins can bulk update vendors.");
+    }
+
+    let successCount = 0;
+    const errors: Array<{ vendorId: string; error: string }> = [];
+
+    for (const update of args.updates) {
+      try {
+        const vendor = await ctx.db.get(update.vendorId);
+        if (!vendor) {
+          errors.push({ vendorId: update.vendorId.toString(), error: "Vendor not found" });
+          continue;
+        }
+
+        if (vendor.enterpriseId !== args.enterpriseId) {
+          errors.push({ vendorId: update.vendorId.toString(), error: "Access denied" });
+          continue;
+        }
+
+        await ctx.db.patch(update.vendorId, { category: update.category });
+        successCount++;
+      } catch (error) {
+        errors.push({ 
+          vendorId: update.vendorId.toString(), 
+          error: error instanceof Error ? error.message : "Unknown error" 
+        });
+      }
+    }
+
+    return {
+      success: true,
+      successCount,
+      totalCount: args.updates.length,
+      errors,
+    };
+  },
+});
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}

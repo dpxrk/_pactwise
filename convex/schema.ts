@@ -63,9 +63,26 @@ export default defineSchema({
   // ===== ENTERPRISES =====
   enterprises: defineTable({
     name: v.string(),
-    domain:v.optional(v.string())
+    domain: v.optional(v.string()),
+    industry: v.optional(v.string()),
+    size: v.optional(v.union(
+      v.literal("1-10"),
+      v.literal("11-50"),
+      v.literal("51-200"),
+      v.literal("201-500"),
+      v.literal("501-1000"),
+      v.literal("1000+")
+    )),
+    contractVolume: v.optional(v.union(
+      v.literal("low"),
+      v.literal("medium"),
+      v.literal("high"),
+      v.literal("enterprise")
+    )),
+    primaryUseCase: v.optional(v.array(v.string())),
   })
-  .index("by_domain", ["domain"]),
+    .index("by_name", ["name"])
+    .index("by_domain", ["domain"]),
 
  // ===== USERS =====
  users: defineTable({
@@ -79,6 +96,9 @@ export default defineSchema({
   lastLoginAt: v.optional(v.string()),
   createdAt: v.string(),
   updatedAt: v.optional(v.string()),
+  phoneNumber: v.optional(v.string()),
+  department: v.optional(v.string()),
+  title: v.optional(v.string()),
 })
 .index("by_clerkId", ["clerkId"])
 .index("by_enterprise", ["enterpriseId"])
@@ -148,6 +168,22 @@ export default defineSchema({
   .index("by_email", ["email"])
   .index("by_token", ["token"])
   .index("by_enterprise", ["enterpriseId"]),
+
+  // ======USER ONBOARDING=========
+  userOnboarding: defineTable({
+    userId: v.id("users"),
+    enterpriseId: v.id("enterprises"),
+    currentStep: v.string(),
+    completedSteps: v.optional(v.array(v.string())),
+    startedAt: v.string(),
+    completedAt: v.optional(v.string()),
+    skippedAt: v.optional(v.string()),
+    skipReason: v.optional(v.string()),
+    updatedAt: v.optional(v.string()),
+    metadata: v.optional(v.any()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_enterpriseId", ["enterpriseId"]),
 
   ...agentTables,
 });

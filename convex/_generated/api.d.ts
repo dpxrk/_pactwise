@@ -20,6 +20,8 @@ import type * as agents_manager from "../agents/manager.js";
 import type * as agents_secretary from "../agents/secretary.js";
 import type * as contracts from "../contracts.js";
 import type * as enterprises from "../enterprises.js";
+import type * as onboarding from "../onboarding.js";
+import type * as search from "../search.js";
 import type * as server from "../server.js";
 import type * as users from "../users.js";
 import type * as vendors from "../vendors.js";
@@ -40,6 +42,8 @@ declare const fullApi: ApiFromModules<{
   "agents/secretary": typeof agents_secretary;
   contracts: typeof contracts;
   enterprises: typeof enterprises;
+  onboarding: typeof onboarding;
+  search: typeof search;
   server: typeof server;
   users: typeof users;
   vendors: typeof vendors;
