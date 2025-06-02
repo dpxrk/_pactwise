@@ -2,6 +2,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { agentTables } from "./agent_schema";
+import { notificationTables } from "./notification_schema";
 
 // ============================================================================
 // OPTIONS / ENUMS
@@ -186,4 +187,5 @@ export default defineSchema({
     .index("by_enterpriseId", ["enterpriseId"]),
 
   ...agentTables,
+  ...notificationTables
 });
