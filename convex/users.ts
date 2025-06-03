@@ -347,3 +347,75 @@ export const getUserContext = query({
     };
   },
 });
+
+
+/**
+ *  Updating a user's profile
+ */
+export const updateUserProfile = mutation({
+  args: {
+    // userId: v.id("users"), // Clerk ID will be used from identity
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    phoneNumber: v.optional(v.string()),
+    department: v.optional(v.string()),
+    title: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required to update profile.");
+    }
+
+    const userToUpdate = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!userToUpdate) {
+      throw new ConvexError("User not found.");
+    }
+
+    const updates: Partial<typeof userToUpdate> = {};
+
+    if (args.firstName !== undefined) {
+      if (args.firstName.trim().length < 1 && userToUpdate.firstName === undefined) { // only error if it was undefined and now it is empty
+         // Allow clearing if already set
+      } else if (args.firstName.trim().length < 1 && userToUpdate.firstName !== undefined) {
+         updates.firstName = undefined; // Set to undefined to clear
+      }
+      else if (args.firstName.trim().length > 0) {
+        updates.firstName = args.firstName.trim();
+      }
+    }
+
+    if (args.lastName !== undefined) {
+      if (args.lastName.trim().length < 1 && userToUpdate.lastName === undefined) {
+        // Allow clearing if already set
+      } else if (args.lastName.trim().length < 1 && userToUpdate.lastName !== undefined) {
+          updates.lastName = undefined; // Set to undefined to clear
+      }
+      else if (args.lastName.trim().length > 0) {
+        updates.lastName = args.lastName.trim();
+      }
+    }
+
+
+    if (args.phoneNumber !== undefined) {
+      updates.phoneNumber = args.phoneNumber.trim() || undefined;
+    }
+    if (args.department !== undefined) {
+      updates.department = args.department.trim() || undefined;
+    }
+    if (args.title !== undefined) {
+      updates.title = args.title.trim() || undefined;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      updates.updatedAt = new Date().toISOString();
+      await ctx.db.patch(userToUpdate._id, updates);
+    }
+
+    return { success: true, message: "Profile updated successfully." };
+  },
+});
