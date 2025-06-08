@@ -10,8 +10,8 @@ interface VendorState {
   // Vendor CRUD operations
   setVendors: (vendors: VendorType[]) => void;
   addVendor: (vendor: VendorType) => void;
-  updateVendor: (id: number, vendor: Partial<VendorType>) => void;
-  deleteVendor: (id: number) => void;
+  updateVendor: (id: string, vendor: Partial<VendorType>) => void;
+  deleteVendor: (id: string) => void;
   fetchMoreVendors: (page: number) => Promise<void>;
 
   // Loading and error states
@@ -19,11 +19,11 @@ interface VendorState {
   setError: (error: string | null) => void;
 
   // Additional vendor-specific operations
-  updateVendorStatus: (id: number, status: VendorType["status"]) => void;
-  updateRiskLevel: (id: number, riskLevel: VendorType["risk_level"]) => void;
-  updateComplianceScore: (id: number, score: number) => void;
-  updateActiveContracts: (id: number, count: number) => void;
-  addVendorSpend: (id: number, amount: number) => void;
+  updateVendorStatus: (id: string, status: VendorType["status"]) => void;
+  updateRiskLevel: (id: string, riskLevel: VendorType["risk_level"]) => void;
+  updateComplianceScore: (id: string, score: number) => void;
+  updateActiveContracts: (id: string, count: number) => void;
+  addVendorSpend: (id: string, amount: number) => void;
 }
 
 const useVendorStore = create<VendorState>()(
@@ -49,14 +49,14 @@ const useVendorStore = create<VendorState>()(
       updateVendor: (id, updatedVendor) => {
         set((state) => ({
           vendors: state.vendors.map((vendor) =>
-            vendor.id === id ? { ...vendor, ...updatedVendor } : vendor
+            vendor._id === id ? { ...vendor, ...updatedVendor } : vendor
           ),
         }));
       },
 
       deleteVendor: (id) => {
         set((state) => ({
-          vendors: state.vendors.filter((vendor) => vendor.id !== id),
+          vendors: state.vendors.filter((vendor) => vendor._id !== id),
         }));
       },
 
@@ -78,7 +78,7 @@ const useVendorStore = create<VendorState>()(
       updateVendorStatus: (id, status) => {
         set((state) => ({
           vendors: state.vendors.map((vendor) =>
-            vendor.id === id ? { ...vendor, status } : vendor
+            vendor._id === id ? { ...vendor, status } : vendor
           ),
         }));
       },
@@ -86,7 +86,7 @@ const useVendorStore = create<VendorState>()(
       updateRiskLevel: (id, riskLevel) => {
         set((state) => ({
           vendors: state.vendors.map((vendor) =>
-            vendor.id === id ? { ...vendor, risk_level: riskLevel } : vendor
+            vendor._id === id ? { ...vendor, risk_level: riskLevel } : vendor
           ),
         }));
       },
@@ -94,7 +94,7 @@ const useVendorStore = create<VendorState>()(
       updateComplianceScore: (id, score) => {
         set((state) => ({
           vendors: state.vendors.map((vendor) =>
-            vendor.id === id ? { ...vendor, compliance_score: score } : vendor
+            vendor._id === id ? { ...vendor, compliance_score: score } : vendor
           ),
         }));
       },
@@ -102,7 +102,7 @@ const useVendorStore = create<VendorState>()(
       updateActiveContracts: (id, count) => {
         set((state) => ({
           vendors: state.vendors.map((vendor) =>
-            vendor.id === id ? { ...vendor, active_contracts: count } : vendor
+            vendor._id === id ? { ...vendor, active_contracts: count } : vendor
           ),
         }));
       },
@@ -110,7 +110,7 @@ const useVendorStore = create<VendorState>()(
       addVendorSpend: (id, amount) => {
         set((state) => ({
           vendors: state.vendors.map((vendor) =>
-            vendor.id === id
+            vendor._id === id
               ? { ...vendor, total_spend: (vendor.total_spend || 0) + amount }
               : vendor
           ),

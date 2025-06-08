@@ -15,11 +15,18 @@ import useVendorStore from "@/stores/vendor-store";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
+import { VendorType } from "@/types/vendor.types";
+import VendorForm from "@/app/_components/vendor/VendorForm";
+import VendorDetailsModal from "@/app/_components/vendor/VendorDetailsModal";
 
 const ActiveVendors = () => {
-  const { vendors } = useVendorStore();
+  const { vendors, addVendor, updateVendor } = useVendorStore();
   const { searchQuery, setSearchQuery } = useDashboardStore();
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [isVendorFormOpen, setIsVendorFormOpen] = useState(false);
+  const [selectedVendor, setSelectedVendor] = useState<VendorType | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Filter only active vendors based on search and category
   const filteredVendors = useMemo(() => {
@@ -33,7 +40,7 @@ const ActiveVendors = () => {
         vendor.vendor_number
           ?.toLowerCase()
           .includes(searchQuery.toLowerCase()) ||
-        vendor.email?.toLowerCase().includes(searchQuery.toLowerCase());
+        vendor.contactEmail?.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesCategory =
         categoryFilter === "all" || vendor.category === categoryFilter;
@@ -68,12 +75,67 @@ const ActiveVendors = () => {
     };
   }, [filteredVendors]);
 
+  const handleCreateVendor = async (vendorData: Partial<VendorType>) => {
+    setLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const newVendor: VendorType = {
+        _id: `vendor-${Date.now()}` as any,
+        enterpriseId: "enterprise-1" as any,
+        name: vendorData.name || "",
+        contactEmail: vendorData.contactEmail,
+        contactPhone: vendorData.contactPhone,
+        address: vendorData.address,
+        website: vendorData.website,
+        category: vendorData.category,
+        status: "active",
+        notes: vendorData.notes,
+        vendor_number: `VND-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
+        total_spend: 0,
+        active_contracts: 0,
+        risk_level: "low",
+        compliance_score: 85,
+        _creationTime: Date.now(),
+      };
+
+      addVendor(newVendor);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditVendor = async (vendorData: Partial<VendorType>) => {
+    if (!selectedVendor) return;
+    
+    setLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      updateVendor(selectedVendor._id as any, vendorData);
+      setSelectedVendor({ ...selectedVendor, ...vendorData } as VendorType);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleViewVendor = (vendor: VendorType) => {
+    setSelectedVendor(vendor);
+    setIsDetailsModalOpen(true);
+  };
+
+  const handleUpdateVendor = (updatedVendor: VendorType) => {
+    setSelectedVendor(updatedVendor);
+  };
+
   return (
     <div className="space-y-6 p-6">
       {/* Header with Stats */}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold ">Active Vendors</h2>
-        <Button className='cursor-pointer'>
+        <Button 
+          className='cursor-pointer'
+          onClick={() => setIsVendorFormOpen(true)}
+        >
           <PlusCircle className="mr-2 h-4 w-4" />
           New Vendor
         </Button>
@@ -153,8 +215,9 @@ const ActiveVendors = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredVendors.map((vendor) => (
           <Card
-            key={vendor.id}
+            key={vendor._id}
             className="hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => handleViewVendor(vendor)}
           >
             <CardHeader>
               <CardTitle className="text-lg font-medium">
@@ -219,6 +282,23 @@ const ActiveVendors = () => {
           </div>
         )}
       </div>
+
+      {/* Vendor Form Modal */}
+      <VendorForm
+        open={isVendorFormOpen}
+        onOpenChange={setIsVendorFormOpen}
+        onSubmit={handleCreateVendor}
+        loading={loading}
+      />
+
+      {/* Vendor Details Modal */}
+      <VendorDetailsModal
+        open={isDetailsModalOpen}
+        onOpenChange={setIsDetailsModalOpen}
+        vendor={selectedVendor}
+        onEditVendor={handleEditVendor}
+        onUpdateVendor={handleUpdateVendor}
+      />
     </div>
   );
 };

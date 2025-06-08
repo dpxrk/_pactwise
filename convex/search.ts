@@ -267,7 +267,7 @@ export const searchVendorsWithFilters = query({
     // Get vendors
     let vendors = await ctx.db
       .query("vendors")
-      .withIndex("by_enterpriseId", (q) => q.eq("enterpriseId", currentUser.enterpriseId))
+      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", currentUser.enterpriseId))
       .collect();
 
     // Apply category filter
@@ -487,7 +487,7 @@ export const autocomplete = query({
     if (type === "all" || type === "vendors") {
       const vendors = await ctx.db
         .query("vendors")
-        .withIndex("by_enterpriseId", (q) => q.eq("enterpriseId", currentUser.enterpriseId))
+        .withIndex("by_enterprise", (q) => q.eq("enterpriseId", currentUser.enterpriseId))
         .collect();
 
       vendors
@@ -563,7 +563,7 @@ async function searchVendors(
 ): Promise<any[]> {
   const vendors = await ctx.db
     .query("vendors")
-    .withIndex("by_enterpriseId", (q: any) => q.eq("enterpriseId", enterpriseId))
+    .withIndex("by_enterprise", (q: any) => q.eq("enterpriseId", enterpriseId))
     .collect();
 
   return (await scoreVendorResults(ctx, vendors, query)).slice(0, limit);

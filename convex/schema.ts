@@ -130,7 +130,7 @@ export default defineSchema({
   .index("by_category_and_enterpriseId", ["enterpriseId", "category"])
   // Performance-optimized indexes
   .index("by_enterprise_name_category", ["enterpriseId", "name", "category"])
-  .index("by_enterprise_status_created", ["enterpriseId", "status", "_creationTime"])
+  .index("by_enterprise_status_created", ["enterpriseId", "status"])
   .index("by_enterprise_category_status", ["enterpriseId", "category", "status"]),
 
   // ===== CONTRACTS =====
@@ -174,7 +174,6 @@ export default defineSchema({
   .index("by_analysisStatus_and_enterpriseId", ["enterpriseId", "analysisStatus"])
   .index("by_contractType_and_enterpriseId", ["enterpriseId", "contractType"])
   // Performance-critical indexes for analytics and time-based queries
-  .index("by_enterprise_created_desc", ["enterpriseId", "_creationTime"])
   .index("by_enterprise_status_endDate", ["enterpriseId", "status", "extractedEndDate"])
   .index("by_enterprise_vendor_status", ["enterpriseId", "vendorId", "status"])
   .index("by_enterprise_title_status", ["enterpriseId", "title", "status"])
@@ -209,7 +208,7 @@ export default defineSchema({
     metadata: v.optional(v.any()),
   })
     .index("by_userId", ["userId"])
-    .index("by_enterpriseId", ["enterpriseId"]),
+    .index("by_enterprise", ["enterpriseId"]),
 
   // ===== PRESENCE SYSTEM =====
   userPresence: defineTable({

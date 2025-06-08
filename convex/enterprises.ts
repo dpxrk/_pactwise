@@ -114,7 +114,7 @@ export const getMyEnterprise = query({
         .collect(),
       ctx.db
         .query("vendors")
-        .withIndex("by_enterpriseId", (q) => 
+        .withIndex("by_enterprise", (q) => 
           q.eq("enterpriseId", user.enterpriseId)
         )
         .collect(),
@@ -660,7 +660,7 @@ export const getEnterpriseStats = query({
       // Total vendors
       ctx.db
         .query("vendors")
-        .withIndex("by_enterpriseId", (q) => q.eq("enterpriseId", enterpriseId))
+        .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))
         .collect()
         .then(vendors => vendors.length),
       

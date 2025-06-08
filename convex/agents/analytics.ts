@@ -1,7 +1,8 @@
 // convex/agents/analytics.ts
 import { internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
-import { Id } from "../_generated/dataModel";
+import { Id, Doc } from "../_generated/dataModel";
+import { ContractAnalytics, VendorAnalytics, MonthlyTrend, VendorMetric, ContractStatus, VendorCategory } from "../types";
 
 /**
  * Analytics Agent
@@ -171,11 +172,31 @@ export const run = internalMutation({
 // CORE FUNCTIONS
 // ============================================================================
 
+interface KPIMetrics {
+  contractRenewalRate: number;
+  contractCycleTime: number;
+  vendorConcentrationRisk: number;
+  contractComplianceRate: number;
+  identifiedSavings: number;
+  savingsRate: number;
+  totalActiveContractValue: number;
+  contractsByType: Record<string, number>;
+}
+
 async function calculateKPIs(
-  ctx: any,
+  ctx: MutationCtx,
   agentId: Id<"agents">
 ): Promise<number> {
-  const kpis: Record<string, any> = {};
+  const kpis: KPIMetrics = {
+    contractRenewalRate: 0,
+    contractCycleTime: 0,
+    vendorConcentrationRisk: 0,
+    contractComplianceRate: 0,
+    identifiedSavings: 0,
+    savingsRate: 0,
+    totalActiveContractValue: 0,
+    contractsByType: {},
+  };
   const now = new Date();
   const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
   
@@ -184,8 +205,8 @@ async function calculateKPIs(
     .query("contracts")
     .collect();
     
-  const activeContracts = contracts.filter(c => c.status === "active");
-  const expiredLastYear = contracts.filter(c => 
+  const activeContracts = contracts.filter((c: Doc<"contracts">) => c.status === "active");
+  const expiredLastYear = contracts.filter((c: Doc<"contracts">) => 
     c.status === "expired" && 
     c._creationTime && 
     c._creationTime > oneYearAgo.getTime()
@@ -193,7 +214,7 @@ async function calculateKPIs(
 
   // 1. Contract Renewal Rate
   const renewalEligible = expiredLastYear.length;
-  const renewed = contracts.filter(c => 
+  const renewed = contracts.filter((c: Doc<"contracts">) => 
     c.metadata?.renewedFrom && 
     c._creationTime && 
     c._creationTime > oneYearAgo.getTime()
@@ -201,7 +222,7 @@ async function calculateKPIs(
   kpis.contractRenewalRate = renewalEligible > 0 ? renewed / renewalEligible : 0;
 
   // 2. Contract Cycle Time (from creation to active)
-  const recentActiveContracts = activeContracts.filter(c => 
+  const recentActiveContracts = activeContracts.filter((c: Doc<"contracts">) => 
     c._creationTime && c._creationTime > oneYearAgo.getTime()
   );
   
@@ -236,7 +257,7 @@ async function calculateKPIs(
   kpis.vendorConcentrationRisk = totalSpend > 0 ? topVendorSpend / totalSpend : 0;
 
   // 4. Contract Compliance Rate
-  const compliantContracts = activeContracts.filter(c => 
+  const compliantContracts = activeContracts.filter((c: Doc<"contracts">) => 
     c.analysisStatus === "completed" && !c.analysisError
   ).length;
   kpis.contractComplianceRate = activeContracts.length > 0 
@@ -247,7 +268,7 @@ async function calculateKPIs(
   // Calculate based on renegotiated contracts or identified savings opportunities
   const savingsInsights = await ctx.db
     .query("agentInsights")
-    .filter((q: any) => 
+    .filter((q) => 
       q.and(
         q.eq(q.field("type"), "cost_optimization"),
         q.gte(q.field("createdAt"), oneYearAgo.toISOString())
@@ -255,19 +276,19 @@ async function calculateKPIs(
     )
     .collect();
   
-  const totalSavings = savingsInsights.reduce((sum, insight) => 
+  const totalSavings = savingsInsights.reduce((sum: number, insight: Doc<"agentInsights">) => 
     sum + (insight.data?.potentialSavings || 0), 0
   );
   kpis.identifiedSavings = totalSavings;
   kpis.savingsRate = totalSpend > 0 ? totalSavings / totalSpend : 0;
 
   // 6. Active Contract Value
-  kpis.totalActiveContractValue = activeContracts.reduce((sum, c) => 
+  kpis.totalActiveContractValue = activeContracts.reduce((sum: number, c: Doc<"contracts">) => 
     sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0
   );
   
   // 7. Contract Distribution
-  kpis.contractsByType = activeContracts.reduce((acc, c) => {
+  kpis.contractsByType = activeContracts.reduce((acc: Record<string, number>, c: Doc<"contracts">) => {
     const type = c.contractType || "other";
     acc[type] = (acc[type] || 0) + 1;
     return acc;

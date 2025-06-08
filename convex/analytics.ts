@@ -48,7 +48,7 @@ export const getDashboardSummary = query({
       total: contracts.length,
       active: contracts.filter(c => c.status === "active").length,
       draft: contracts.filter(c => c.status === "draft").length,
-      pending: contracts.filter(c => c.status === "pending_approval").length,
+      pending: contracts.filter(c => c.status === "pending_analysis").length,
       expired: contracts.filter(c => c.status === "expired").length,
       expiringIn30Days: contracts.filter(c => 
         c.status === "active" && 
@@ -70,7 +70,7 @@ export const getDashboardSummary = query({
       active: vendors.filter(v => v.status === "active").length,
       inactive: vendors.filter(v => v.status === "inactive").length,
       byCategory: vendors.reduce((acc, vendor) => {
-        acc[vendor.category] = (acc[vendor.category] || 0) + 1;
+        acc[vendor?.category || ""] = (acc[vendor?.category || ""] || 0) + 1;
         return acc;
       }, {} as Record<string, number>),
     };
@@ -182,7 +182,7 @@ export const getRecentActivity = query({
     }
 
     // Sort by timestamp and limit
-    events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    events.sort((a:any, b:any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     return events.slice(0, limit);
   },
@@ -369,7 +369,7 @@ export const getVendorAnalytics = query({
 
     // Group by category
     const byCategory = vendors.reduce((acc, vendor) => {
-      acc[vendor.category] = (acc[vendor.category] || 0) + 1;
+      acc[vendor?.category || ""] = (acc[vendor?.category || ""] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 

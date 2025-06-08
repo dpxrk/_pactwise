@@ -513,7 +513,7 @@ export const getOnboardingAnalytics = query({
 
     const onboardings = await ctx.db
       .query("userOnboarding")
-      .withIndex("by_enterpriseId", (q) => q.eq("enterpriseId", user.enterpriseId))
+      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", user.enterpriseId))
       .collect();
 
     const analytics = {

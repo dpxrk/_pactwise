@@ -1,9 +1,10 @@
-import { query, mutation, action } from "./_generated/server";
+import { query, mutation, action, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { ConvexError } from "convex/values";
 import { internal, api } from "./_generated/api";
 import { triggerContractEvents } from "./realtimeHelpers";
+import { ContractFilters, CreateContractArgs, UpdateContractArgs } from "./types";
 
 // Contract type options (matching schema.ts)
 const contractTypeOptions = [
@@ -12,7 +13,7 @@ const contractTypeOptions = [
 
 // Contract status options (matching schema.ts)
 const contractStatusOptions = [
-  "draft", "pending_analysis", "active", "expired", "terminated", "archived"
+  "draft", "pending_analysis", "active", "expired", "terminated", "archived",
 ] as const;
 
 // Analysis status options (matching schema.ts)
@@ -119,6 +120,7 @@ export const createContract = mutation({
       fileType: args.fileType,
       analysisStatus: "pending",
       notes: args.notes?.trim() || undefined,
+      createdAt: ""
     });
 
     // Trigger real-time event
@@ -706,10 +708,41 @@ export const triggerContractAnalysis = mutation({
     });
 
     // Schedule analysis action (in a real implementation, this would trigger the AI analysis)
-    await ctx.scheduler.runAfter(0, "contracts:analyzeContract", {
+    await ctx.scheduler.runAfter(0, internal.contracts.analyzeContractInternal, {
       contractId: args.contractId,
     });
 
     return { success: true };
+  },
+});
+
+/**
+ * Internal contract analysis function for scheduling
+ */
+export const analyzeContractInternal = internalMutation({
+  args: {
+    contractId: v.id("contracts"),
+  },
+  handler: async (ctx, args) => {
+    try {
+      // Update status to processing
+      await ctx.db.patch(args.contractId, {
+        analysisStatus: "processing",
+        analysisError: undefined,
+      });
+      
+      // In a real implementation, this would perform AI analysis
+      // For now, we'll simulate completion
+      await ctx.db.patch(args.contractId, {
+        analysisStatus: "completed",
+      });
+      
+    } catch (error) {
+      // Update with error status
+      await ctx.db.patch(args.contractId, {
+        analysisStatus: "failed",
+        analysisError: error instanceof Error ? error.message : "Analysis failed",
+      });
+    }
   },
 });

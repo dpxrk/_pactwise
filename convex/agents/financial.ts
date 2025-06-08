@@ -1,8 +1,16 @@
 // convex/agents/financial.ts
-import { internalMutation, internalQuery, internalAction } from "../_generated/server";
+import { internalMutation, internalQuery, internalAction, MutationCtx, QueryCtx } from "../_generated/server";
 import { v } from "convex/values";
-import { Id } from "../_generated/dataModel";
+import { Id, Doc } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
+import { 
+  AgentMutationCtx, 
+  FinancialAnalysis, 
+  FinancialRisk, 
+  FinancialOpportunity, 
+  AgentMetrics,
+  isFinancialTask 
+} from "../agent_types";
 
 /**
  * Financial Agent
@@ -154,14 +162,14 @@ export const run = internalMutation({
 // ============================================================================
 
 async function processFinancialTasks(
-  ctx: any,
+  ctx: AgentMutationCtx,
   agentId: Id<"agents">
 ): Promise<number> {
   // Get pending tasks assigned to this agent
   const tasks = await ctx.db
     .query("agentTasks")
-    .withIndex("by_assigned_agent", (q: any) => q.eq("assignedAgentId", agentId))
-    .filter((q: any) => q.eq(q.field("status"), "pending"))
+    .withIndex("by_assigned_agent", (q) => q.eq("assignedAgentId", agentId))
+    .filter((q) => q.eq(q.field("status"), "pending"))
     .take(FINANCIAL_CONFIG.batchSize);
 
   let processed = 0;
@@ -224,20 +232,20 @@ async function processFinancialTasks(
 }
 
 async function analyzeContract(
-  ctx: any,
+  ctx: AgentMutationCtx,
   agentId: Id<"agents">,
-  task: any
-): Promise<any> {
+  task: Doc<"agentTasks">
+): Promise<FinancialAnalysis> {
   const contract = await ctx.db.get(task.contractId);
   if (!contract) {
     throw new Error("Contract not found");
   }
 
-  const analysis = {
-    financialSummary: {} as any,
-    risks: [] as any[],
-    opportunities: [] as any[],
-    metrics: {} as any,
+  const analysis: FinancialAnalysis = {
+    financialSummary: {},
+    risks: [],
+    opportunities: [],
+    metrics: {},
   };
 
   // Extract and analyze pricing

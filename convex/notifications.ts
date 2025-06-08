@@ -2,6 +2,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
+import { NotificationChannel, NotificationData } from "./types";
 
 // ============================================================================
 // USER NOTIFICATIONS
@@ -54,9 +55,9 @@ export const createNotification = mutation({
       .first();
 
     // Determine delivery channels based on preferences
-    let channels = args.channels || ["in_app"];
+    let channels: NotificationChannel[] = args.channels || ["in_app"];
     if (preferences) {
-      const finalChannels: string[] = [];
+      const finalChannels: NotificationChannel[] = [];
       
       if (preferences.inAppEnabled && channels.includes("in_app")) {
         finalChannels.push("in_app");
@@ -94,7 +95,7 @@ export const createNotification = mutation({
       title: args.title,
       message: args.message,
       priority: args.priority,
-      channels: channels as any,
+      channels: channels,
       status: args.scheduledFor ? "scheduled" : "pending",
       isRead: false,
       scheduledFor: args.scheduledFor,

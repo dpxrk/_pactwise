@@ -18,6 +18,7 @@ export type VendorType = {
   address?: string;
   notes?: string;
   website?: string;
+  
 
   // --- NEW: Vendor category ---
   category?: VendorCategory;

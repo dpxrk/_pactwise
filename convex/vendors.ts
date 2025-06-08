@@ -3,7 +3,8 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel"; 
 import { ConvexError } from "convex/values";
-import { api } from "./_generated/api"; 
+import { api } from "./_generated/api";
+import { VendorFilters, VendorCategory, CreateVendorArgs, UpdateVendorArgs } from "./types"; 
 
 
 const vendorCategoryOptions = [
@@ -28,6 +29,7 @@ export const createVendor = mutation({
         ...vendorCategoryOptions.map(option => v.literal(option))
       )
     ),
+    createdAt: v.string(),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -79,6 +81,7 @@ export const createVendor = mutation({
       notes: args.notes || undefined,
       website: args.website || undefined,
       category: args.category || undefined,
+      createdAt: args.createdAt,
     });
 
     console.log(`Vendor created with ID: ${vendorId} for enterprise ${args.enterpriseId}`);
@@ -133,7 +136,7 @@ export const getVendors = query({
     // Base query for the enterprise
     let queryBuilder = ctx.db
       .query("vendors")
-      .withIndex("by_enterpriseId", (q) => q.eq("enterpriseId", args.enterpriseId));
+      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", args.enterpriseId));
 
     // Apply category filter if provided and not "all"
     if (args.category && args.category !== "all") {
@@ -510,7 +513,7 @@ export const getVendorAnalytics = query({
 
     const vendors = await ctx.db
       .query("vendors")
-      .withIndex("by_enterpriseId", (q) => q.eq("enterpriseId", args.enterpriseId))
+      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", args.enterpriseId))
       .collect();
 
     const contracts = await ctx.db
@@ -647,7 +650,7 @@ export const getVendorCategories = query({
 
     const vendors = await ctx.db
       .query("vendors")
-      .withIndex("by_enterpriseId", (q) => q.eq("enterpriseId", args.enterpriseId))
+      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", args.enterpriseId))
       .collect();
 
     const categories = vendorCategoryOptions.map(category => {
