@@ -25,6 +25,8 @@ import type * as enterprises from "../enterprises.js";
 import type * as notification_schema from "../notification_schema.js";
 import type * as notifications from "../notifications.js";
 import type * as onboarding from "../onboarding.js";
+import type * as presence from "../presence.js";
+import type * as realtime from "../realtime.js";
 import type * as search from "../search.js";
 import type * as security_auditLogging from "../security/auditLogging.js";
 import type * as security_monitoring from "../security/monitoring.js";
@@ -57,6 +59,8 @@ declare const fullApi: ApiFromModules<{
   notification_schema: typeof notification_schema;
   notifications: typeof notifications;
   onboarding: typeof onboarding;
+  presence: typeof presence;
+  realtime: typeof realtime;
   search: typeof search;
   "security/auditLogging": typeof security_auditLogging;
   "security/monitoring": typeof security_monitoring;

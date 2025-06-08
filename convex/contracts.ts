@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { ConvexError } from "convex/values";
 import { internal, api } from "./_generated/api";
+import { triggerContractEvents } from "./realtimeHelpers";
 
 // Contract type options (matching schema.ts)
 const contractTypeOptions = [
@@ -96,6 +97,16 @@ export const createContract = mutation({
       throw new ConvexError("Vendor does not belong to the specified enterprise.");
     }
 
+    // Get current user for events
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    
+    if (!user) {
+      throw new ConvexError("User not found.");
+    }
+
     // Create the contract
     const contractId = await ctx.db.insert("contracts", {
       enterpriseId: args.enterpriseId,
@@ -109,6 +120,20 @@ export const createContract = mutation({
       analysisStatus: "pending",
       notes: args.notes?.trim() || undefined,
     });
+
+    // Trigger real-time event
+    await triggerContractEvents(
+      ctx,
+      "create",
+      contractId,
+      user._id,
+      args.enterpriseId,
+      {
+        title: args.title.trim(),
+        contractType: args.contractType,
+        vendorId: args.vendorId,
+      }
+    );
 
     // Trigger contract analysis (optional - can be done manually or via agent system)
     // For now, we'll leave the contract in draft status until analysis is manually triggered

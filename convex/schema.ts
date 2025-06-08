@@ -188,6 +188,68 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_enterpriseId", ["enterpriseId"]),
 
+  // ===== PRESENCE SYSTEM =====
+  userPresence: defineTable({
+    userId: v.id("users"),
+    enterpriseId: v.id("enterprises"),
+    lastSeen: v.string(),
+    isOnline: v.boolean(),
+    activity: v.optional(v.object({
+      type: v.union(
+        v.literal("viewing_contract"),
+        v.literal("editing_contract"), 
+        v.literal("viewing_vendor"),
+        v.literal("dashboard"),
+        v.literal("idle")
+      ),
+      resourceId: v.optional(v.string()),
+      resourceTitle: v.optional(v.string()),
+    })),
+  })
+    .index("by_user", ["userId"])
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_last_seen", ["lastSeen"]),
+
+  // ===== REAL-TIME EVENTS =====
+  realtimeEvents: defineTable({
+    enterpriseId: v.id("enterprises"),
+    userId: v.id("users"),
+    eventType: v.union(
+      v.literal("contract_updated"),
+      v.literal("contract_created"),
+      v.literal("contract_deleted"),
+      v.literal("vendor_updated"),
+      v.literal("vendor_created"),
+      v.literal("analysis_completed"),
+      v.literal("notification_created"),
+      v.literal("user_joined"),
+      v.literal("user_left"),
+      v.literal("system_alert")
+    ),
+    resourceId: v.optional(v.string()),
+    resourceType: v.optional(v.string()),
+    data: v.optional(v.any()),
+    targetUsers: v.optional(v.array(v.id("users"))),
+    timestamp: v.string(),
+    processed: v.boolean(),
+  })
+    .index("by_enterprise_timestamp", ["enterpriseId", "timestamp"])
+    .index("by_user", ["userId"])
+    .index("by_processed", ["processed"]),
+
+  // ===== TYPING INDICATORS =====
+  typingIndicators: defineTable({
+    userId: v.id("users"),
+    enterpriseId: v.id("enterprises"),
+    resourceId: v.string(),
+    resourceType: v.string(),
+    field: v.optional(v.string()),
+    lastTyped: v.string(),
+  })
+    .index("by_resource", ["resourceId", "resourceType"])
+    .index("by_user_resource", ["userId", "resourceId", "resourceType"])
+    .index("by_enterprise", ["enterpriseId"]),
+
   ...agentTables,
   ...notificationTables,
   ...rateLimitTables,
