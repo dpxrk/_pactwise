@@ -124,10 +124,14 @@ export default defineSchema({
     status: v.optional(v.union(v.literal("active"), v.literal("inactive"))),
     createdAt: v.string(),
   })
+  // Basic indexes
   .index("by_name", ["name"])
   .index("by_enterprise", ["enterpriseId"])
-  .index("by_enterpriseId", ["enterpriseId"])
-  .index("by_category_and_enterpriseId", ["enterpriseId", "category"]),
+  .index("by_category_and_enterpriseId", ["enterpriseId", "category"])
+  // Performance-optimized indexes
+  .index("by_enterprise_name_category", ["enterpriseId", "name", "category"])
+  .index("by_enterprise_status_created", ["enterpriseId", "status", "_creationTime"])
+  .index("by_enterprise_category_status", ["enterpriseId", "category", "status"]),
 
   // ===== CONTRACTS =====
   contracts: defineTable({
@@ -163,11 +167,20 @@ export default defineSchema({
     notes: v.optional(v.string()),
     createdAt: v.string(),
   })
+  // Basic indexes
   .index("by_enterprise", ["enterpriseId"])
   .index("by_vendorId_and_enterpriseId", ["enterpriseId", "vendorId"])
   .index("by_status_and_enterpriseId", ["enterpriseId", "status"])
   .index("by_analysisStatus_and_enterpriseId", ["enterpriseId", "analysisStatus"])
-  .index("by_contractType_and_enterpriseId", ["enterpriseId", "contractType"]),
+  .index("by_contractType_and_enterpriseId", ["enterpriseId", "contractType"])
+  // Performance-critical indexes for analytics and time-based queries
+  .index("by_enterprise_created_desc", ["enterpriseId", "_creationTime"])
+  .index("by_enterprise_status_endDate", ["enterpriseId", "status", "extractedEndDate"])
+  .index("by_enterprise_vendor_status", ["enterpriseId", "vendorId", "status"])
+  .index("by_enterprise_title_status", ["enterpriseId", "title", "status"])
+  // Search optimization indexes
+  .index("by_enterprise_fileName", ["enterpriseId", "fileName"])
+  .index("by_enterprise_contractType_status", ["enterpriseId", "contractType", "status"]),
 
   invitations: defineTable({
     enterpriseId: v.id("enterprises"),

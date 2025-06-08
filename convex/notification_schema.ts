@@ -95,7 +95,11 @@ export const notificationTables = {
   .index("by_scheduled", ["status", "scheduledFor"])
   .index("by_type", ["type"])
   .index("by_contract", ["contractId"])
-  .index("by_vendor", ["vendorId"]),
+  .index("by_vendor", ["vendorId"])
+  // Performance-critical indexes for real-time features
+  .index("by_recipient_created_desc", ["recipientId", "createdAt"])
+  .index("by_recipient_unread_priority", ["recipientId", "isRead", "priority"])
+  .index("by_recipient_type_created", ["recipientId", "type", "createdAt"]),
 
   // Notification templates for consistent messaging
   notificationTemplates: defineTable({
