@@ -211,7 +211,7 @@ export const subscribeToVendors = query({
     
     let vendorsQuery = ctx.db
       .query("vendors")
-      .withIndex("by_enterpriseId", (q) => q.eq("enterpriseId", security.enterpriseId));
+      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", security.enterpriseId));
 
     // Apply category filter if provided
     if (args.category) {
@@ -280,7 +280,7 @@ export const subscribeToDashboardStats = query({
     // Get all vendors for the enterprise
     const vendors = await ctx.db
       .query("vendors")
-      .withIndex("by_enterpriseId", (q) => q.eq("enterpriseId", security.enterpriseId))
+      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", security.enterpriseId))
       .collect();
 
     // Calculate stats
