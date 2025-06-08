@@ -170,6 +170,7 @@ export const agentTables = {
     dependencies: v.optional(v.array(v.id("agentTasks"))), // Added from agents.types.ts
     retryCount: v.optional(v.number()), // Added from agents.types.ts
     maxRetries: v.optional(v.number()), // Added from agents.types.ts
+    
   })
   .index("by_assigned_agent", ["assignedAgentId"])
   .index("by_status", ["status"])

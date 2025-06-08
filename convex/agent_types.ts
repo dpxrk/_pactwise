@@ -261,25 +261,25 @@ export interface AgentMetrics {
 // ============================================================================
 
 export function isFinancialTask(task: Doc<"agentTasks">): boolean {
-  return task.type === "financial_analysis" || 
-         task.type === "cost_optimization" || 
-         task.type === "budget_analysis";
+  return task.taskType === "financial_analysis" || 
+         task.taskType === "cost_optimization" || 
+         task.taskType === "budget_analysis";
 }
 
 export function isLegalTask(task: Doc<"agentTasks">): boolean {
-  return task.type === "legal_review" || 
-         task.type === "compliance_check" || 
-         task.type === "risk_assessment";
+  return task.taskType === "legal_review" || 
+         task.taskType === "compliance_check" || 
+         task.taskType === "risk_assessment";
 }
 
 export function isAnalyticsTask(task: Doc<"agentTasks">): boolean {
-  return task.type === "analytics" || 
-         task.type === "reporting" || 
-         task.type === "trend_analysis";
+  return task.taskType === "analytics" || 
+         task.taskType === "reporting" || 
+         task.taskType === "trend_analysis";
 }
 
 export function isNotificationTask(task: Doc<"agentTasks">): boolean {
-  return task.type === "notification" || 
-         task.type === "alert" || 
-         task.type === "digest";
+  return task.taskType === "notification" || 
+         task.taskType === "alert" || 
+         task.taskType === "digest";
 }

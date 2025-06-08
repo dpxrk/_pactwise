@@ -134,8 +134,25 @@ export const getRecentActivity = query({
 
     const limit = Math.min(args.limit || 10, 50);
 
+     // Define the event type
+     type ActivityEvent = {
+      id: string;
+      type: "contract" | "vendor";
+      action: "created";
+      title: string;
+      timestamp: string;
+      metadata: {
+        contractId?: string;
+        contractTitle?: string;
+        status?: string;
+        vendorId?: string;
+        vendorName?: string;
+        category?: string;
+      };
+    };
+
     // Get recent events from multiple sources
-    const events = [];
+    const events: ActivityEvent[] = [];
 
     // Recent contracts
     const recentContracts = await ctx.db
@@ -144,7 +161,8 @@ export const getRecentActivity = query({
       .order("desc")
       .take(limit);
 
-    for (const contract of recentContracts) {
+    
+    for (const contract of recentContracts) {      
       events.push({
         id: contract._id,
         type: "contract",
