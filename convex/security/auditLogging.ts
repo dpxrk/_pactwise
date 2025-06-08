@@ -407,3 +407,51 @@ export const resolveAuditAlert = mutation({
     });
   },
 });
+
+/**
+ * Log an audit event (mutation for external calls)
+ */
+export const logEvent = mutation({
+  args: {
+    userId: v.id("users"),
+    operation: v.string(),
+    resourceType: v.string(),
+    resourceId: v.optional(v.string()),
+    action: v.union(
+      v.literal("create"),
+      v.literal("read"),
+      v.literal("update"),
+      v.literal("delete"),
+      v.literal("export"),
+      v.literal("share"),
+      v.literal("approve"),
+      v.literal("reject")
+    ),
+    status: v.union(v.literal("success"), v.literal("failure")),
+    errorMessage: v.optional(v.string()),
+    metadata: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    // Get user to find enterpriseId
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new ConvexError("User not found");
+    }
+
+    await ctx.db.insert("auditLogs", {
+      userId: args.userId,
+      enterpriseId: user.enterpriseId,
+      operation: args.operation,
+      resourceType: args.resourceType,
+      resourceId: args.resourceId,
+      action: args.action,
+      status: args.status,
+      errorMessage: args.errorMessage,
+      metadata: args.metadata,
+      timestamp: new Date().toISOString(),
+      ipAddress: "unknown", // Actions don't have IP info
+      userAgent: "system",
+      sessionId: "action-session",
+    });
+  },
+});

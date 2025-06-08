@@ -8,6 +8,139 @@ import { ConvexError } from "convex/values";
 // ============================================================================
 
 /**
+ * Create a new notification
+ */
+export const createNotification = mutation({
+  args: {
+    recipientId: v.id("users"),
+    type: v.union(
+      v.literal("contract_expiration"),
+      v.literal("contract_created"), 
+      v.literal("approval_required"),
+      v.literal("payment_reminder"),
+      v.literal("vendor_risk_alert"),
+      v.literal("compliance_issue"),
+      v.literal("task_assigned"),
+      v.literal("system_alert"),
+      v.literal("digest"),
+    ),
+    title: v.string(),
+    message: v.string(),
+    priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("critical")),
+    channels: v.optional(v.array(v.union(v.literal("in_app"), v.literal("email"), v.literal("sms")))),
+    contractId: v.optional(v.id("contracts")),
+    vendorId: v.optional(v.id("vendors")),
+    taskId: v.optional(v.id("agentTasks")),
+    actionUrl: v.optional(v.string()),
+    metadata: v.optional(v.any()),
+    scheduledFor: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required");
+    }
+
+    // Verify recipient exists
+    const recipient = await ctx.db.get(args.recipientId);
+    if (!recipient) {
+      throw new ConvexError("Recipient not found");
+    }
+
+    // Get recipient's notification preferences
+    const preferences = await ctx.db
+      .query("userNotificationPreferences")
+      .withIndex("by_user", (q) => q.eq("userId", args.recipientId))
+      .first();
+
+    // Determine delivery channels based on preferences
+    let channels = args.channels || ["in_app"];
+    if (preferences) {
+      const finalChannels: string[] = [];
+      
+      if (preferences.inAppEnabled && channels.includes("in_app")) {
+        finalChannels.push("in_app");
+      }
+      
+      if (preferences.emailEnabled && channels.includes("email")) {
+        // Check type-specific preferences
+        const typeEnabled = (
+          (args.type === "contract_expiration" || args.type === "contract_created") && preferences.contractNotifications ||
+          args.type === "approval_required" && preferences.approvalNotifications ||
+          args.type === "payment_reminder" && preferences.paymentNotifications ||
+          (args.type === "vendor_risk_alert") && preferences.vendorNotifications ||
+          args.type === "compliance_issue" && preferences.complianceNotifications ||
+          args.type === "system_alert" && preferences.systemNotifications ||
+          args.type === "task_assigned" || // Always enabled for task assignments
+          args.type === "digest"
+        );
+        
+        if (typeEnabled) {
+          finalChannels.push("email");
+        }
+      }
+      
+      if (preferences.smsEnabled && channels.includes("sms")) {
+        finalChannels.push("sms");
+      }
+      
+      channels = finalChannels.length > 0 ? finalChannels : ["in_app"];
+    }
+
+    // Create the notification
+    const notificationId = await ctx.db.insert("notifications", {
+      recipientId: args.recipientId,
+      type: args.type,
+      title: args.title,
+      message: args.message,
+      priority: args.priority,
+      channels: channels as any,
+      status: args.scheduledFor ? "scheduled" : "pending",
+      isRead: false,
+      scheduledFor: args.scheduledFor,
+      retryCount: 0,
+      contractId: args.contractId,
+      vendorId: args.vendorId,
+      taskId: args.taskId,
+      actionUrl: args.actionUrl,
+      metadata: args.metadata,
+      createdAt: new Date().toISOString(),
+    });
+
+    // Log creation event
+    await ctx.db.insert("notificationEvents", {
+      notificationId,
+      eventType: "created",
+      timestamp: new Date().toISOString(),
+      metadata: {
+        createdBy: identity.subject,
+        channels,
+      },
+    });
+
+    // If not scheduled, mark as ready for delivery
+    if (!args.scheduledFor) {
+      await ctx.db.patch(notificationId, {
+        status: "delivered", // In a real system, this would be handled by a background job
+        deliveredAt: new Date().toISOString(),
+      });
+
+      await ctx.db.insert("notificationEvents", {
+        notificationId,
+        eventType: "delivered",
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    return { 
+      success: true, 
+      notificationId,
+      channels,
+    };
+  },
+});
+
+/**
  * Get notifications for the current user
  */
 export const getMyNotifications = query({

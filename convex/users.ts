@@ -30,6 +30,19 @@ export const getCurrentUser = query({
 });
 
 /**
+ * Get user by ID
+ */
+export const getById = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    return user;
+  },
+});
+
+/**
  * Create or update user from Clerk data.
  * This function is typically called after a user signs in or signs up.
  */

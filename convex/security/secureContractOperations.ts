@@ -1,9 +1,10 @@
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
-import { secureQuery, secureMutation, secureAction } from "./secureWrapper";
-import { SecureQuery, SecureMutation } from "./rowLevelSecurity";
+import { createSecureQuery, createSecureMutation, createSecureAction } from "./secureWrapper";
+import { SecureQuery } from "./rowLevelSecurity";
 import { logAuditEvent } from "./auditLogging";
+import { api } from "../_generated/api";
 
 /**
  * Example implementation of secure contract operations
@@ -11,7 +12,16 @@ import { logAuditEvent } from "./auditLogging";
  */
 
 // Secure contract creation
-export const createSecureContract = secureMutation(
+export const createSecureContract = createSecureMutation(
+  {
+    vendorId: v.id("vendors"),
+    title: v.string(),
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    fileType: v.string(),
+    contractType: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  },
   {
     rateLimit: { operation: "mutation.create", cost: 2 },
     audit: {
@@ -21,15 +31,7 @@ export const createSecureContract = secureMutation(
     },
     permission: "contracts.create"
   },
-  async (ctx, args: {
-    vendorId: Id<"vendors">;
-    title: string;
-    storageId: Id<"_storage">;
-    fileName: string;
-    fileType: string;
-    contractType?: string;
-    notes?: string;
-  }, security, secure) => {
+  async (ctx, args, security, secure) => {
     // Validate vendor belongs to enterprise
     const vendor = await secure.byId("vendors", args.vendorId);
     if (!vendor) {
@@ -64,16 +66,17 @@ export const createSecureContract = secureMutation(
 );
 
 // Secure contract query with automatic filtering
-export const getSecureContracts = secureQuery(
+export const getSecureContracts = createSecureQuery(
+  {
+    status: v.optional(v.string()),
+    contractType: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
   {
     rateLimit: { operation: "query.default" },
     permission: "contracts.read"
   },
-  async (ctx, args: {
-    status?: string;
-    contractType?: string;
-    limit?: number;
-  }, security) => {
+  async (ctx, args, security) => {
     const secureQuery = new SecureQuery(ctx, "contracts", security);
     
     // Build filters
@@ -115,7 +118,16 @@ export const getSecureContracts = secureQuery(
 );
 
 // Secure contract update with change tracking
-export const updateSecureContract = secureMutation(
+export const updateSecureContract = createSecureMutation(
+  {
+    contractId: v.id("contracts"),
+    updates: v.object({
+      title: v.optional(v.string()),
+      status: v.optional(v.string()),
+      contractType: v.optional(v.string()),
+      notes: v.optional(v.string()),
+    }),
+  },
   {
     rateLimit: { operation: "mutation.update" },
     audit: {
@@ -125,15 +137,7 @@ export const updateSecureContract = secureMutation(
     },
     permission: "contracts.update"
   },
-  async (ctx, args: {
-    contractId: Id<"contracts">;
-    updates: {
-      title?: string;
-      status?: string;
-      contractType?: string;
-      notes?: string;
-    };
-  }, security, secure) => {
+  async (ctx, args, security, secure) => {
     // Get existing contract to track changes
     const existing = await secure.byId("contracts", args.contractId);
     if (!existing) {
@@ -170,7 +174,10 @@ export const updateSecureContract = secureMutation(
 );
 
 // Secure contract deletion
-export const deleteSecureContract = secureMutation(
+export const deleteSecureContract = createSecureMutation(
+  {
+    contractId: v.id("contracts"),
+  },
   {
     rateLimit: { operation: "mutation.delete", cost: 3 },
     audit: {
@@ -180,9 +187,7 @@ export const deleteSecureContract = secureMutation(
     },
     permission: "contracts.delete"
   },
-  async (ctx, args: {
-    contractId: Id<"contracts">;
-  }, security, secure) => {
+  async (ctx, args, security, secure) => {
     // Get contract details for audit
     const contract = await secure.byId("contracts", args.contractId);
     if (!contract) {
@@ -209,7 +214,7 @@ export const deleteSecureContract = secureMutation(
       metadata: { 
         title: contract.title,
         vendorId: contract.vendorId,
-        value: contract.extractedPricing
+        value: contract.value || contract.extractedPricing
       }
     });
     
@@ -218,9 +223,18 @@ export const deleteSecureContract = secureMutation(
 );
 
 // Secure bulk export with special auditing
-export const exportSecureContracts = secureAction(
+// Note: Changed to mutation since actions require complex authentication setup
+export const exportSecureContracts = createSecureMutation(
   {
-    rateLimit: { operation: "action.export", cost: 5 },
+    format: v.union(v.literal("csv"), v.literal("json"), v.literal("xlsx")),
+    filters: v.optional(v.object({
+      status: v.optional(v.string()),
+      startDate: v.optional(v.string()),
+      endDate: v.optional(v.string()),
+    })),
+  },
+  {
+    rateLimit: { operation: "mutation.export", cost: 5 },
     audit: {
       operation: "exportContracts",
       resourceType: "contracts",
@@ -228,67 +242,45 @@ export const exportSecureContracts = secureAction(
     },
     permission: "contracts.export"
   },
-  async (ctx, args: {
-    format: "csv" | "json" | "xlsx";
-    filters?: {
-      status?: string;
-      startDate?: string;
-      endDate?: string;
-    };
-  }, security) => {
-    // Query contracts with filters
-    const contracts = await ctx.runQuery(async (q: any) => {
-      const secureQuery = new SecureQuery(q, "contracts", security);
-      return await secureQuery.all();
-    });
+  async (ctx, args, security, secure) => {
+    // Use SecureQuery to get contracts with proper enterprise filtering
+    const secureQuery = new SecureQuery(ctx, "contracts", security);
+    let contracts = await secureQuery.all();
     
     // Apply additional filters
-    let filtered = contracts;
     if (args.filters) {
       if (args.filters.status) {
-        filtered = filtered.filter((c: any) => c.status === args.filters!.status);
+        contracts = contracts.filter((c: any) => c.status === args.filters.status);
       }
       if (args.filters.startDate) {
-        filtered = filtered.filter((c: any) => c._creationTime >= new Date(args.filters!.startDate!).getTime());
+        contracts = contracts.filter((c: any) => c._creationTime >= new Date(args.filters.startDate!).getTime());
       }
       if (args.filters.endDate) {
-        filtered = filtered.filter((c: any) => c._creationTime <= new Date(args.filters!.endDate!).getTime());
+        contracts = contracts.filter((c: any) => c._creationTime <= new Date(args.filters.endDate!).getTime());
       }
     }
     
-    // Log export with details
-    await ctx.runMutation(async (m: any) => {
-      await logAuditEvent(m, security, {
-        operation: "exportContracts",
-        resourceType: "contracts",
-        action: "export",
-        status: "success",
-        metadata: {
-          format: args.format,
-          count: filtered.length,
-          filters: args.filters
-        }
-      });
-    });
-    
-    // Generate export (simplified - would use actual export libraries)
+    // Generate export - initialize with empty string or add default case
     let exportData: string;
     switch (args.format) {
       case "csv":
-        exportData = generateCSV(filtered);
+        exportData = generateCSV(contracts);
         break;
       case "json":
-        exportData = JSON.stringify(filtered, null, 2);
+        exportData = JSON.stringify(contracts, null, 2);
         break;
       case "xlsx":
-        exportData = generateXLSX(filtered);
+        exportData = generateXLSX(contracts);
         break;
+      default:
+        // This should never happen due to validation, but TypeScript needs it
+        throw new Error(`Unsupported format: ${args.format}`);
     }
     
     // Return download URL (would upload to storage in practice)
     return {
       format: args.format,
-      count: filtered.length,
+      count: contracts.length,
       data: exportData,
       timestamp: new Date().toISOString()
     };
@@ -303,9 +295,9 @@ function generateCSV(contracts: any[]): string {
     c.status,
     c.contractType || "",
     c.vendor?.name || "",
-    c.extractedPricing || "",
-    c.extractedStartDate || "",
-    c.extractedEndDate || ""
+    c.value || c.extractedPricing || "",
+    c.startDate || c.extractedStartDate || "",
+    c.endDate || c.extractedEndDate || ""
   ]);
   
   return [headers, ...rows].map((row: any) => row.join(",")).join("\n");

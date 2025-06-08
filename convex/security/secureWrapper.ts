@@ -3,6 +3,31 @@ import { ConvexError } from "convex/values";
 import { getSecurityContext, SecurityContext, hasPermission, SecureQuery, SecureMutation } from "./rowLevelSecurity";
 import { checkRateLimit } from "./rateLimiting";
 import { logAuditEvent } from "./auditLogging";
+import { api } from "../_generated/api";
+
+// Role permissions for action authentication
+const ROLE_PERMISSIONS = {
+  owner: ["*"],
+  admin: [
+    "contracts.create", "contracts.read", "contracts.update", "contracts.delete",
+    "vendors.create", "vendors.read", "vendors.update", "vendors.delete",
+    "users.read", "users.update", "users.invite",
+    "analytics.read", "settings.read", "settings.update"
+  ],
+  manager: [
+    "contracts.create", "contracts.read", "contracts.update",
+    "vendors.create", "vendors.read", "vendors.update",
+    "users.read", "analytics.read"
+  ],
+  user: [
+    "contracts.create", "contracts.read", "contracts.update",
+    "vendors.create", "vendors.read", "vendors.update",
+    "analytics.read"
+  ],
+  viewer: [
+    "contracts.read", "vendors.read", "users.read", "analytics.read"
+  ]
+};
 
 /**
  * Secure wrappers for Convex functions that automatically handle:
@@ -26,14 +51,15 @@ interface SecureOptions {
 }
 
 /**
- * Secure query wrapper
+ * Create a secure query with automatic security checks
  */
-export function secureQuery<Args extends Record<string, any>, Output>(
+export function createSecureQuery<Args extends Record<string, any>, Output>(
+  args: any,
   options: SecureOptions,
   handler: (ctx: any, args: Args, security: SecurityContext) => Promise<Output>
 ) {
   return baseQuery({
-    args: {} as any,
+    args,
     handler: async (ctx, args: Args) => {
       // Get security context
       const securityContext = await getSecurityContext(ctx);
@@ -73,14 +99,15 @@ export function secureQuery<Args extends Record<string, any>, Output>(
 }
 
 /**
- * Secure mutation wrapper
+ * Create a secure mutation with automatic security checks
  */
-export function secureMutation<Args extends Record<string, any>, Output>(
+export function createSecureMutation<Args extends Record<string, any>, Output>(
+  args: any,
   options: SecureOptions,
   handler: (ctx: any, args: Args, security: SecurityContext, secure: SecureMutation) => Promise<Output>
 ) {
   return baseMutation({
-    args: {} as any,
+    args,
     handler: async (ctx, args: Args) => {
       // Get security context
       const securityContext = await getSecurityContext(ctx);
@@ -141,31 +168,97 @@ export function secureMutation<Args extends Record<string, any>, Output>(
 }
 
 /**
- * Secure action wrapper (simplified for now due to context limitations)
+ * Create a secure action with authentication checks
  */
-export function secureAction<Args extends Record<string, any>, Output>(
+export function createSecureAction<Args extends Record<string, any>, Output>(
+  args: any,
   options: SecureOptions,
   handler: (ctx: any, args: Args, security: SecurityContext) => Promise<Output>
 ) {
   return baseAction({
-    args: {} as any,
+    args,
     handler: async (ctx, args: Args) => {
-      // Note: Actions have different context handling in Convex
-      // Security would need to be implemented differently
-      const mockSecurityContext = {
-        userId: "action-user" as any,
-        enterpriseId: "action-enterprise" as any,
-        role: "user" as any,
-        permissions: ["*"]
-      };
+      // Actions need to authenticate differently in Convex
+      // For now, we'll require authentication info to be passed in args
+      if (!args.authToken && !args.userId) {
+        throw new ConvexError("Authentication required for actions. Pass authToken or userId in args.");
+      }
+      
+      // Get user information to build security context
+      let securityContext: SecurityContext;
+      
+      if (args.userId) {
+        // Direct user ID approach (for internal system actions)
+        const user = await ctx.runQuery(api.users.getById, { userId: args.userId });
+        if (!user || !user.isActive) {
+          throw new ConvexError("User not found or inactive");
+        }
+        
+        securityContext = {
+          userId: user._id,
+          enterpriseId: user.enterpriseId,
+          role: user.role,
+          permissions: ROLE_PERMISSIONS[user.role as keyof typeof ROLE_PERMISSIONS] || []
+        };
+      } else {
+        throw new ConvexError("Authentication method not supported in actions yet");
+      }
+      
+      // Check rate limit (with simplified tracking for actions)
+      if (options.rateLimit) {
+        // For actions, we'll implement a simpler rate limiting approach
+        // In a production system, you might use Redis or external storage
+        console.warn("Rate limiting not fully implemented for actions yet");
+      }
+      
+      // Check permission
+      if (options.permission && !hasPermission(securityContext, options.permission)) {
+        throw new ConvexError(`Permission denied: ${options.permission}`);
+      }
       
       try {
-        // Execute handler with mock context for now
-        const result = await handler(ctx, args, mockSecurityContext);
+        // Execute handler
+        const result = await handler(ctx, args, securityContext);
+        
+        // Log audit event if possible
+        if (options.audit) {
+          try {
+            await ctx.runMutation(api.security.auditLogging.logEvent, {
+              userId: securityContext.userId,
+              operation: options.audit.operation,
+              resourceType: options.audit.resourceType,
+              action: options.audit.action,
+              status: "success",
+            });
+          } catch (auditError) {
+            console.error("Failed to log audit event:", auditError);
+          }
+        }
+        
         return result;
       } catch (error) {
+        // Log failed attempt
+        if (options.audit) {
+          try {
+            await ctx.runMutation(api.security.auditLogging.logEvent, {
+              userId: securityContext.userId,
+              operation: options.audit.operation,
+              resourceType: options.audit.resourceType,
+              action: options.audit.action,
+              status: "failure",
+              errorMessage: error instanceof Error ? error.message : String(error),
+            });
+          } catch (auditError) {
+            console.error("Failed to log audit event:", auditError);
+          }
+        }
         throw error;
       }
     },
   });
 }
+
+// Export the old names for backward compatibility, but mark as deprecated
+export const secureQuery = createSecureQuery;
+export const secureMutation = createSecureMutation;  
+export const secureAction = createSecureAction;
