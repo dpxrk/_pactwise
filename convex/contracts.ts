@@ -666,3 +666,50 @@ export const getContractStats = query({
     return stats;
   },
 });
+
+/**
+ * Manually trigger contract analysis
+ */
+export const triggerContractAnalysis = mutation({
+  args: {
+    contractId: v.id("contracts"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new ConvexError("User not found");
+    }
+
+    const contract = await ctx.db.get(args.contractId);
+    if (!contract) {
+      throw new ConvexError("Contract not found");
+    }
+
+    // Verify user has access to this contract's enterprise
+    if (contract.enterpriseId !== user.enterpriseId) {
+      throw new ConvexError("Access denied");
+    }
+
+    // Update analysis status to pending
+    await ctx.db.patch(args.contractId, {
+      analysisStatus: "pending",
+      analysisError: undefined,
+    });
+
+    // Schedule analysis action (in a real implementation, this would trigger the AI analysis)
+    await ctx.scheduler.runAfter(0, "contracts:analyzeContract", {
+      contractId: args.contractId,
+    });
+
+    return { success: true };
+  },
+});

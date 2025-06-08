@@ -121,8 +121,11 @@ export default defineSchema({
         ...vendorCategoryOptions.map(option => v.literal(option))
       )
     ),
+    status: v.optional(v.union(v.literal("active"), v.literal("inactive"))),
+    createdAt: v.string(),
   })
   .index("by_name", ["name"])
+  .index("by_enterprise", ["enterpriseId"])
   .index("by_enterpriseId", ["enterpriseId"])
   .index("by_category_and_enterpriseId", ["enterpriseId", "category"]),
 
@@ -142,6 +145,11 @@ export default defineSchema({
     storageId: v.id("_storage"),
     fileName: v.string(),
     fileType: v.string(),
+    // User-provided contract details
+    value: v.optional(v.number()),
+    startDate: v.optional(v.string()),
+    endDate: v.optional(v.string()),
+    // AI-extracted data
     extractedParties: v.optional(v.array(v.string())),
     extractedStartDate: v.optional(v.string()),
     extractedEndDate: v.optional(v.string()),
@@ -153,7 +161,9 @@ export default defineSchema({
     )),
     analysisError: v.optional(v.string()),
     notes: v.optional(v.string()),
+    createdAt: v.string(),
   })
+  .index("by_enterprise", ["enterpriseId"])
   .index("by_vendorId_and_enterpriseId", ["enterpriseId", "vendorId"])
   .index("by_status_and_enterpriseId", ["enterpriseId", "status"])
   .index("by_analysisStatus_and_enterpriseId", ["enterpriseId", "analysisStatus"])
