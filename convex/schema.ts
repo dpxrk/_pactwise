@@ -3,6 +3,8 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { agentTables } from "./agent_schema";
 import { notificationTables } from "./notification_schema";
+import { rateLimitTables } from "./security/rateLimiting";
+import { auditTables } from "./security/auditLogging";
 
 // ============================================================================
 // OPTIONS / ENUMS
@@ -187,5 +189,7 @@ export default defineSchema({
     .index("by_enterpriseId", ["enterpriseId"]),
 
   ...agentTables,
-  ...notificationTables
+  ...notificationTables,
+  ...rateLimitTables,
+  ...auditTables
 });

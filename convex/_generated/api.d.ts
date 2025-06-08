@@ -14,6 +14,7 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as agent_schema from "../agent_schema.js";
+import type * as agents_analytics from "../agents/analytics.js";
 import type * as agents_financial from "../agents/financial.js";
 import type * as agents_legal from "../agents/legal.js";
 import type * as agents_manager from "../agents/manager.js";
@@ -25,6 +26,12 @@ import type * as notification_schema from "../notification_schema.js";
 import type * as notifications from "../notifications.js";
 import type * as onboarding from "../onboarding.js";
 import type * as search from "../search.js";
+import type * as security_auditLogging from "../security/auditLogging.js";
+import type * as security_monitoring from "../security/monitoring.js";
+import type * as security_rateLimiting from "../security/rateLimiting.js";
+import type * as security_rowLevelSecurity from "../security/rowLevelSecurity.js";
+import type * as security_secureContractOperations from "../security/secureContractOperations.js";
+import type * as security_secureWrapper from "../security/secureWrapper.js";
 import type * as server from "../server.js";
 import type * as users from "../users.js";
 import type * as vendors from "../vendors.js";
@@ -39,6 +46,7 @@ import type * as vendors from "../vendors.js";
  */
 declare const fullApi: ApiFromModules<{
   agent_schema: typeof agent_schema;
+  "agents/analytics": typeof agents_analytics;
   "agents/financial": typeof agents_financial;
   "agents/legal": typeof agents_legal;
   "agents/manager": typeof agents_manager;
@@ -50,6 +58,12 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   onboarding: typeof onboarding;
   search: typeof search;
+  "security/auditLogging": typeof security_auditLogging;
+  "security/monitoring": typeof security_monitoring;
+  "security/rateLimiting": typeof security_rateLimiting;
+  "security/rowLevelSecurity": typeof security_rowLevelSecurity;
+  "security/secureContractOperations": typeof security_secureContractOperations;
+  "security/secureWrapper": typeof security_secureWrapper;
   server: typeof server;
   users: typeof users;
   vendors: typeof vendors;
