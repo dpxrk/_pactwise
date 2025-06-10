@@ -98,32 +98,7 @@
 | View insights | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Create tasks | ✅ | ✅ | ✅ | ❌ | ❌ |
 
-## Implementation Example
 
-```typescript
-// Example permission check in your contract creation function
-export const createContract = mutation({
-  args: { /* ... */ },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError("Authentication required");
-    }
-
-    // Check if user has permission to create contracts
-    const hasAccess = await ctx.runQuery(api.users.hasEnterpriseAccess, {
-      enterpriseId: args.enterpriseId,
-      requiredRole: "user" // Minimum role needed
-    });
-
-    if (!hasAccess) {
-      throw new ConvexError("Permission denied: Insufficient privileges to create contracts");
-    }
-
-    // ... rest of creation logic
-  },
-});
-```
 
 ## Default Role Assignment
 
