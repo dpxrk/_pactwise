@@ -12,12 +12,11 @@ interface MetricCardProps {
   changeType?: "positive" | "negative" | "neutral";
 }
 
-export const MetricCard: React.FC<MetricCardProps> = ({
+export const MetricCard: React.FC<MetricCardProps> = React.memo(({
   title,
   value,
   icon: Icon,
   trend,
-
   description,
   changeType = "neutral",
 }) => (
@@ -51,4 +50,4 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       )}
     </CardContent>
   </Card>
-);
+));

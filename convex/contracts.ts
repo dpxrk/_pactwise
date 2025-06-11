@@ -167,12 +167,16 @@ export const getContracts = query({
         v.literal("all")
       )
     ),
+    limit: v.optional(v.number()),
+    cursor: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new ConvexError("Authentication required to view contracts.");
     }
+
+    const limit = args.limit || 50; // Default page size
 
     let queryBuilder = ctx.db
       .query("contracts")
@@ -189,7 +193,23 @@ export const getContracts = query({
         );
     }
 
-    let contracts = await queryBuilder.order("desc").collect();
+    // Apply pagination
+    const paginationBuilder = queryBuilder.order("desc");
+    
+    let contracts;
+    let nextCursor: string | null = null;
+    
+    if (args.cursor) {
+      // Continue from cursor
+      const result = await paginationBuilder.paginate({ cursor: args.cursor, numItems: limit });
+      contracts = result.page;
+      nextCursor = result.continueCursor;
+    } else {
+      // First page
+      const result = await paginationBuilder.paginate({ numItems: limit });
+      contracts = result.page;
+      nextCursor = result.continueCursor;
+    }
 
     // Apply contract type filter if provided and not "all"
     if (args.contractType && args.contractType !== "all") {
@@ -211,7 +231,27 @@ export const getContracts = query({
       })
     );
 
-    return contractsWithVendors;
+    return {
+      contracts: contractsWithVendors,
+      nextCursor,
+      hasMore: nextCursor !== null,
+    };
+  },
+});
+
+/**
+ * Get contracts for an enterprise (simple version for backward compatibility)
+ */
+export const getContractsSimple = query({
+  args: {
+    enterpriseId: v.id("enterprises"),
+  },
+  handler: async (ctx, args) => {
+    const result = await ctx.runQuery(api.contracts.getContracts, {
+      enterpriseId: args.enterpriseId,
+      limit: 100, // Get first 100 contracts
+    });
+    return result.contracts;
   },
 });
 

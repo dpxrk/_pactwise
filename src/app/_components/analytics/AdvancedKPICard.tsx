@@ -331,4 +331,4 @@ export const AdvancedKPICard: React.FC<AdvancedKPICardProps> = ({
   );
 };
 
-export default AdvancedKPICard;
+export default React.memo(AdvancedKPICard);

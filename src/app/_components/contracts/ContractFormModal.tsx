@@ -1,5 +1,11 @@
 import React from 'react';
-import { ContractForm } from '@/app/_components/contracts/ContractForm';
+import dynamic from 'next/dynamic';
+import LoadingSpinner from '../common/LoadingSpinner';
+
+const ContractForm = dynamic(() => import('@/app/_components/contracts/ContractForm').then(mod => ({ default: mod.ContractForm })), {
+  loading: () => <LoadingSpinner />,
+  ssr: false
+});
 import { 
   Dialog, 
   DialogContent,

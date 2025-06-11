@@ -27,9 +27,26 @@ import {
 } from "lucide-react";
 import { DateRange } from "./DateRangePicker";
 import DateRangePicker from "./DateRangePicker";
-import InteractiveChart, { ChartDataPoint, ChartSeries } from "./InteractiveChart";
-import DrillDownModal from "./DrillDownModal";
-import AdvancedKPICard, { KPIData } from "./AdvancedKPICard";
+import dynamic from "next/dynamic";
+import LoadingSpinner from "../common/LoadingSpinner";
+import { ChartDataPoint, ChartSeries } from "./InteractiveChart";
+import { KPIData } from "./AdvancedKPICard";
+
+// Lazy load heavy chart components
+const InteractiveChart = dynamic(() => import("./InteractiveChart"), {
+  loading: () => <LoadingSpinner />,
+  ssr: false
+});
+
+const DrillDownModal = dynamic(() => import("./DrillDownModal"), {
+  loading: () => <div>Loading...</div>,
+  ssr: false
+});
+
+const AdvancedKPICard = dynamic(() => import("./AdvancedKPICard"), {
+  loading: () => <div className="h-48 animate-pulse bg-gray-200 rounded-lg" />,
+  ssr: false
+});
 
 interface AnalyticsDashboardProps {
   className?: string;

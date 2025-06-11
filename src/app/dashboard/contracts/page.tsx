@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 import { NewContractButton } from "@/app/_components/contracts/NewContractButton";
@@ -89,9 +89,9 @@ const AllContracts = () => {
     };
   }, [contracts]);
 
-  const viewContractDetails = (contractId: Id<"contracts">) => {
+  const viewContractDetails = useCallback((contractId: Id<"contracts">) => {
     router.push(`/dashboard/contracts/${contractId}`);
-  };
+  }, [router]);
 
   // Render loading state
   if (isLoading) {
@@ -123,7 +123,7 @@ const AllContracts = () => {
   }
 
   // Map status to badge style
-  const getStatusBadgeClass = (status: string): string => {
+  const getStatusBadgeClass = useCallback((status: string): string => {
     switch (status) {
       case "active": return "bg-green-100 text-green-800";
       case "pending_analysis": return "bg-yellow-100 text-yellow-800";
@@ -133,23 +133,23 @@ const AllContracts = () => {
       case "archived": return "bg-gray-100 text-gray-800";
       default: return "bg-slate-100 text-slate-800";
     }
-  };
+  }, []);
 
   // Format date for display
-  const formatDate = (dateString?: string): string => {
+  const formatDate = useCallback((dateString?: string): string => {
     if (!dateString) return "Not available";
     try {
       return new Date(dateString).toLocaleDateString();
     } catch (e) {
       return "Invalid date";
     }
-  };
+  }, []);
 
   // Format status label
-  const formatStatusLabel = (status: string): string => {
+  const formatStatusLabel = useCallback((status: string): string => {
     if (!status) return "Unknown";
     return status.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
-  };
+  }, []);
 
   return (
     <div className="space-y-6 p-6">

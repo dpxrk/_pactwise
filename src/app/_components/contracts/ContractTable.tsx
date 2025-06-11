@@ -470,4 +470,4 @@ export const ContractTable = ({
   );
 };
 
-export default ContractTable;
+export default React.memo(ContractTable);

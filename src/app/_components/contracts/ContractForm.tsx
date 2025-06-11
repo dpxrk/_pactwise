@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { VendorType } from '@/types/vendor.types'; // Assuming this has _id
+import { contractValidationSchema, validateFileUpload, sanitizeInput } from '@/lib/validation-utils';
 
 // UI Components
 import { Button } from "@/components/ui/button";
