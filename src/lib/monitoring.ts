@@ -58,6 +58,17 @@ class PerformanceTracker {
       });
     }
     
+    // Send to Convex analytics
+    if (typeof window !== 'undefined') {
+      this.sendEventToConvex('web_vital', {
+        name: metric.name,
+        value: metric.value,
+        rating: metric.rating,
+        delta: metric.delta,
+        navigationType: metric.navigationType,
+      });
+    }
+    
     // Store locally for development
     if (process.env.NODE_ENV === 'development') {
       const vitals = JSON.parse(localStorage.getItem('web_vitals') || '[]');
@@ -71,6 +82,13 @@ class PerformanceTracker {
         vitals.splice(0, vitals.length - 50);
       }
       localStorage.setItem('web_vitals', JSON.stringify(vitals));
+    }
+  }
+
+  private sendEventToConvex(event: string, properties: Record<string, unknown>) {
+    // This will be called by the ConvexClientProvider
+    if (typeof window !== 'undefined' && (window as any).convexAnalytics) {
+      (window as any).convexAnalytics.logEvent(event, properties);
     }
   }
 
@@ -225,13 +243,15 @@ class UserAnalytics {
       });
     }
 
-    // Custom endpoint
-    if (process.env.NODE_ENV === 'production') {
-      fetch('/api/analytics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(event),
-      }).catch(err => console.error('Failed to send analytics event:', err));
+    // Send to Convex
+    if (typeof window !== 'undefined' && (window as any).convexAnalytics) {
+      (window as any).convexAnalytics.logEvent(event.event, {
+        ...event.properties,
+        timestamp: event.timestamp,
+        url: event.url,
+        sessionId: event.sessionId,
+        userId: event.userId,
+      });
     }
   }
 
@@ -241,13 +261,9 @@ class UserAnalytics {
       const eventsToSend = [...this.events];
       this.events = [];
       
-      // Send batch of events
-      if (process.env.NODE_ENV === 'production') {
-        fetch('/api/analytics/batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(eventsToSend),
-        }).catch(err => console.error('Failed to send analytics batch:', err));
+      // Send batch of events to Convex
+      if (typeof window !== 'undefined' && (window as any).convexAnalytics) {
+        (window as any).convexAnalytics.logEventBatch(eventsToSend);
       }
     }
   }
@@ -335,23 +351,17 @@ class ErrorTracker {
       });
     }
 
-    // Send to custom error endpoint
-    if (process.env.NODE_ENV === 'production') {
-      fetch('/api/errors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: errorReport.error.message,
-          stack: errorReport.error.stack,
-          timestamp: errorReport.timestamp,
-          url: errorReport.url,
-          userId: errorReport.userId,
-          sessionId: errorReport.sessionId,
-          userAgent: errorReport.userAgent,
-          context: errorReport.context,
-        }),
-      }).catch(() => {
-        // Silently fail - don't create error loops
+    // Send to Convex
+    if (typeof window !== 'undefined' && (window as any).convexAnalytics) {
+      (window as any).convexAnalytics.reportError({
+        message: errorReport.error.message,
+        stack: errorReport.error.stack,
+        timestamp: errorReport.timestamp,
+        url: errorReport.url,
+        userId: errorReport.userId,
+        sessionId: errorReport.sessionId,
+        userAgent: errorReport.userAgent,
+        context: errorReport.context,
       });
     }
   }
@@ -386,15 +396,16 @@ class HealthMonitor {
   }
 
   private async runHealthChecks() {
-    // Check API connectivity
+    // Check Convex connectivity
     try {
-      const response = await fetch('/api/health', { 
-        method: 'HEAD',
-        cache: 'no-cache',
-      });
-      this.checks.set('api', response.ok);
+      if (typeof window !== 'undefined' && (window as any).convexAnalytics) {
+        const healthStatus = await (window as any).convexAnalytics.getHealthStatus();
+        this.checks.set('convex', healthStatus.status === 'healthy');
+      } else {
+        this.checks.set('convex', false);
+      }
     } catch {
-      this.checks.set('api', false);
+      this.checks.set('convex', false);
     }
 
     // Check local storage
@@ -488,29 +499,26 @@ export const measurePerformance = {
     }
   },
 
-  // Measure API call performance
-  measureAPICall: async (endpoint: string, options: RequestInit): Promise<Response> => {
+  // Measure Convex function call performance
+  measureConvexCall: async <T>(functionName: string, operation: () => Promise<T>): Promise<T> => {
     const start = performance.now();
     
     try {
-      const response = await fetch(endpoint, options);
+      const result = await operation();
       const end = performance.now();
       
-      userAnalytics.track('api_call', {
-        endpoint,
-        method: options.method || 'GET',
-        status: response.status,
+      userAnalytics.track('convex_call', {
+        function: functionName,
         duration: end - start,
-        success: response.ok,
+        success: true,
       });
       
-      return response;
+      return result;
     } catch (error) {
       const end = performance.now();
       
-      userAnalytics.track('api_call', {
-        endpoint,
-        method: options.method || 'GET',
+      userAnalytics.track('convex_call', {
+        function: functionName,
         duration: end - start,
         success: false,
         error: error instanceof Error ? error.message : String(error),

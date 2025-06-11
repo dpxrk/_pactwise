@@ -272,6 +272,56 @@ export default defineSchema({
     .index("by_user_resource", ["userId", "resourceId", "resourceType"])
     .index("by_enterprise", ["enterpriseId"]),
 
+  // ===== MONITORING & ANALYTICS =====
+  analytics_events: defineTable({
+    event: v.string(),
+    timestamp: v.number(),
+    url: v.string(),
+    userId: v.optional(v.string()),
+    properties: v.optional(v.any()),
+    sessionId: v.string(),
+    userAgent: v.optional(v.string()),
+    ip: v.optional(v.string()),
+    authenticatedUserId: v.optional(v.id("users")),
+    enterpriseId: v.optional(v.id("enterprises")),
+    serverTimestamp: v.number(),
+    createdAt: v.string(),
+  })
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_user", ["authenticatedUserId"])
+    .index("by_event", ["event"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_session", ["sessionId"])
+    .index("by_enterprise_event", ["enterpriseId", "event"])
+    .index("by_enterprise_timestamp", ["enterpriseId", "timestamp"]),
+
+  error_reports: defineTable({
+    message: v.string(),
+    stack: v.optional(v.string()),
+    timestamp: v.number(),
+    url: v.string(),
+    userId: v.optional(v.string()),
+    sessionId: v.string(),
+    userAgent: v.string(),
+    context: v.optional(v.any()),
+    authenticatedUserId: v.optional(v.id("users")),
+    enterpriseId: v.optional(v.id("enterprises")),
+    serverTimestamp: v.number(),
+    createdAt: v.string(),
+  })
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_user", ["authenticatedUserId"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_session", ["sessionId"])
+    .index("by_enterprise_timestamp", ["enterpriseId", "timestamp"]),
+
+  health_checks: defineTable({
+    timestamp: v.number(),
+    status: v.string(),
+    createdAt: v.string(),
+  })
+    .index("by_timestamp", ["timestamp"]),
+
   ...agentTables,
   ...notificationTables,
   ...rateLimitTables,

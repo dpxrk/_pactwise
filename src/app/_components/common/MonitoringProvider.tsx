@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useMutation, useQuery } from 'convex/react';
+import { api } from '../../../../convex/_generated/api';
 import { 
   performanceTracker, 
   userAnalytics, 
@@ -29,13 +31,84 @@ export const MonitoringProvider: React.FC<MonitoringProviderProps> = ({ children
   const [healthStatus, setHealthStatus] = useState<Record<string, boolean>>({});
   const [isHealthy, setIsHealthy] = useState(true);
 
+  // Convex mutations for monitoring
+  const logAnalyticsEvent = useMutation(api.monitoring.logAnalyticsEvent);
+  const logAnalyticsEventBatch = useMutation(api.monitoring.logAnalyticsEventBatch);
+  const reportError = useMutation(api.monitoring.reportError);
+  const healthQuery = useQuery(api.monitoring.getHealthStatus);
+
+  // Set up global analytics bridge
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).convexAnalytics = {
+        logEvent: async (event: string, properties: Record<string, any> = {}) => {
+          try {
+            await logAnalyticsEvent({
+              event,
+              timestamp: Date.now(),
+              url: window.location.href,
+              userId: userId || undefined,
+              properties,
+              sessionId: userAnalytics.getSessionId(),
+              userAgent: navigator.userAgent,
+            });
+          } catch (error) {
+            console.warn('Failed to log analytics event:', error);
+          }
+        },
+        
+        logEventBatch: async (events: any[]) => {
+          try {
+            const formattedEvents = events.map(event => ({
+              event: event.event,
+              timestamp: event.timestamp,
+              url: event.url,
+              userId: event.userId,
+              properties: event.properties,
+              sessionId: event.sessionId,
+              userAgent: navigator.userAgent,
+            }));
+            await logAnalyticsEventBatch({ events: formattedEvents });
+          } catch (error) {
+            console.warn('Failed to log analytics batch:', error);
+          }
+        },
+        
+        reportError: async (errorData: any) => {
+          try {
+            await reportError({
+              message: errorData.message,
+              stack: errorData.stack,
+              timestamp: errorData.timestamp,
+              url: errorData.url,
+              userId: errorData.userId,
+              sessionId: errorData.sessionId,
+              userAgent: errorData.userAgent,
+              context: errorData.context,
+            });
+          } catch (error) {
+            console.warn('Failed to report error:', error);
+          }
+        },
+        
+        getHealthStatus: () => healthQuery,
+      };
+    }
+  }, [logAnalyticsEvent, logAnalyticsEventBatch, reportError, healthQuery, userId]);
+
   useEffect(() => {
     // Update health status periodically
     const updateHealthStatus = () => {
       const status = healthMonitor.getHealthStatus();
       const healthy = healthMonitor.isHealthy();
+      
+      // Include Convex health status
+      if (healthQuery) {
+        status.convex = healthQuery.status === 'healthy';
+      }
+      
       setHealthStatus(status);
-      setIsHealthy(healthy);
+      setIsHealthy(Object.values(status).every(Boolean));
     };
 
     // Initial check
@@ -47,7 +120,7 @@ export const MonitoringProvider: React.FC<MonitoringProviderProps> = ({ children
     return () => {
       clearInterval(interval);
     };
-  }, []);
+  }, [healthQuery]);
 
   const trackEvent = (event: string, properties?: Record<string, any>) => {
     userAnalytics.track(event, properties, userId || undefined);
