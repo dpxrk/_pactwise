@@ -1,7 +1,9 @@
 // convex/search.ts
-import { query } from "./_generated/server";
+import { query, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
+import { Id, Doc } from "./_generated/dataModel";
+import { ContractEntity, UserEntity, VendorEntity, ContractFilters, ContractFacets, VendorFacets, UserFacets, SearchResult } from "../src/types/core-entities";
 
 // ============================================================================
 // SEARCH CONFIGURATION
@@ -535,47 +537,47 @@ export const autocomplete = query({
 // ============================================================================
 
 async function searchContracts(
-  ctx: any,
-  enterpriseId: string,
+  ctx: QueryCtx,
+  enterpriseId: Id<"enterprises">,
   query: string,
   limit: number,
   includeArchived?: boolean
-): Promise<any[]> {
+): Promise<SearchResult<ContractEntity>[]> {
   let contracts = await ctx.db
     .query("contracts")
-    .withIndex("by_status_and_enterpriseId", (q: any) => 
+    .withIndex("by_status_and_enterpriseId", (q) => 
       q.eq("enterpriseId", enterpriseId)
     )
     .collect();
 
   if (!includeArchived) {
-    contracts = contracts.filter((c: any) => c.status !== "archived");
+    contracts = contracts.filter((c) => c.status !== "archived");
   }
 
-  return (await scoreContractResults(ctx, contracts, query)).slice(0, limit);
+  return (await scoreContractResults(contracts, query)).slice(0, limit);
 }
 
 async function searchVendors(
-  ctx: any,
-  enterpriseId: string,
+  ctx: QueryCtx,
+  enterpriseId: Id<"enterprises">,
   query: string,
   limit: number
-): Promise<any[]> {
+): Promise<SearchResult<VendorEntity>[]> {
   const vendors = await ctx.db
     .query("vendors")
-    .withIndex("by_enterprise", (q: any) => q.eq("enterpriseId", enterpriseId))
+    .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))
     .collect();
 
-  return (await scoreVendorResults(ctx, vendors, query)).slice(0, limit);
+  return (await scoreVendorResults(vendors, query)).slice(0, limit);
 }
 
 async function searchUsers(
-  ctx: any,
-  enterpriseId: string,
+  ctx: QueryCtx,
+  enterpriseId: Id<"enterprises">,
   query: string,
   limit: number,
-  currentUser: any
-): Promise<any[]> {
+  currentUser: UserEntity
+): Promise<SearchResult<UserEntity>[]> {
   let users = await ctx.db
     .query("users")
     .withIndex("by_enterprise", (q: any) => q.eq("enterpriseId", enterpriseId))
@@ -587,7 +589,7 @@ async function searchUsers(
   return scoreUserResults(users, query).slice(0, limit);
 }
 
-async function scoreContractResults(ctx: any, contracts: any[], query: string): Promise<any[]> {
+async function scoreContractResults(contracts: Doc<"contracts">[], query: string): Promise<SearchResult<ContractEntity>[]> {
   return contracts
     .map(contract => {
       let relevance = 0;
@@ -606,13 +608,17 @@ async function scoreContractResults(ctx: any, contracts: any[], query: string): 
           }}
       });
 
-      return { ...contract, relevance, matchedFields };
+      return { 
+        item: contract as ContractEntity, 
+        score: relevance, 
+        highlights: matchedFields 
+      };
     })
-    .filter(r => r.relevance > 0)
-    .sort((a, b) => b.relevance - a.relevance);
+    .filter(r => r.score > 0)
+    .sort((a, b) => b.score - a.score);
 }
 
-async function scoreVendorResults(ctx: any, vendors: any[], query: string): Promise<any[]> {
+async function scoreVendorResults(vendors: Doc<"vendors">[], query: string): Promise<SearchResult<VendorEntity>[]> {
   return vendors
     .map(vendor => {
       let relevance = 0;
@@ -631,13 +637,17 @@ async function scoreVendorResults(ctx: any, vendors: any[], query: string): Prom
         }
       });
 
-      return { ...vendor, relevance, matchedFields };
+      return { 
+        item: vendor as VendorEntity, 
+        score: relevance, 
+        highlights: matchedFields 
+      };
     })
-    .filter(r => r.relevance > 0)
-    .sort((a, b) => b.relevance - a.relevance);
+    .filter(r => r.score > 0)
+    .sort((a, b) => b.score - a.score);
 }
 
-function scoreUserResults(users: any[], query: string): any[] {
+function scoreUserResults(users: Doc<"users">[], query: string): SearchResult<UserEntity>[] {
   return users
     .map(user => {
       let relevance = 0;
@@ -656,13 +666,17 @@ function scoreUserResults(users: any[], query: string): any[] {
         }
       });
 
-      return { ...user, relevance, matchedFields };
+      return { 
+        item: user as UserEntity, 
+        score: relevance, 
+        highlights: matchedFields 
+      };
     })
-    .filter(r => r.relevance > 0)
-    .sort((a, b) => b.relevance - a.relevance);
+    .filter(r => r.score > 0)
+    .sort((a, b) => b.score - a.score);
 }
 
-async function applyContractFilters(ctx: any, contracts: any[], filters: any): Promise<any[]> {
+async function applyContractFilters(ctx: QueryCtx, contracts: Doc<"contracts">[], filters: ContractFilters): Promise<Doc<"contracts">[]> {
   let filtered = contracts;
 
   // Status filter

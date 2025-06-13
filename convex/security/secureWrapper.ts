@@ -4,6 +4,7 @@ import { getSecurityContext, SecurityContext, hasPermission, SecureQuery, Secure
 import { checkRateLimit } from "./rateLimiting";
 import { logAuditEvent } from "./auditLogging";
 import { api } from "../_generated/api";
+import { Values } from "convex/values";
 
 /**
  * Validate Clerk JWT token
@@ -82,7 +83,7 @@ interface SecureOptions {
 /**
  * Create a secure query with automatic security checks
  */
-export function createSecureQuery<Args extends Record<string, any>, Output>(
+export function createSecureQuery<Args extends Values, Output>(
   args: Args,
   options: SecureOptions,
   handler: (ctx: QueryCtx, args: Args, security: SecurityContext) => Promise<Output>
@@ -130,7 +131,7 @@ export function createSecureQuery<Args extends Record<string, any>, Output>(
 /**
  * Create a secure mutation with automatic security checks
  */
-export function createSecureMutation<Args extends Record<string, any>, Output>(
+export function createSecureMutation<Args extends Values, Output>(
   args: Args,
   options: SecureOptions,
   handler: (ctx: MutationCtx, args: Args, security: SecurityContext, secure: SecureMutation) => Promise<Output>
@@ -199,7 +200,7 @@ export function createSecureMutation<Args extends Record<string, any>, Output>(
 /**
  * Create a secure action with authentication checks
  */
-export function createSecureAction<Args extends Record<string, any>, Output>(
+export function createSecureAction<Args extends Values, Output>(
   args: Args,
   options: SecureOptions,
   handler: (ctx: ActionCtx, args: Args, security: SecurityContext) => Promise<Output>

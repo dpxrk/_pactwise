@@ -1,5 +1,5 @@
 // convex/agents/analytics.ts
-import { internalMutation, internalQuery } from "../_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import { Id, Doc } from "../_generated/dataModel";
 import { ContractAnalytics, VendorAnalytics, MonthlyTrend, VendorMetric, ContractStatus, VendorCategory } from "../types";
@@ -215,7 +215,7 @@ async function calculateKPIs(
   // 1. Contract Renewal Rate
   const renewalEligible = expiredLastYear.length;
   const renewed = contracts.filter((c: Doc<"contracts">) => 
-    c.metadata?.renewedFrom && 
+    c.notes?.includes("renewal") && 
     c._creationTime && 
     c._creationTime > oneYearAgo.getTime()
   ).length;
@@ -238,7 +238,7 @@ async function calculateKPIs(
     }
   }
   
-  kpis.averageContractCycleTime = cycleTimeCount > 0 ? totalCycleTime / cycleTimeCount : 0;
+  kpis.contractCycleTime = cycleTimeCount > 0 ? totalCycleTime / cycleTimeCount : 0;
 
   // 3. Vendor Concentration
   const vendorSpend: Record<string, number> = {};
@@ -446,7 +446,7 @@ async function analyzeVendorPerformance(
   const vendorMetrics = new Map<string, any>();
   
   for (const vendor of vendors) {
-    const vendorContracts = contracts.filter(c => c.vendorId === vendor._id);
+    const vendorContracts = contracts.filter((c: Doc<"contracts">) => c.vendorId === vendor._id);
     
     if (vendorContracts.length === 0) continue;
     
@@ -454,8 +454,8 @@ async function analyzeVendorPerformance(
       vendorId: vendor._id,
       vendorName: vendor.name,
       contractCount: vendorContracts.length,
-      activeContracts: vendorContracts.filter(c => c.status === "active").length,
-      totalValue: vendorContracts.reduce((sum, c) => 
+      activeContracts: vendorContracts.filter((c: Doc<"contracts">) => c.status === "active").length,
+      totalValue: vendorContracts.reduce((sum: number, c: Doc<"contracts">) => 
         sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0
       ),
       averageContractValue: 0,
@@ -1408,7 +1408,7 @@ function generateRiskMitigationActions(risks: string[]): string[] {
     }
   });
   
-  return [...new Set(actions)];
+  return Array.from(new Set(actions));
 }
 
 // ============================================================================
@@ -1878,7 +1878,7 @@ function analyzeVendorQuarterlyPerformance(contracts: any[], vendors: any[], ins
   const vendorMetrics = new Map<string, any>();
   
   vendors.forEach(vendor => {
-    const vendorContracts = contracts.filter(c => c.vendorId === vendor._id);
+    const vendorContracts = contracts.filter((c: Doc<"contracts">) => c.vendorId === vendor._id);
     const activeContracts = vendorContracts.filter(c => c.status === "active");
     const totalValue = vendorContracts.reduce((sum, c) => 
       sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0
@@ -2219,7 +2219,7 @@ function calculateVendorPerformanceScores(contracts: any[], vendors: any[], insi
   const scores: Record<string, any> = {};
   
   vendors.forEach(vendor => {
-    const vendorContracts = contracts.filter(c => c.vendorId === vendor._id);
+    const vendorContracts = contracts.filter((c: Doc<"contracts">) => c.vendorId === vendor._id);
     const vendorInsights = insights.filter(i => i.vendorId === vendor._id);
     
     const riskInsights = vendorInsights.filter(i => 
@@ -2400,7 +2400,7 @@ function identifyOptimizationOpportunities(
   }, {} as Record<string, number>);
   
   Object.entries(vendorCounts).forEach(([vendorId, count]) => {
-    if (count >= 3) {
+    if (typeof count === 'number' && count >= 3) {
       opportunities.push({
         type: "bundling",
         vendorId,
@@ -2796,7 +2796,7 @@ function identifyEmergingRisks(contracts: any[], insights: any[]): string[] {
   }, {} as Record<string, number>);
   
   Object.entries(riskTypes).forEach(([type, count]) => {
-    if (count >= 5) {
+    if (typeof count === 'number' && count >= 5) {
       risks.push(`Increasing ${type.replace("_", " ")} incidents (${count} in last 30 days)`);
     }
   });
@@ -2825,7 +2825,7 @@ function analyzeRiskTrends(insights: any[]): any {
 function groupComplianceByContractType(contracts: any[], insights: any[]): any {
   const compliance: Record<string, any> = {};
   
-  const types = [...new Set(contracts.map(c => c.contractType || "other"))];
+  const types = Array.from(new Set(contracts.map(c => c.contractType || "other")));
   
   types.forEach(type => {
     const typeContracts = contracts.filter(c => 

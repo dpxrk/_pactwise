@@ -19,8 +19,8 @@ interface VendorState {
   setError: (error: string | null) => void;
 
   // Additional vendor-specific operations
-  updateVendorStatus: (id: string, status: VendorType["status"]) => void;
-  updateRiskLevel: (id: string, riskLevel: VendorType["risk_level"]) => void;
+  updateVendorStatus: (id: string, status: "active" | "inactive" | "pending") => void;
+  updateRiskLevel: (id: string, riskLevel: "low" | "medium" | "high") => void;
   updateComplianceScore: (id: string, score: number) => void;
   updateActiveContracts: (id: string, count: number) => void;
   addVendorSpend: (id: string, amount: number) => void;

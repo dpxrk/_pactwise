@@ -293,7 +293,7 @@ export const lightTheme = {
     foreground: colors.gray[900],
     muted: colors.gray[100],
     mutedForeground: colors.gray[500],
-    card: colors.gray[0],
+    card: '#ffffff',
     cardForeground: colors.gray[900],
     border: colors.gray[200],
     input: colors.gray[200],
@@ -334,10 +334,14 @@ export const darkTheme = {
 // Utility functions for working with tokens
 export const getColor = (colorPath: string, opacity?: number): string => {
   const parts = colorPath.split('.');
-  let color: any = colors;
+  let color: unknown = colors;
   
   for (const part of parts) {
-    color = color[part];
+    if (typeof color === 'object' && color !== null && part in color) {
+      color = (color as Record<string, unknown>)[part];
+    } else {
+      throw new Error(`Invalid color path: ${colorPath}`);
+    }
   }
   
   if (typeof color !== 'string') {
@@ -368,13 +372,16 @@ export const getBreakpoint = (breakpoint: keyof typeof breakpoints): string => {
 };
 
 // Helper function to convert hex to rgb
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? {
+  if (!result) {
+    throw new Error(`Invalid hex color: ${hex}`);
+  }
+  return {
     r: parseInt(result[1], 16),
     g: parseInt(result[2], 16),
     b: parseInt(result[3], 16)
-  } : null;
+  };
 }
 
 // Export all tokens as default

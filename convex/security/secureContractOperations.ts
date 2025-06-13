@@ -5,6 +5,7 @@ import { createSecureQuery, createSecureMutation, createSecureAction } from "./s
 import { SecureQuery } from "./rowLevelSecurity";
 import { logAuditEvent } from "./auditLogging";
 import { api } from "../_generated/api";
+import { ContractEntity, ContractCSVRow } from "../../src/types/core-entities";
 
 /**
  * Example implementation of secure contract operations
@@ -288,22 +289,22 @@ export const exportSecureContracts = createSecureMutation(
 );
 
 // Helper functions for export
-function generateCSV(contracts: any[]): string {
+function generateCSV(contracts: ContractEntity[]): string {
   const headers = ["Title", "Status", "Type", "Vendor", "Value", "Start Date", "End Date"];
-  const rows = contracts.map((c: any) => [
+  const rows = contracts.map((c: ContractEntity): string[] => [
     c.title,
     c.status,
     c.contractType || "",
-    c.vendor?.name || "",
-    c.value || c.extractedPricing || "",
+    "", // vendor name would need to be resolved separately
+    c.value?.toString() || c.extractedPricing || "",
     c.startDate || c.extractedStartDate || "",
     c.endDate || c.extractedEndDate || ""
   ]);
   
-  return [headers, ...rows].map((row: any) => row.join(",")).join("\n");
+  return [headers, ...rows].map((row: string[]) => row.join(",")).join("\n");
 }
 
-function generateXLSX(contracts: any[]): string {
+function generateXLSX(contracts: ContractEntity[]): string {
   // Simplified - would use actual XLSX library
   return generateCSV(contracts);
 }

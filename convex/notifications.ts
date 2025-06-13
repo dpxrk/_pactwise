@@ -748,7 +748,7 @@ export const createTestNotification = mutation({
 
     const notificationId = await ctx.db.insert("notifications", {
       recipientId: user._id,
-      type: (args.type || "system_alert") as any,
+      type: (args.type || "system_alert") as "contract_expiration" | "contract_created" | "approval_required" | "payment_reminder" | "vendor_risk_alert" | "compliance_issue" | "task_assigned" | "system_alert" | "digest",
       title: args.title || "Test Notification",
       message: args.message || "This is a test notification to verify the system is working.",
       priority: args.priority || "medium",

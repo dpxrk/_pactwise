@@ -6,6 +6,7 @@ import { useConvexQuery } from '@/lib/api-client';
 import { api } from '../../../../convex/_generated/api';
 import { Id } from '../../../../convex/_generated/dataModel';
 import { useUser } from '@clerk/nextjs';
+import { ContractEntity, VendorEntity, UserEntity } from '@/types/core-entities';
 
 // UI Components
 import {
@@ -253,7 +254,7 @@ export const ExportOptions = ({
     }
   };
 
-  const convertToCSV = (data: any[]): string => {
+  const convertToCSV = (data: Record<string, unknown>[]): string => {
     if (data.length === 0) return '';
     
     const headers = Object.keys(data[0]);
@@ -274,7 +275,7 @@ export const ExportOptions = ({
     return csvContent;
   };
 
-  const convertToExcel = (data: any[]): string => {
+  const convertToExcel = (data: Record<string, unknown>[]): string => {
     // In a real implementation, you'd use a library like xlsx
     // For now, return CSV format as placeholder
     return convertToCSV(data);

@@ -1,5 +1,5 @@
 import { QueryCtx, MutationCtx, DatabaseReader, DatabaseWriter } from "../_generated/server";
-import { Id, Doc } from "../_generated/dataModel";
+import { Id, Doc, TableNames } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
 
 /**
@@ -82,7 +82,7 @@ export function hasPermission(
 /**
  * Secure query builder that automatically filters by enterprise
  */
-export class SecureQuery<T extends keyof typeof import("../_generated/dataModel").default> {
+export class SecureQuery<T extends TableNames> {
   constructor(
     private ctx: QueryCtx | MutationCtx,
     private table: T,
@@ -91,9 +91,9 @@ export class SecureQuery<T extends keyof typeof import("../_generated/dataModel"
 
   async all(): Promise<Doc<T>[]> {
     return await this.ctx.db
-      .query(this.table)
+      .query(this.table as any)
       .filter((q) => q.eq(q.field("enterpriseId"), this.securityContext.enterpriseId))
-      .collect();
+      .collect() as Promise<Doc<T>[]>;
   }
 
   async byId(id: Id<T>): Promise<Doc<T> | null> {
@@ -101,7 +101,7 @@ export class SecureQuery<T extends keyof typeof import("../_generated/dataModel"
     if (!doc) return null;
     
     // Verify enterprise access
-    if ((doc as any).enterpriseId !== this.securityContext.enterpriseId) {
+    if ((doc as any)?.enterpriseId !== this.securityContext.enterpriseId) {
       throw new ConvexError("Access denied: Document belongs to different enterprise");
     }
     
@@ -165,12 +165,12 @@ export class SecureMutation {
       throw new ConvexError("Document not found");
     }
 
-    if ((existing as any).enterpriseId !== this.securityContext.enterpriseId) {
+    if ((existing as any)?.enterpriseId !== this.securityContext.enterpriseId) {
       throw new ConvexError("Access denied: Cannot update document from different enterprise");
     }
 
     // Remove enterprise ID from updates to prevent tampering
-    const { enterpriseId, ...safeData } = data as any;
+    const { enterpriseId, ...safeData } = data as Partial<Doc<T> & { enterpriseId: any }>;
     
     await this.ctx.db.patch(id, safeData);
   }
@@ -190,7 +190,7 @@ export class SecureMutation {
       throw new ConvexError("Document not found");
     }
 
-    if ((existing as any).enterpriseId !== this.securityContext.enterpriseId) {
+    if ((existing as any)?.enterpriseId !== this.securityContext.enterpriseId) {
       throw new ConvexError("Access denied: Cannot delete document from different enterprise");
     }
 
@@ -206,7 +206,7 @@ export class SecureMutation {
     if (!doc) return null;
     
     // Verify enterprise access
-    if ((doc as any).enterpriseId !== this.securityContext.enterpriseId) {
+    if ((doc as any)?.enterpriseId !== this.securityContext.enterpriseId) {
       throw new ConvexError("Access denied: Document belongs to different enterprise");
     }
     

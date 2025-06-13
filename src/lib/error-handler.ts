@@ -1,5 +1,6 @@
 // Global Error Handler for centralized error management
 import { ConvexError } from 'convex/values';
+import { AppErrorContext, ErrorDetails } from '@/types/core-entities';
 
 // Error types and categories
 export type ErrorSeverity = 'low' | 'medium' | 'high' | 'critical';
@@ -253,7 +254,7 @@ class GlobalErrorHandler {
   }
 
   // Main error handling method
-  public async handleError(error: any, context?: ErrorContext): Promise<AppError> {
+  public async handleError(error: Error | ConvexError | unknown, context?: ErrorContext): Promise<AppError> {
     const appError = this.normalizeError(error, context);
 
     // Add to history
@@ -272,14 +273,14 @@ class GlobalErrorHandler {
   }
 
   // Convenience methods for specific error types
-  public async handleApiError(error: any, endpoint?: string, operation?: string): Promise<AppError> {
+  public async handleApiError(error: Error | ConvexError | unknown, endpoint?: string, operation?: string): Promise<AppError> {
     return this.handleError(error, {
       action: 'api_call',
       metadata: { endpoint, operation }
     });
   }
 
-  public async handleUserError(error: any, userId?: string, action?: string): Promise<AppError> {
+  public async handleUserError(error: Error | ConvexError | unknown, userId?: string, action?: string): Promise<AppError> {
     return this.handleError(error, {
       userId,
       action,
@@ -287,7 +288,7 @@ class GlobalErrorHandler {
     });
   }
 
-  public async handleComponentError(error: any, component: string, props?: any): Promise<AppError> {
+  public async handleComponentError(error: Error | ConvexError | unknown, component: string, props?: Record<string, unknown>): Promise<AppError> {
     return this.handleError(error, {
       component,
       action: 'component_render',

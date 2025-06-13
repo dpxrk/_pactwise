@@ -20,7 +20,7 @@ const contractTypes = [
   { label: "Archived", route: "/contracts/archived" },
 ];
 
-export const ContractDashboardLayout: React.FC<ContractDashboardLayoutProps> = ({ 
+const ContractDashboardLayout: React.FC<ContractDashboardLayoutProps> = ({ 
   children 
 }) => {
   const { selectedType, searchQuery, setSelectedType, setSearchQuery } = useDashboardStore();

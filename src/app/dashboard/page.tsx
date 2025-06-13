@@ -9,7 +9,7 @@ interface HomeDashboardProps {
   children?: React.ReactNode;
 }
 
-export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
+const HomeDashboard: React.FC<HomeDashboardProps> = () => {
   const currentUser = useQuery(api.users.getCurrentUser, {});
   
   // Handle loading state

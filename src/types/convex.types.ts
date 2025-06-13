@@ -1,7 +1,7 @@
 // Enhanced type definitions for Convex operations and data structures
 
-import { QueryCtx, MutationCtx, ActionCtx } from "convex/server";
-import { Id } from "../../convex/_generated/dataModel";
+import { type QueryCtx, type MutationCtx, type ActionCtx } from "../convex/_generated/server";
+import { Id, TableNames } from "../../convex/_generated/dataModel";
 
 // Convex Context Types
 export type ConvexQueryCtx = QueryCtx;
@@ -309,8 +309,8 @@ export type WithTimestamps<T> = T & {
   updatedAt?: string;
 };
 
-export type DatabaseEntity<T> = WithTimestamps<WithMetadata<T>> & {
-  _id: Id<string>;
+export type DatabaseEntity<T, TTable extends TableNames> = WithTimestamps<WithMetadata<T>> & {
+  _id: Id<TTable>;
 };
 
 // Query Builder Types
