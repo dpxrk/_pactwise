@@ -57,8 +57,11 @@ convex/
     notifications.ts
     secretary.ts
   security/
+    applyRateLimit.ts
     auditLogging.ts
     monitoring.ts
+    rateLimitedExamples.ts
+    rateLimitedWrapper.ts
     rateLimiting.ts
     rowLevelSecurity.ts
     secureContractOperations.ts
@@ -207,7 +210,16 @@ src/
         page.tsx
       profile/
         page.tsx
+      settings/
+        enterprise/
+          page.tsx
+        users/
+          page.tsx
+        layout.tsx
+        page.tsx
       vendors/
+        [id]/
+          page.tsx
         active/
           page.tsx
         inactive/
@@ -326,11 +338,2317 @@ This section contains the contents of the repository's files.
       "Bash(/home/dpxrk/.nvm/versions/node/v20.9.0/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \":\\s*any\\b|<any>|Array<any>|any\\[\\]|\\bany\\s*=|\\bany\\s*\\||\\|\\s*any\\b\" --type ts --type tsx -n)",
       "Bash(/home/dpxrk/.nvm/versions/node/v20.9.0/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \":\\s*any\\b|<any>|Array<any>|any\\[\\]|\\bany\\s*=|\\bany\\s*\\||\\|\\s*any\\b\" -g \"*.ts\" -g \"*.tsx\" -n)",
       "Bash(/home/dpxrk/.nvm/versions/node/v20.9.0/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \": any\" -g \"*.ts\" -g \"*.tsx\" -n)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(npm run:*)",
+      "Bash(mkdir:*)"
     ]
   },
   "enableAllProjectMcpServers": false
 }
+</file>
+
+<file path="convex/security/applyRateLimit.ts">
+/**
+ * Rate Limiting Application Utility
+ * 
+ * This utility provides easy ways to apply rate limiting to existing Convex functions
+ * without major refactoring.
+ */
+
+import { ConvexError } from "convex/values";
+import { checkRateLimit } from "./rateLimiting";
+
+/**
+ * Apply rate limiting to any Convex function handler
+ */
+export async function withRateLimitCheck(
+  ctx: any,
+  operation: string,
+  options: {
+    cost?: number;
+    skipForRoles?: string[];
+  } = {}
+): Promise<void> {
+  const identity = await ctx.auth.getUserIdentity();
+  
+  // Get user information
+  let userId;
+  let userRole;
+  
+  if (identity) {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q: any) => q.eq("clerkId", identity.subject))
+      .first();
+    
+    userId = user?._id;
+    userRole = user?.role;
+  }
+  
+  // Skip rate limiting for certain roles
+  if (userRole && options.skipForRoles?.includes(userRole)) {
+    return;
+  }
+  
+  // Check rate limit
+  const rateLimitResult = await checkRateLimit(ctx, operation, {
+    userId,
+    cost: options.cost,
+  });
+  
+  if (!rateLimitResult.allowed) {
+    throw new ConvexError(
+      `Rate limit exceeded for operation: ${operation}. ` +
+      `Please try again in ${rateLimitResult.resetIn || 60} seconds.`
+    );
+  }
+}
+
+/**
+ * Rate limiting decorator for function handlers
+ */
+export function rateLimitDecorator(
+  operation: string,
+  options: {
+    cost?: number;
+    skipForRoles?: string[];
+  } = {}
+) {
+  return function <T extends (...args: any[]) => any>(
+    target: any,
+    propertyName: string,
+    descriptor: TypedPropertyDescriptor<T>
+  ) {
+    const method = descriptor.value!;
+    
+    descriptor.value = (async function (this: any, ctx: any, ...args: any[]) {
+      await withRateLimitCheck(ctx, operation, options);
+      return method.apply(this, [ctx, ...args]);
+    }) as T;
+  };
+}
+
+/**
+ * Common rate limit configurations for different operation types
+ */
+export const RATE_LIMIT_CONFIGS = {
+  // Queries
+  LIST_QUERY: { cost: 1, skipForRoles: ["admin", "owner"] },
+  SEARCH_QUERY: { cost: 2, skipForRoles: ["admin"] },
+  ANALYTICS_QUERY: { cost: 5, skipForRoles: ["admin", "owner"] },
+  DETAIL_QUERY: { cost: 1, skipForRoles: [] },
+  
+  // Mutations
+  CREATE_MUTATION: { cost: 2, skipForRoles: [] },
+  UPDATE_MUTATION: { cost: 1, skipForRoles: [] },
+  DELETE_MUTATION: { cost: 3, skipForRoles: ["owner"] },
+  BULK_MUTATION: { cost: 5, skipForRoles: ["admin", "owner"] },
+  
+  // Actions
+  FILE_UPLOAD_ACTION: { cost: 2, skipForRoles: [] },
+  ANALYSIS_ACTION: { cost: 1, skipForRoles: [] },
+  EXPORT_ACTION: { cost: 1, skipForRoles: ["admin", "owner"] },
+  EMAIL_ACTION: { cost: 2, skipForRoles: [] },
+  
+  // Auth operations
+  AUTH_OPERATION: { cost: 1, skipForRoles: [] },
+};
+
+/**
+ * Helper functions for common patterns
+ */
+export const rateLimitHelpers = {
+  /**
+   * Apply rate limiting to a contract query
+   */
+  forContractQuery: (operation: string, type: 'list' | 'search' | 'analytics' | 'detail' = 'list') => {
+    const config = {
+      list: RATE_LIMIT_CONFIGS.LIST_QUERY,
+      search: RATE_LIMIT_CONFIGS.SEARCH_QUERY,
+      analytics: RATE_LIMIT_CONFIGS.ANALYTICS_QUERY,
+      detail: RATE_LIMIT_CONFIGS.DETAIL_QUERY,
+    }[type];
+    
+    return (ctx: any) => withRateLimitCheck(ctx, `query.contracts.${operation}`, config);
+  },
+  
+  /**
+   * Apply rate limiting to a contract mutation
+   */
+  forContractMutation: (operation: string, type: 'create' | 'update' | 'delete' | 'bulk' = 'update') => {
+    const config = {
+      create: RATE_LIMIT_CONFIGS.CREATE_MUTATION,
+      update: RATE_LIMIT_CONFIGS.UPDATE_MUTATION,
+      delete: RATE_LIMIT_CONFIGS.DELETE_MUTATION,
+      bulk: RATE_LIMIT_CONFIGS.BULK_MUTATION,
+    }[type];
+    
+    return (ctx: any) => withRateLimitCheck(ctx, `mutation.contracts.${operation}`, config);
+  },
+  
+  /**
+   * Apply rate limiting to a vendor query
+   */
+  forVendorQuery: (operation: string, type: 'list' | 'search' | 'detail' = 'list') => {
+    const config = {
+      list: RATE_LIMIT_CONFIGS.LIST_QUERY,
+      search: RATE_LIMIT_CONFIGS.SEARCH_QUERY,
+      detail: RATE_LIMIT_CONFIGS.DETAIL_QUERY,
+    }[type];
+    
+    return (ctx: any) => withRateLimitCheck(ctx, `query.vendors.${operation}`, config);
+  },
+  
+  /**
+   * Apply rate limiting to a vendor mutation
+   */
+  forVendorMutation: (operation: string, type: 'create' | 'update' | 'delete' = 'update') => {
+    const config = {
+      create: RATE_LIMIT_CONFIGS.CREATE_MUTATION,
+      update: RATE_LIMIT_CONFIGS.UPDATE_MUTATION,
+      delete: RATE_LIMIT_CONFIGS.DELETE_MUTATION,
+    }[type];
+    
+    return (ctx: any) => withRateLimitCheck(ctx, `mutation.vendors.${operation}`, config);
+  },
+  
+  /**
+   * Apply rate limiting to an action
+   */
+  forAction: (operation: string, type: 'fileUpload' | 'analysis' | 'export' | 'email' = 'analysis') => {
+    const config = {
+      fileUpload: RATE_LIMIT_CONFIGS.FILE_UPLOAD_ACTION,
+      analysis: RATE_LIMIT_CONFIGS.ANALYSIS_ACTION,
+      export: RATE_LIMIT_CONFIGS.EXPORT_ACTION,
+      email: RATE_LIMIT_CONFIGS.EMAIL_ACTION,
+    }[type];
+    
+    return (ctx: any) => withRateLimitCheck(ctx, `action.${operation}`, config);
+  },
+};
+
+/**
+ * Middleware-style rate limiting for existing functions
+ * 
+ * Usage:
+ * const originalHandler = async (ctx, args) => { ... };
+ * const rateLimitedHandler = applyRateLimit(originalHandler, 'query.contracts.list', { cost: 1 });
+ */
+export function applyRateLimit<T extends (ctx: any, ...args: any[]) => Promise<any>>(
+  handler: T,
+  operation: string,
+  options: {
+    cost?: number;
+    skipForRoles?: string[];
+  } = {}
+): T {
+  return (async (ctx: any, ...args: any[]) => {
+    await withRateLimitCheck(ctx, operation, options);
+    return handler(ctx, ...args);
+  }) as T;
+}
+
+/**
+ * Batch rate limiting for operations that process multiple items
+ */
+export async function withBatchRateLimit(
+  ctx: any,
+  operation: string,
+  itemCount: number,
+  options: {
+    costPerItem?: number;
+    maxBatchSize?: number;
+    skipForRoles?: string[];
+  } = {}
+): Promise<void> {
+  const { costPerItem = 1, maxBatchSize = 100, skipForRoles = [] } = options;
+  
+  // Check batch size limit
+  if (itemCount > maxBatchSize) {
+    throw new ConvexError(`Batch size ${itemCount} exceeds maximum allowed size of ${maxBatchSize}`);
+  }
+  
+  // Apply rate limiting with cost multiplier
+  await withRateLimitCheck(ctx, operation, {
+    cost: itemCount * costPerItem,
+    skipForRoles,
+  });
+}
+
+/**
+ * Rate limiting for expensive operations with progressive cost
+ */
+export async function withProgressiveRateLimit(
+  ctx: any,
+  operation: string,
+  complexity: 'simple' | 'moderate' | 'complex' | 'intensive',
+  options: {
+    skipForRoles?: string[];
+  } = {}
+): Promise<void> {
+  const costMap = {
+    simple: 1,
+    moderate: 3,
+    complex: 8,
+    intensive: 15,
+  };
+  
+  await withRateLimitCheck(ctx, operation, {
+    cost: costMap[complexity],
+    skipForRoles: options.skipForRoles,
+  });
+}
+</file>
+
+<file path="convex/security/rateLimitedExamples.ts">
+/**
+ * Rate Limited Function Examples
+ * 
+ * This file demonstrates how to apply rate limiting to existing Convex functions.
+ * These are examples that can be applied to actual functions in the codebase.
+ */
+
+import { query, mutation, action } from "../_generated/server";
+import { v } from "convex/values";
+import { ConvexError } from "convex/values";
+import { withRateLimit, rateLimitPatterns } from "./rateLimitedWrapper";
+
+// ============================================================================
+// RATE LIMITED QUERY EXAMPLES
+// ============================================================================
+
+/**
+ * Example: Rate limited contract listing
+ */
+export const getContractsWithRateLimit = query({
+  args: {
+    filters: v.optional(v.object({
+      status: v.optional(v.string()),
+      vendorId: v.optional(v.string()),
+      search: v.optional(v.string()),
+    })),
+    pagination: v.optional(v.object({
+      limit: v.optional(v.number()),
+      offset: v.optional(v.number()),
+    })),
+  },
+  handler: withRateLimit.query(
+    async (ctx, args) => {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        throw new ConvexError("Authentication required");
+      }
+
+      // Original function logic would go here
+      const contracts = await ctx.db
+        .query("contracts")
+        .collect();
+
+      return contracts;
+    },
+    rateLimitPatterns.query("contracts.list")
+  ),
+});
+
+/**
+ * Example: Rate limited search with higher cost
+ */
+export const searchContractsWithRateLimit = query({
+  args: {
+    searchQuery: v.string(),
+    filters: v.optional(v.object({
+      status: v.optional(v.string()),
+      contractType: v.optional(v.string()),
+    })),
+  },
+  handler: withRateLimit.query(
+    async (ctx, args) => {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        throw new ConvexError("Authentication required");
+      }
+
+      // Search logic with higher computational cost
+      const results = await ctx.db
+        .query("contracts")
+        .collect();
+
+      // Filter and search logic would go here
+      return results.filter(contract => 
+        contract.title?.toLowerCase().includes(args.searchQuery.toLowerCase())
+      );
+    },
+    rateLimitPatterns.search("contracts")
+  ),
+});
+
+/**
+ * Example: Rate limited analytics query
+ */
+export const getAnalyticsWithRateLimit = query({
+  args: {
+    timeRange: v.object({
+      start: v.string(),
+      end: v.string(),
+    }),
+    metrics: v.array(v.string()),
+  },
+  handler: withRateLimit.query(
+    async (ctx, args) => {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        throw new ConvexError("Authentication required");
+      }
+
+      // Heavy analytics computation
+      const contracts = await ctx.db.query("contracts").collect();
+      
+      // Complex analytics calculations would go here
+      return {
+        totalContracts: contracts.length,
+        activeContracts: contracts.filter(c => c.status === "active").length,
+        // More analytics...
+      };
+    },
+    rateLimitPatterns.analytics("contracts.overview")
+  ),
+});
+
+// ============================================================================
+// RATE LIMITED MUTATION EXAMPLES
+// ============================================================================
+
+/**
+ * Example: Rate limited contract creation
+ */
+export const createContractWithRateLimit = mutation({
+  args: {
+    title: v.string(),
+    description: v.optional(v.string()),
+    vendorId: v.id("vendors"),
+    contractType: v.string(),
+    status: v.optional(v.string()),
+  },
+  handler: withRateLimit.mutation(
+    async (ctx, args) => {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        throw new ConvexError("Authentication required");
+      }
+
+      // Get current user
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+        .first();
+
+      if (!user) {
+        throw new ConvexError("User not found");
+      }
+
+      // Create contract
+      const contractId = await ctx.db.insert("contracts", {
+        title: args.title,
+        description: args.description,
+        vendorId: args.vendorId,
+        contractType: args.contractType as any,
+        status: (args.status as any) || "draft",
+        enterpriseId: user.enterpriseId,
+        createdBy: user._id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      return contractId;
+    },
+    rateLimitPatterns.create("contracts")
+  ),
+});
+
+/**
+ * Example: Rate limited contract update
+ */
+export const updateContractWithRateLimit = mutation({
+  args: {
+    contractId: v.id("contracts"),
+    updates: v.object({
+      title: v.optional(v.string()),
+      description: v.optional(v.string()),
+      status: v.optional(v.string()),
+    }),
+  },
+  handler: withRateLimit.mutation(
+    async (ctx, args) => {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        throw new ConvexError("Authentication required");
+      }
+
+      // Check contract exists and user has permission
+      const contract = await ctx.db.get(args.contractId);
+      if (!contract) {
+        throw new ConvexError("Contract not found");
+      }
+
+      // Update contract
+      await ctx.db.patch(args.contractId, {
+        ...args.updates,
+        updatedAt: new Date().toISOString(),
+      });
+
+      return args.contractId;
+    },
+    rateLimitPatterns.update("contracts")
+  ),
+});
+
+/**
+ * Example: Rate limited bulk operation
+ */
+export const bulkUpdateContractsWithRateLimit = mutation({
+  args: {
+    contractIds: v.array(v.id("contracts")),
+    updates: v.object({
+      status: v.optional(v.string()),
+    }),
+  },
+  handler: withRateLimit.mutation(
+    async (ctx, args) => {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        throw new ConvexError("Authentication required");
+      }
+
+      // Bulk update logic
+      const results = [];
+      for (const contractId of args.contractIds) {
+        const contract = await ctx.db.get(contractId);
+        if (contract) {
+          await ctx.db.patch(contractId, {
+            ...args.updates,
+            updatedAt: new Date().toISOString(),
+          });
+          results.push(contractId);
+        }
+      }
+
+      return results;
+    },
+    rateLimitPatterns.bulkOperation("contracts.update")
+  ),
+});
+
+// ============================================================================
+// RATE LIMITED ACTION EXAMPLES
+// ============================================================================
+
+/**
+ * Example: Rate limited file upload action
+ */
+export const uploadContractFileWithRateLimit = action({
+  args: {
+    contractId: v.id("contracts"),
+    fileName: v.string(),
+    fileType: v.string(),
+  },
+  handler: withRateLimit.action(
+    async (ctx, args) => {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        throw new ConvexError("Authentication required");
+      }
+
+      // File upload logic would go here
+      // This is a placeholder for the actual file upload implementation
+      
+      return {
+        success: true,
+        message: `File ${args.fileName} uploaded for contract ${args.contractId}`,
+      };
+    },
+    rateLimitPatterns.fileUpload()
+  ),
+});
+
+/**
+ * Example: Rate limited contract analysis action
+ */
+export const analyzeContractWithRateLimit = action({
+  args: {
+    contractId: v.id("contracts"),
+    analysisType: v.string(),
+  },
+  handler: withRateLimit.action(
+    async (ctx, args) => {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        throw new ConvexError("Authentication required");
+      }
+
+      // AI analysis logic would go here
+      // This is computationally expensive and should be rate limited
+      
+      return {
+        analysisId: `analysis_${Date.now()}`,
+        status: "processing",
+        estimatedCompletion: new Date(Date.now() + 300000).toISOString(), // 5 minutes
+      };
+    },
+    rateLimitPatterns.analysis()
+  ),
+});
+
+/**
+ * Example: Rate limited export action
+ */
+export const exportContractsWithRateLimit = action({
+  args: {
+    filters: v.optional(v.object({
+      status: v.optional(v.string()),
+      dateRange: v.optional(v.object({
+        start: v.string(),
+        end: v.string(),
+      })),
+    })),
+    format: v.string(), // "csv", "pdf", "xlsx"
+  },
+  handler: withRateLimit.action(
+    async (ctx, args) => {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        throw new ConvexError("Authentication required");
+      }
+
+      // Export generation logic would go here
+      // This is resource-intensive and should be rate limited
+      
+      return {
+        exportId: `export_${Date.now()}`,
+        downloadUrl: `https://example.com/exports/export_${Date.now()}.${args.format}`,
+        expiresAt: new Date(Date.now() + 3600000).toISOString(), // 1 hour
+      };
+    },
+    rateLimitPatterns.export()
+  ),
+});
+
+// ============================================================================
+// RATE LIMIT MONITORING QUERIES
+// ============================================================================
+
+/**
+ * Get rate limit status for current user
+ */
+export const getRateLimitStatus = query({
+  args: {
+    operations: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new ConvexError("User not found");
+    }
+
+    const operations = args.operations || [
+      "query.contracts.list",
+      "mutation.create.contracts",
+      "action.fileUpload",
+    ];
+
+    const status: Record<string, any> = {};
+
+    for (const operation of operations) {
+      const key = `user:${user._id}:${operation}`;
+      const bucket = await ctx.db
+        .query("rateLimitBuckets")
+        .withIndex("by_key", (q) => q.eq("key", key))
+        .first();
+
+      status[operation] = {
+        tokens: bucket?.tokens || 0,
+        maxTokens: 100, // Would need to get from config
+        isBlocked: bucket?.blockedUntil && new Date(bucket.blockedUntil) > new Date(),
+        blockedUntil: bucket?.blockedUntil,
+        violations: bucket?.violations || 0,
+      };
+    }
+
+    return status;
+  },
+});
+</file>
+
+<file path="convex/security/rateLimitedWrapper.ts">
+import { QueryCtx, MutationCtx, ActionCtx } from "../_generated/server";
+import { checkRateLimit } from "./rateLimiting";
+import { ConvexError } from "convex/values";
+import { FunctionReference, makeFunctionReference } from "convex/server";
+import { Id } from "../_generated/dataModel";
+
+/**
+ * Rate Limited Function Wrapper
+ * 
+ * This wrapper applies rate limiting to Convex queries, mutations, and actions
+ * based on user ID and operation type.
+ */
+
+interface RateLimitOptions {
+  operation: string;
+  cost?: number;
+  skipForOwners?: boolean;
+  skipForAdmins?: boolean;
+}
+
+/**
+ * Get user information from context for rate limiting
+ */
+async function getUserInfo(ctx: any): Promise<{ userId?: Id<"users">; userRole?: string }> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    return {};
+  }
+
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_clerkId", (q: any) => q.eq("clerkId", identity.subject))
+    .first();
+
+  return {
+    userId: user?._id,
+    userRole: user?.role,
+  };
+}
+
+/**
+ * Extract IP address from request (for actions)
+ */
+function getIpAddress(ctx: any): string {
+  // In Convex, we don't have direct access to IP address
+  // This would need to be passed from the client or handled differently
+  return "unknown";
+}
+
+/**
+ * Check if user should skip rate limiting based on role
+ */
+function shouldSkipRateLimit(userRole: string | undefined, options: RateLimitOptions): boolean {
+  if (!userRole) return false;
+  
+  if (options.skipForOwners && userRole === "owner") return true;
+  if (options.skipForAdmins && (userRole === "admin" || userRole === "owner")) return true;
+  
+  return false;
+}
+
+/**
+ * Rate limited query wrapper
+ */
+export function rateLimitedQuery<Args, Output>(
+  queryFn: (ctx: QueryCtx, args: Args) => Promise<Output>,
+  options: RateLimitOptions
+) {
+  return async (ctx: QueryCtx, args: Args): Promise<Output> => {
+    const { userId, userRole } = await getUserInfo(ctx);
+    
+    // Skip rate limiting for certain roles if configured
+    if (!shouldSkipRateLimit(userRole, options)) {
+      const ipAddress = getIpAddress(ctx);
+      
+      const rateLimitResult = await checkRateLimit(ctx, options.operation, {
+        userId,
+        ipAddress,
+        cost: options.cost,
+      });
+      
+      if (!rateLimitResult.allowed) {
+        throw new ConvexError(`Rate limit exceeded for operation: ${options.operation}. Please try again in ${rateLimitResult.resetIn || 60} seconds.`);
+      }
+    }
+    
+    return await queryFn(ctx, args);
+  };
+}
+
+/**
+ * Rate limited mutation wrapper
+ */
+export function rateLimitedMutation<Args, Output>(
+  mutationFn: (ctx: MutationCtx, args: Args) => Promise<Output>,
+  options: RateLimitOptions
+) {
+  return async (ctx: MutationCtx, args: Args): Promise<Output> => {
+    const { userId, userRole } = await getUserInfo(ctx);
+    
+    // Skip rate limiting for certain roles if configured
+    if (!shouldSkipRateLimit(userRole, options)) {
+      const ipAddress = getIpAddress(ctx);
+      
+      const rateLimitResult = await checkRateLimit(ctx, options.operation, {
+        userId,
+        ipAddress,
+        cost: options.cost,
+      });
+      
+      if (!rateLimitResult.allowed) {
+        throw new ConvexError(`Rate limit exceeded for operation: ${options.operation}. Please try again in ${rateLimitResult.resetIn || 60} seconds.`);
+      }
+    }
+    
+    return await mutationFn(ctx, args);
+  };
+}
+
+/**
+ * Rate limited action wrapper
+ */
+export function rateLimitedAction<Args, Output>(
+  actionFn: (ctx: ActionCtx, args: Args) => Promise<Output>,
+  options: RateLimitOptions
+) {
+  return async (ctx: ActionCtx, args: Args): Promise<Output> => {
+    // For actions, we need to run the rate limit check as a mutation
+    const rateLimitCheck = makeFunctionReference<"mutation", any, any>("security/rateLimiting:checkRateLimitAction");
+    
+    const identity = await ctx.auth.getUserIdentity();
+    const userId = identity?.subject;
+    
+    try {
+      await ctx.runMutation(rateLimitCheck, {
+        operation: options.operation,
+        cost: options.cost,
+        clerkId: userId,
+      });
+    } catch (error) {
+      if (error instanceof ConvexError && error.message.includes("Rate limit exceeded")) {
+        throw error;
+      }
+      // If it's not a rate limit error, let the action proceed
+    }
+    
+    return await actionFn(ctx, args);
+  };
+}
+
+/**
+ * Helper to create rate limited functions with common patterns
+ */
+export const rateLimitPatterns = {
+  // Standard CRUD operations
+  query: (operation: string) => ({ operation: `query.${operation}`, skipForAdmins: true }),
+  search: (operation: string) => ({ operation: `query.search.${operation}`, cost: 2 }),
+  analytics: (operation: string) => ({ operation: `query.analytics.${operation}`, cost: 5, skipForAdmins: true }),
+  
+  create: (operation: string) => ({ operation: `mutation.create.${operation}`, cost: 2 }),
+  update: (operation: string) => ({ operation: `mutation.update.${operation}`, cost: 1 }),
+  delete: (operation: string) => ({ operation: `mutation.delete.${operation}`, cost: 3, skipForOwners: true }),
+  bulkOperation: (operation: string) => ({ operation: `mutation.bulk.${operation}`, cost: 5, skipForAdmins: true }),
+  
+  // Actions
+  fileUpload: () => ({ operation: "action.fileUpload", cost: 2 }),
+  analysis: () => ({ operation: "action.analysis", cost: 1 }),
+  export: () => ({ operation: "action.export", cost: 1, skipForAdmins: true }),
+  
+  // Auth operations
+  auth: (operation: string) => ({ operation: `auth.${operation}` }),
+};
+
+/**
+ * Decorator functions for easy application
+ */
+export const withRateLimit = {
+  query: <Args, Output>(
+    queryFn: (ctx: QueryCtx, args: Args) => Promise<Output>,
+    options: RateLimitOptions
+  ) => rateLimitedQuery(queryFn, options),
+  
+  mutation: <Args, Output>(
+    mutationFn: (ctx: MutationCtx, args: Args) => Promise<Output>,
+    options: RateLimitOptions
+  ) => rateLimitedMutation(mutationFn, options),
+  
+  action: <Args, Output>(
+    actionFn: (ctx: ActionCtx, args: Args) => Promise<Output>,
+    options: RateLimitOptions
+  ) => rateLimitedAction(actionFn, options),
+};
+</file>
+
+<file path="src/app/dashboard/settings/enterprise/page.tsx">
+'use client';
+
+import React, { useState } from 'react';
+import { useUser } from '@clerk/nextjs';
+import { useConvexQuery } from '@/lib/api-client';
+import { api } from '../../../../../convex/_generated/api';
+import { Id } from '../../../../../convex/_generated/dataModel';
+
+// UI Components
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { PermissionGate } from '@/app/_components/auth/PermissionGate';
+
+// Icons
+import {
+  Building,
+  Save,
+  AlertCircle,
+  CheckCircle,
+  Edit,
+  Globe,
+  Users,
+  Calendar,
+  FileText,
+  Shield,
+  Database,
+  Settings,
+  Trash2,
+  AlertTriangle,
+  Info,
+  Clock,
+  TrendingUp
+} from 'lucide-react';
+import LoadingSpinner from '@/app/_components/common/LoadingSpinner';
+
+const EnterpriseSettingsPage = () => {
+  const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Get enterpriseId from Clerk user's public metadata
+  const enterpriseId = clerkUser?.publicMetadata?.enterpriseId as Id<"enterprises"> | undefined;
+
+  // Fetch current user context
+  const { data: userContext, isLoading: isLoadingUser } = useConvexQuery(
+    api.users.getUserContext,
+    {}
+  );
+
+  // Mock data for enterprise settings (in real app, this would come from API)
+  const [enterpriseData, setEnterpriseData] = useState({
+    name: userContext?.enterprise?.name || '',
+    domain: userContext?.enterprise?.domain || '',
+    industry: '',
+    size: '',
+    contractVolume: '',
+    primaryUseCase: [] as string[],
+    address: '',
+    phone: '',
+    website: '',
+    description: '',
+    timezone: 'UTC',
+    dateFormat: 'MM/DD/YYYY',
+    currency: 'USD',
+    fiscalYearStart: 'January',
+  });
+
+  React.useEffect(() => {
+    if (userContext?.enterprise) {
+      setEnterpriseData(prev => ({
+        ...prev,
+        name: userContext.enterprise?.name || '',
+        domain: userContext.enterprise?.domain || '',
+      }));
+    }
+  }, [userContext]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      // In a real implementation, this would call a mutation to update enterprise settings
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to save enterprise settings:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!isClerkLoaded || isLoadingUser) {
+    return (
+      <div className="p-6">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (!userContext?.enterprise) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>
+          Unable to load enterprise information. Please try refreshing the page.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <PermissionGate requiredRole="admin">
+      <div className="space-y-6">
+        {/* Basic Information */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Building className="h-5 w-5" />
+                Basic Information
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Manage your enterprise's basic information and branding
+              </p>
+            </div>
+            <Button
+              variant={isEditing ? "outline" : "default"}
+              size="sm"
+              onClick={() => setIsEditing(!isEditing)}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              {isEditing ? 'Cancel' : 'Edit'}
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="enterpriseName">Enterprise Name *</Label>
+                <Input
+                  id="enterpriseName"
+                  value={enterpriseData.name}
+                  onChange={(e) => setEnterpriseData({ ...enterpriseData, name: e.target.value })}
+                  disabled={!isEditing}
+                  placeholder="Your enterprise name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="domain">Domain</Label>
+                <Input
+                  id="domain"
+                  value={enterpriseData.domain}
+                  onChange={(e) => setEnterpriseData({ ...enterpriseData, domain: e.target.value })}
+                  disabled={!isEditing}
+                  placeholder="company.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="industry">Industry</Label>
+                <Select
+                  value={enterpriseData.industry}
+                  onValueChange={(value) => setEnterpriseData({ ...enterpriseData, industry: value })}
+                  disabled={!isEditing}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select industry" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="technology">Technology</SelectItem>
+                    <SelectItem value="healthcare">Healthcare</SelectItem>
+                    <SelectItem value="finance">Finance</SelectItem>
+                    <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                    <SelectItem value="retail">Retail</SelectItem>
+                    <SelectItem value="education">Education</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="size">Enterprise Size</Label>
+                <Select
+                  value={enterpriseData.size}
+                  onValueChange={(value) => setEnterpriseData({ ...enterpriseData, size: value })}
+                  disabled={!isEditing}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1-10">1-10 employees</SelectItem>
+                    <SelectItem value="11-50">11-50 employees</SelectItem>
+                    <SelectItem value="51-200">51-200 employees</SelectItem>
+                    <SelectItem value="201-500">201-500 employees</SelectItem>
+                    <SelectItem value="501-1000">501-1000 employees</SelectItem>
+                    <SelectItem value="1000+">1000+ employees</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="website">Website</Label>
+                <Input
+                  id="website"
+                  value={enterpriseData.website}
+                  onChange={(e) => setEnterpriseData({ ...enterpriseData, website: e.target.value })}
+                  disabled={!isEditing}
+                  placeholder="https://company.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  value={enterpriseData.phone}
+                  onChange={(e) => setEnterpriseData({ ...enterpriseData, phone: e.target.value })}
+                  disabled={!isEditing}
+                  placeholder="+1 (555) 123-4567"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="address">Address</Label>
+              <Textarea
+                id="address"
+                value={enterpriseData.address}
+                onChange={(e) => setEnterpriseData({ ...enterpriseData, address: e.target.value })}
+                disabled={!isEditing}
+                placeholder="Enterprise address"
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={enterpriseData.description}
+                onChange={(e) => setEnterpriseData({ ...enterpriseData, description: e.target.value })}
+                disabled={!isEditing}
+                placeholder="Brief description of your enterprise"
+                rows={3}
+              />
+            </div>
+
+            {isEditing && (
+              <>
+                <Separator />
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setIsEditing(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSave} disabled={isSaving}>
+                    {isSaving ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-current mr-2"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Changes
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Contract Management Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Contract Management
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Configure contract management preferences and workflows
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="contractVolume">Expected Contract Volume</Label>
+                <Select
+                  value={enterpriseData.contractVolume}
+                  onValueChange={(value) => setEnterpriseData({ ...enterpriseData, contractVolume: value })}
+                  disabled={!isEditing}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select volume" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low (1-50 contracts/year)</SelectItem>
+                    <SelectItem value="medium">Medium (51-200 contracts/year)</SelectItem>
+                    <SelectItem value="high">High (201-500 contracts/year)</SelectItem>
+                    <SelectItem value="enterprise">Enterprise (500+ contracts/year)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fiscalYear">Fiscal Year Start</Label>
+                <Select
+                  value={enterpriseData.fiscalYearStart}
+                  onValueChange={(value) => setEnterpriseData({ ...enterpriseData, fiscalYearStart: value })}
+                  disabled={!isEditing}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select month" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="January">January</SelectItem>
+                    <SelectItem value="April">April</SelectItem>
+                    <SelectItem value="July">July</SelectItem>
+                    <SelectItem value="October">October</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <Label>Contract Workflow Settings</Label>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium text-sm">Auto-analysis for new contracts</p>
+                    <p className="text-xs text-muted-foreground">Automatically analyze contracts when uploaded</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium text-sm">Expiration notifications</p>
+                    <p className="text-xs text-muted-foreground">Send alerts before contracts expire</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium text-sm">Renewal reminders</p>
+                    <p className="text-xs text-muted-foreground">Remind users about upcoming renewals</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Regional Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              Regional Settings
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Configure regional preferences for dates, currency, and timezone
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="timezone">Timezone</Label>
+                <Select
+                  value={enterpriseData.timezone}
+                  onValueChange={(value) => setEnterpriseData({ ...enterpriseData, timezone: value })}
+                  disabled={!isEditing}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select timezone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="UTC">UTC</SelectItem>
+                    <SelectItem value="America/New_York">Eastern Time</SelectItem>
+                    <SelectItem value="America/Chicago">Central Time</SelectItem>
+                    <SelectItem value="America/Denver">Mountain Time</SelectItem>
+                    <SelectItem value="America/Los_Angeles">Pacific Time</SelectItem>
+                    <SelectItem value="Europe/London">London</SelectItem>
+                    <SelectItem value="Europe/Paris">Paris</SelectItem>
+                    <SelectItem value="Asia/Tokyo">Tokyo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dateFormat">Date Format</Label>
+                <Select
+                  value={enterpriseData.dateFormat}
+                  onValueChange={(value) => setEnterpriseData({ ...enterpriseData, dateFormat: value })}
+                  disabled={!isEditing}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
+                    <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
+                    <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
+                    <SelectItem value="MMM DD, YYYY">MMM DD, YYYY</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="currency">Currency</Label>
+                <Select
+                  value={enterpriseData.currency}
+                  onValueChange={(value) => setEnterpriseData({ ...enterpriseData, currency: value })}
+                  disabled={!isEditing}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USD">USD - US Dollar</SelectItem>
+                    <SelectItem value="EUR">EUR - Euro</SelectItem>
+                    <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                    <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
+                    <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
+                    <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Danger Zone */}
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Danger Zone
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Irreversible and destructive actions for your enterprise
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Warning</AlertTitle>
+              <AlertDescription>
+                These actions are permanent and cannot be undone. Please proceed with caution.
+              </AlertDescription>
+            </Alert>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-4 border border-destructive rounded-lg">
+                <div>
+                  <h4 className="font-medium text-destructive">Export All Data</h4>
+                  <p className="text-sm text-muted-foreground">Download all enterprise data before deletion</p>
+                </div>
+                <Button variant="outline" size="sm">
+                  Export Data
+                </Button>
+              </div>
+              
+              <div className="flex items-center justify-between p-4 border border-destructive rounded-lg">
+                <div>
+                  <h4 className="font-medium text-destructive">Delete Enterprise</h4>
+                  <p className="text-sm text-muted-foreground">Permanently delete this enterprise and all associated data</p>
+                </div>
+                <Button variant="destructive" size="sm">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Enterprise
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </PermissionGate>
+  );
+};
+
+export default EnterpriseSettingsPage;
+</file>
+
+<file path="src/app/dashboard/settings/users/page.tsx">
+'use client';
+
+import React, { useState } from 'react';
+import { useUser } from '@clerk/nextjs';
+import { useConvexQuery } from '@/lib/api-client';
+import { api } from '../../../../../convex/_generated/api';
+import { Id } from '../../../../../convex/_generated/dataModel';
+import { format } from 'date-fns';
+
+// UI Components
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { PermissionGate } from '@/app/_components/auth/PermissionGate';
+
+// Icons
+import {
+  Users,
+  Search,
+  Filter,
+  UserPlus,
+  Mail,
+  Crown,
+  Shield,
+  User,
+  Eye,
+  Settings,
+  AlertCircle,
+  Calendar,
+  Clock,
+  Briefcase,
+  Phone,
+  MoreHorizontal,
+  Edit,
+  UserMinus
+} from 'lucide-react';
+import LoadingSpinner from '@/app/_components/common/LoadingSpinner';
+
+const UserManagementPage = () => {
+  const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Get enterpriseId from Clerk user's public metadata
+  const enterpriseId = clerkUser?.publicMetadata?.enterpriseId as Id<"enterprises"> | undefined;
+
+  // Fetch users data
+  const { data: users, isLoading, error } = useConvexQuery(
+    api.users.getEnterpriseUsers,
+    enterpriseId ? { enterpriseId } : "skip"
+  );
+
+  // Role configuration
+  const roleConfig = {
+    owner: { label: 'Owner', icon: Crown, color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/70 dark:text-purple-300' },
+    admin: { label: 'Admin', icon: Shield, color: 'bg-red-100 text-red-800 dark:bg-red-900/70 dark:text-red-300' },
+    manager: { label: 'Manager', icon: Settings, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/70 dark:text-blue-300' },
+    user: { label: 'User', icon: User, color: 'bg-green-100 text-green-800 dark:bg-green-900/70 dark:text-green-300' },
+    viewer: { label: 'Viewer', icon: Eye, color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' },
+  };
+
+  const formatDate = (dateString?: string): string => {
+    if (!dateString) return 'Never';
+    try {
+      return format(new Date(dateString), 'MMM dd, yyyy');
+    } catch (e) {
+      return 'Invalid date';
+    }
+  };
+
+  const formatLastLogin = (dateString?: string): string => {
+    if (!dateString) return 'Never';
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diffInDays === 0) return 'Today';
+      if (diffInDays === 1) return 'Yesterday';
+      if (diffInDays < 7) return `${diffInDays} days ago`;
+      return format(date, 'MMM dd, yyyy');
+    } catch (e) {
+      return 'Invalid date';
+    }
+  };
+
+  // Filter users based on search and filters
+  const filteredUsers = users?.filter(user => {
+    const matchesSearch = !searchQuery || 
+      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.department?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.title?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'active' && user.isActive) ||
+      (statusFilter === 'inactive' && !user.isActive);
+
+    return matchesSearch && matchesRole && matchesStatus;
+  }) || [];
+
+  if (!isClerkLoaded || isLoading) {
+    return (
+      <div className="p-6">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (!enterpriseId) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Configuration Error</AlertTitle>
+          <AlertDescription>
+            Enterprise information is missing for your user account. Please contact support.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Access Denied</AlertTitle>
+          <AlertDescription>
+            You don't have permission to view user management. Only owners and admins can access this page.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  return (
+    <PermissionGate requiredRole="admin">
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">User Management</h1>
+            <p className="text-muted-foreground">Manage users, roles, and permissions for your enterprise</p>
+          </div>
+          <Button className="flex items-center gap-2">
+            <UserPlus className="h-4 w-4" />
+            Invite User
+          </Button>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Users className="h-8 w-8 text-blue-500" />
+                <div>
+                  <p className="text-2xl font-bold">{users?.length || 0}</p>
+                  <p className="text-sm text-muted-foreground">Total Users</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Shield className="h-8 w-8 text-green-500" />
+                <div>
+                  <p className="text-2xl font-bold">{users?.filter(u => u.isActive).length || 0}</p>
+                  <p className="text-sm text-muted-foreground">Active Users</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Crown className="h-8 w-8 text-purple-500" />
+                <div>
+                  <p className="text-2xl font-bold">{users?.filter(u => ['owner', 'admin'].includes(u.role)).length || 0}</p>
+                  <p className="text-sm text-muted-foreground">Admins</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Clock className="h-8 w-8 text-orange-500" />
+                <div>
+                  <p className="text-2xl font-bold">{users?.filter(u => u.lastLoginAt && new Date(u.lastLoginAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length || 0}</p>
+                  <p className="text-sm text-muted-foreground">Active This Week</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search users by name, email, department, or title..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filter by role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="owner">Owner</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Users Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Users ({filteredUsers.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {filteredUsers.map((user) => {
+                const roleInfo = roleConfig[user.role as keyof typeof roleConfig];
+                const RoleIcon = roleInfo.icon;
+                
+                return (
+                  <div key={user._id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-sm font-semibold">
+                            {(user.firstName?.[0] || user.email[0]).toUpperCase()}
+                            {(user.lastName?.[0] || user.email[1] || '').toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium">
+                              {user.firstName && user.lastName 
+                                ? `${user.firstName} ${user.lastName}` 
+                                : user.email}
+                            </h3>
+                            <Badge className={roleInfo.color}>
+                              <RoleIcon className="h-3 w-3 mr-1" />
+                              {roleInfo.label}
+                            </Badge>
+                            {user.isActive ? (
+                              <Badge variant="outline" className="text-green-600 border-green-200">
+                                Active
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-red-600 border-red-200">
+                                Inactive
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              {user.email}
+                            </div>
+                            {user.department && (
+                              <div className="flex items-center gap-1">
+                                <Briefcase className="h-3 w-3" />
+                                {user.department}
+                              </div>
+                            )}
+                            {user.title && (
+                              <div className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {user.title}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Joined {formatDate(user.createdAt)}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Last login {formatLastLogin(user.lastLoginAt)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm">
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {filteredUsers.length === 0 && (
+                <div className="text-center py-8">
+                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-muted-foreground">No users found</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {searchQuery || roleFilter !== 'all' || statusFilter !== 'all'
+                      ? 'Try adjusting your search or filters'
+                      : 'No users have been added to this enterprise yet'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </PermissionGate>
+  );
+};
+
+export default UserManagementPage;
+</file>
+
+<file path="src/app/dashboard/settings/layout.tsx">
+'use client';
+
+import React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { cn } from '@/lib/utils';
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { PermissionGate } from '@/app/_components/auth/PermissionGate';
+
+// Icons
+import {
+  Settings,
+  Users,
+  Building,
+  Shield,
+  Bell,
+  CreditCard,
+  Database,
+  Key,
+  Webhook,
+  Activity
+} from 'lucide-react';
+
+interface SettingsLayoutProps {
+  children: React.ReactNode;
+}
+
+const SettingsLayout = ({ children }: SettingsLayoutProps) => {
+  const pathname = usePathname();
+
+  const navigationItems = [
+    {
+      label: 'General',
+      href: '/dashboard/settings',
+      icon: Settings,
+      description: 'Basic enterprise settings',
+      permissions: ['user', 'manager', 'admin', 'owner']
+    },
+    {
+      label: 'Users',
+      href: '/dashboard/settings/users',
+      icon: Users,
+      description: 'User management and permissions',
+      permissions: ['admin', 'owner']
+    },
+    {
+      label: 'Enterprise',
+      href: '/dashboard/settings/enterprise',
+      icon: Building,
+      description: 'Enterprise configuration',
+      permissions: ['admin', 'owner']
+    },
+    {
+      label: 'Security',
+      href: '/dashboard/settings/security',
+      icon: Shield,
+      description: 'Security and authentication',
+      permissions: ['admin', 'owner'],
+      badge: 'Pro'
+    },
+    {
+      label: 'Notifications',
+      href: '/dashboard/settings/notifications',
+      icon: Bell,
+      description: 'Notification preferences',
+      permissions: ['user', 'manager', 'admin', 'owner']
+    },
+    {
+      label: 'Billing',
+      href: '/dashboard/settings/billing',
+      icon: CreditCard,
+      description: 'Subscription and billing',
+      permissions: ['admin', 'owner'],
+      badge: 'Coming Soon'
+    },
+    {
+      label: 'Data & Privacy',
+      href: '/dashboard/settings/data',
+      icon: Database,
+      description: 'Data export and privacy',
+      permissions: ['admin', 'owner'],
+      badge: 'Pro'
+    },
+    {
+      label: 'API Keys',
+      href: '/dashboard/settings/api',
+      icon: Key,
+      description: 'API keys and integrations',
+      permissions: ['admin', 'owner'],
+      badge: 'Pro'
+    },
+    {
+      label: 'Webhooks',
+      href: '/dashboard/settings/webhooks',
+      icon: Webhook,
+      description: 'Webhook endpoints',
+      permissions: ['admin', 'owner'],
+      badge: 'Pro'
+    },
+    {
+      label: 'Audit Logs',
+      href: '/dashboard/settings/audit',
+      icon: Activity,
+      description: 'System activity logs',
+      permissions: ['admin', 'owner']
+    }
+  ];
+
+  return (
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+        <p className="text-muted-foreground">Manage your enterprise configuration and preferences</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Settings Navigation */}
+        <div className="lg:col-span-1">
+          <Card>
+            <CardContent className="p-4">
+              <nav className="space-y-2">
+                {navigationItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href;
+                  const isDisabled = item.badge && item.badge !== 'Pro';
+
+                  return (
+                    <PermissionGate key={item.href} requiredRole="user" allowedRoles={item.permissions}>
+                      <Link
+                        href={isDisabled ? '#' : item.href}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                          isActive
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-muted text-muted-foreground hover:text-foreground",
+                          isDisabled && "opacity-50 cursor-not-allowed"
+                        )}
+                        onClick={isDisabled ? (e) => e.preventDefault() : undefined}
+                      >
+                        <Icon className="h-4 w-4 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{item.label}</span>
+                            {item.badge && (
+                              <Badge 
+                                variant={item.badge === 'Pro' ? 'default' : 'secondary'} 
+                                className={cn(
+                                  "text-xs px-1.5 py-0.5",
+                                  item.badge === 'Pro' && "bg-gradient-to-r from-purple-500 to-blue-500 text-white"
+                                )}
+                              >
+                                {item.badge}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                        </div>
+                      </Link>
+                    </PermissionGate>
+                  );
+                })}
+              </nav>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Settings Content */}
+        <div className="lg:col-span-3">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SettingsLayout;
+</file>
+
+<file path="src/app/dashboard/settings/page.tsx">
+'use client';
+
+import React, { useState } from 'react';
+import { useUser } from '@clerk/nextjs';
+import { useConvexQuery } from '@/lib/api-client';
+import { api } from '../../../../convex/_generated/api';
+import { Id } from '../../../../convex/_generated/dataModel';
+
+// UI Components
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+
+// Icons
+import {
+  Settings,
+  Building,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Globe,
+  Save,
+  AlertCircle,
+  CheckCircle,
+  Edit,
+  Camera,
+  Shield,
+  Clock,
+  Users
+} from 'lucide-react';
+import LoadingSpinner from '@/app/_components/common/LoadingSpinner';
+
+const GeneralSettingsPage = () => {
+  const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Get enterpriseId from Clerk user's public metadata
+  const enterpriseId = clerkUser?.publicMetadata?.enterpriseId as Id<"enterprises"> | undefined;
+
+  // Fetch current user context
+  const { data: userContext, isLoading: isLoadingUser } = useConvexQuery(
+    api.users.getUserContext,
+    {}
+  );
+
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phoneNumber: '',
+    department: '',
+    title: '',
+  });
+
+  React.useEffect(() => {
+    if (userContext?.user) {
+      setFormData({
+        firstName: userContext.user.firstName || '',
+        lastName: userContext.user.lastName || '',
+        email: userContext.user.email || '',
+        phoneNumber: '', // Phone number would need to be added to the user context
+        department: '', // Department would need to be added to the user context
+        title: '', // Title would need to be added to the user context
+      });
+    }
+  }, [userContext]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      // In a real implementation, this would call a mutation to update the user profile
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'owner':
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900/70 dark:text-purple-300';
+      case 'admin':
+        return 'bg-red-100 text-red-800 dark:bg-red-900/70 dark:text-red-300';
+      case 'manager':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/70 dark:text-blue-300';
+      case 'user':
+        return 'bg-green-100 text-green-800 dark:bg-green-900/70 dark:text-green-300';
+      case 'viewer':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+    }
+  };
+
+  if (!isClerkLoaded || isLoadingUser) {
+    return (
+      <div className="p-6">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (!userContext?.user) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>
+          Unable to load user information. Please try refreshing the page.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Profile Section */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Profile Information
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Manage your personal information and account settings
+            </p>
+          </div>
+          <Button
+            variant={isEditing ? "outline" : "default"}
+            size="sm"
+            onClick={() => setIsEditing(!isEditing)}
+          >
+            <Edit className="h-4 w-4 mr-2" />
+            {isEditing ? 'Cancel' : 'Edit'}
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Profile Picture */}
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                <span className="text-2xl font-semibold">
+                  {userContext.user.firstName?.[0] || userContext.user.email[0]}
+                  {userContext.user.lastName?.[0] || userContext.user.email[1] || ''}
+                </span>
+              </div>
+              {isEditing && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full p-0"
+                >
+                  <Camera className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+            <div>
+              <h3 className="font-medium">
+                {userContext.user.firstName && userContext.user.lastName
+                  ? `${userContext.user.firstName} ${userContext.user.lastName}`
+                  : userContext.user.email}
+              </h3>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge className={getRoleBadgeColor(userContext.user.role)}>
+                  {userContext.user.role.charAt(0).toUpperCase() + userContext.user.role.slice(1)}
+                </Badge>
+                {userContext.user.isActive ? (
+                  <Badge variant="outline" className="text-green-600 border-green-200">
+                    Active
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-red-600 border-red-200">
+                    Inactive
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Personal Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First Name</Label>
+              <Input
+                id="firstName"
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                disabled={!isEditing}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last Name</Label>
+              <Input
+                id="lastName"
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                disabled={!isEditing}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                disabled
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground">
+                Email cannot be changed here. Update it in your account settings.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                value={formData.phoneNumber}
+                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                disabled={!isEditing}
+                placeholder="Enter phone number"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="department">Department</Label>
+              <Input
+                id="department"
+                value={formData.department}
+                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                disabled={!isEditing}
+                placeholder="e.g. Engineering, Sales, Marketing"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="title">Job Title</Label>
+              <Input
+                id="title"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                disabled={!isEditing}
+                placeholder="e.g. Software Engineer, Sales Manager"
+              />
+            </div>
+          </div>
+
+          {isEditing && (
+            <>
+              <Separator />
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsEditing(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-current mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Enterprise Information */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Building className="h-5 w-5" />
+            Enterprise Information
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Information about your enterprise. Contact an admin to make changes.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {userContext.enterprise ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Enterprise Name</Label>
+                <p className="text-sm font-medium mt-1">{userContext.enterprise.name}</p>
+              </div>
+              <div>
+                <Label>Domain</Label>
+                <p className="text-sm font-medium mt-1">{userContext.enterprise.domain || 'Not set'}</p>
+              </div>
+            </div>
+          ) : (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Enterprise information is not available.
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Account Security */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Account Security
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Manage your account security settings
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div>
+              <h4 className="font-medium">Two-Factor Authentication</h4>
+              <p className="text-sm text-muted-foreground">Add an extra layer of security to your account</p>
+            </div>
+            <Button variant="outline" size="sm">
+              Configure
+            </Button>
+          </div>
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div>
+              <h4 className="font-medium">Password</h4>
+              <p className="text-sm text-muted-foreground">Change your account password</p>
+            </div>
+            <Button variant="outline" size="sm">
+              Change Password
+            </Button>
+          </div>
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div>
+              <h4 className="font-medium">Active Sessions</h4>
+              <p className="text-sm text-muted-foreground">Manage devices that are signed into your account</p>
+            </div>
+            <Button variant="outline" size="sm">
+              View Sessions
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default GeneralSettingsPage;
+</file>
+
+<file path="src/app/dashboard/vendors/[id]/page.tsx">
+'use client'
+
+import React from 'react';
+import { useParams } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
+import { useConvexQuery } from '@/lib/api-client';
+import { api } from '../../../../../convex/_generated/api';
+import { Id } from '../../../../../convex/_generated/dataModel';
+import VendorDetails from '@/app/_components/vendor/VendorDetails';
+import LoadingSpinner from '@/app/_components/common/LoadingSpinner';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from 'lucide-react';
+
+const VendorDetailsPage = () => {
+  const params = useParams();
+  const vendorId = params.id as Id<"vendors">;
+  const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
+
+  // Get enterpriseId from Clerk user's public metadata
+  const enterpriseId = clerkUser?.publicMetadata?.enterpriseId as Id<"enterprises"> | undefined;
+
+  // Fetch vendor data
+  const { data: vendor, isLoading, error } = useConvexQuery(
+    api.vendors.getVendorById,
+    (vendorId && enterpriseId) ? { vendorId, enterpriseId } : "skip"
+  );
+
+  if (!isClerkLoaded || isLoading) {
+    return (
+      <div className="p-6">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (!enterpriseId) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Configuration Error</AlertTitle>
+          <AlertDescription>
+            Enterprise information is missing for your user account. Please contact support.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (error || !vendor) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {error ? `Failed to load vendor: ${error.message}` : 'Vendor not found or access denied.'}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      <VendorDetails vendor={vendor} />
+    </div>
+  );
+};
+
+export default VendorDetailsPage;
 </file>
 
 <file path="convex/_generated/api.js">
@@ -3092,7 +5410,7 @@ export const scheduleSecurityMonitoring = internalMutation({
 </file>
 
 <file path="convex/security/rateLimiting.ts">
-import { QueryCtx, MutationCtx, ActionCtx, internalMutation } from "../_generated/server";
+import { QueryCtx, MutationCtx, ActionCtx, internalMutation, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
 import { defineTable } from "convex/server";
@@ -3309,6 +5627,40 @@ async function logRateLimit(
 }
 
 /**
+ * Rate limit check for actions (called from action context)
+ */
+export const checkRateLimitAction = mutation({
+  args: {
+    operation: v.string(),
+    cost: v.optional(v.number()),
+    clerkId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    let userId: Id<"users"> | undefined;
+    
+    // Get user by Clerk ID if provided
+    if (args.clerkId) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
+        .first();
+      userId = user?._id;
+    }
+    
+    const rateLimitResult = await checkRateLimit(ctx, args.operation, {
+      userId,
+      cost: args.cost,
+    });
+    
+    if (!rateLimitResult.allowed) {
+      throw new ConvexError(`Rate limit exceeded for operation: ${args.operation}. Please try again in ${rateLimitResult.resetIn || 60} seconds.`);
+    }
+    
+    return rateLimitResult;
+  },
+});
+
+/**
  * Clean up old rate limit data
  */
 export const cleanupRateLimits = internalMutation({
@@ -3345,7 +5697,7 @@ export const cleanupRateLimits = internalMutation({
 
 <file path="convex/security/rowLevelSecurity.ts">
 import { QueryCtx, MutationCtx, DatabaseReader, DatabaseWriter } from "../_generated/server";
-import { Id } from "../_generated/dataModel";
+import { Id, Doc } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
 
 /**
@@ -3428,21 +5780,21 @@ export function hasPermission(
 /**
  * Secure query builder that automatically filters by enterprise
  */
-export class SecureQuery<T extends string> {
+export class SecureQuery<T extends keyof typeof import("../_generated/dataModel").default> {
   constructor(
     private ctx: QueryCtx | MutationCtx,
     private table: T,
     private securityContext: SecurityContext
   ) {}
 
-  async all(): Promise<any[]> {
+  async all(): Promise<Doc<T>[]> {
     return await this.ctx.db
-      .query(this.table as any)
-      .filter((q: any) => q.eq(q.field("enterpriseId"), this.securityContext.enterpriseId))
+      .query(this.table)
+      .filter((q) => q.eq(q.field("enterpriseId"), this.securityContext.enterpriseId))
       .collect();
   }
 
-  async byId(id: any): Promise<any | null> {
+  async byId(id: Id<T>): Promise<Doc<T> | null> {
     const doc = await this.ctx.db.get(id);
     if (!doc) return null;
     
@@ -3454,10 +5806,10 @@ export class SecureQuery<T extends string> {
     return doc;
   }
 
-  async where(filter: (q: any) => any): Promise<any[]> {
+  async where(filter: (q: any) => any): Promise<Doc<T>[]> {
     return await this.ctx.db
-      .query(this.table as any)
-      .filter((q: any) => 
+      .query(this.table)
+      .filter((q) => 
         q.and(
           q.eq(q.field("enterpriseId"), this.securityContext.enterpriseId),
           filter(q)
@@ -3476,11 +5828,11 @@ export class SecureMutation {
     private securityContext: SecurityContext
   ) {}
 
-  async insert(
-    table: string,
-    data: any,
+  async insert<T extends keyof typeof import("../_generated/dataModel").default>(
+    table: T,
+    data: Omit<Doc<T>, "_id" | "_creationTime" | "enterpriseId">,
     permission?: string
-  ): Promise<any> {
+  ): Promise<Id<T>> {
     // Check permission if specified
     if (permission && !hasPermission(this.securityContext, permission)) {
       throw new ConvexError(`Permission denied: ${permission}`);
@@ -3490,14 +5842,14 @@ export class SecureMutation {
     const secureData = {
       ...data,
       enterpriseId: this.securityContext.enterpriseId
-    };
+    } as any;
 
-    return await this.ctx.db.insert(table as any, secureData);
+    return await this.ctx.db.insert(table, secureData);
   }
 
-  async update(
-    id: any,
-    data: any,
+  async update<T extends keyof typeof import("../_generated/dataModel").default>(
+    id: Id<T>,
+    data: Partial<Omit<Doc<T>, "_id" | "_creationTime" | "enterpriseId">>,
     permission?: string
   ): Promise<void> {
     // Check permission if specified
@@ -3516,13 +5868,13 @@ export class SecureMutation {
     }
 
     // Remove enterprise ID from updates to prevent tampering
-    const { enterpriseId, ...safeData } = data;
+    const { enterpriseId, ...safeData } = data as any;
     
     await this.ctx.db.patch(id, safeData);
   }
 
-  async delete(
-    id: any,
+  async delete<T extends keyof typeof import("../_generated/dataModel").default>(
+    id: Id<T>,
     permission?: string
   ): Promise<void> {
     // Check permission if specified
@@ -3544,7 +5896,10 @@ export class SecureMutation {
   }
 
   // Helper method for byId that's used in secureContractOperations.ts
-  async byId(table: string, id: any): Promise<any | null> {
+  async byId<T extends keyof typeof import("../_generated/dataModel").default>(
+    table: T, 
+    id: Id<T>
+  ): Promise<Doc<T> | null> {
     const doc = await this.ctx.db.get(id);
     if (!doc) return null;
     
@@ -10816,7 +13171,6 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private reportError = (error: Error, errorInfo: ErrorInfo) => {
-    // In production, you'd send this to your error tracking service
     const errorReport = {
       message: error.message,
       stack: error.stack,
@@ -10827,10 +13181,31 @@ export class ErrorBoundary extends Component<Props, State> {
       eventId: this.state.eventId,
     };
 
-    // Example: Send to error tracking service
-    // Sentry.captureException(error, { contexts: { react: errorInfo } });
+    // Send to Sentry
+    if (typeof window !== 'undefined') {
+      import('../../../lib/monitoring').then(({ reportError }) => {
+        reportError(error, {
+          contexts: { 
+            react: errorInfo,
+            errorBoundary: {
+              eventId: this.state.eventId,
+              isolate: this.props.isolate || false,
+              componentStack: errorInfo.componentStack
+            }
+          },
+          tags: {
+            errorBoundary: true,
+            component: 'ErrorBoundary',
+            isolate: this.props.isolate ? 'true' : 'false'
+          },
+          extra: errorReport
+        });
+      }).catch(err => {
+        console.error('Failed to report error to monitoring:', err);
+      });
+    }
     
-    // For development, just log to console
+    // For development, also log to console
     if (process.env.NODE_ENV === 'development') {
       console.group('🚨 Error Report');
       console.error('Error:', error);
@@ -12090,6 +14465,40 @@ export const triggerErrorEvent = (error: AppError) => {
 export const handleErrorWithNotification = async (error: any, context?: any) => {
   const appError = await globalErrorHandler.handleError(error, context);
   triggerErrorEvent(appError);
+  
+  // Also report to Sentry
+  if (typeof window !== 'undefined') {
+    try {
+      const { reportError } = await import('@/lib/monitoring');
+      await reportError(error, {
+        contexts: {
+          appError: {
+            id: appError.id,
+            category: appError.category,
+            severity: appError.severity,
+            actionable: appError.actionable,
+            retryable: appError.retryable,
+          },
+        },
+        tags: {
+          category: appError.category,
+          severity: appError.severity,
+          source: 'global_error_handler',
+        },
+        level: appError.severity === 'critical' ? 'fatal' : 
+               appError.severity === 'high' ? 'error' :
+               appError.severity === 'medium' ? 'warning' : 'info',
+        extra: {
+          ...context,
+          userMessage: appError.userMessage,
+          metadata: appError.metadata,
+        },
+      });
+    } catch (monitoringError) {
+      console.error('Failed to report error to monitoring:', monitoringError);
+    }
+  }
+  
   return appError;
 };
 
@@ -29003,381 +31412,6 @@ const eslintConfig = [
 export default eslintConfig;
 </file>
 
-<file path="instructions.md">
-# Contract Management System - Production Optimization Plan
-
-## Overview
-This document outlines a comprehensive plan to optimize and prepare the contract management SaaS application for production deployment. The codebase uses Next.js, Convex, TypeScript, and various modern web technologies.
-
-## 🎉 Implementation Status
-
-### ✅ COMPLETED PHASES (1-4)
-- **Phase 1: Performance Optimizations** - Code splitting, React optimization, database pagination
-- **Phase 2: Security Hardening** - Input validation, CSP headers, session management, rate limiting
-- **Phase 3: Error Handling & Monitoring** - Error boundaries, Sentry integration, Web Vitals tracking
-- **Phase 4: Code Quality & Maintainability** - TypeScript strict mode, Zod schemas, reusable hooks, compound components
-
-### 🔲 REMAINING PHASES (5-7)
-- **Phase 5: Testing Infrastructure** - Jest, React Testing Library, Playwright E2E tests
-- **Phase 6: Build & Deployment Optimizations** - Webpack optimization, CDN setup, feature flags
-- **Phase 7: Specific Component Fixes** - AI analysis integration, mobile optimization, final bug fixes
-
-**Current Status**: Production-ready foundation established with enterprise-grade performance, security, monitoring, and code quality improvements.
-
-## 📋 Detailed Execution Plan
-
-### ✅ Phase 1: Performance Optimizations (High Priority) - COMPLETED
-
-#### ✅ 1. Implement Code Splitting & Lazy Loading - COMPLETED
-- ✅ Add dynamic imports for heavy components:
-  - ✅ Analytics dashboard components
-  - ✅ Chart libraries (recharts, d3)
-  - ✅ PDF and document viewers
-  - ✅ Modal dialogs
-- ✅ Implement route-based code splitting:
-  ```typescript
-  const AnalyticsDashboard = dynamic(() => import('@/components/analytics/AnalyticsDashboard'))
-  const ContractDetails = dynamic(() => import('@/components/contracts/ContractDetails'))
-  ```
-- ✅ Use React.lazy() for non-critical UI components
-- ✅ Add loading states for lazy-loaded components
-
-#### ✅ 2. Optimize React Component Performance - COMPLETED
-- ✅ Add React.memo() to frequently re-rendered components:
-  - ✅ ContractTable
-  - ✅ VendorTable
-  - ✅ AdvancedKPICard
-  - ✅ InteractiveChart
-  - ✅ All Card components
-- ✅ Implement useMemo() for expensive computations:
-  - ✅ Analytics calculations
-  - ✅ Data filtering and sorting
-  - ✅ Chart data transformations
-- ✅ Add useCallback() for event handlers:
-  - ✅ Form submissions
-  - ✅ Table actions
-  - ✅ Filter changes
-- ✅ Implement virtualization for large lists using react-window
-
-#### ✅ 3. Database Query Optimizations - COMPLETED
-- ✅ Add pagination to all list queries:
-  ```typescript
-  // Example for contracts query
-  export const getContracts = query({
-    args: {
-      limit: v.number(),
-      cursor: v.optional(v.string()),
-      filters: v.optional(contractFiltersSchema)
-    },
-    handler: async (ctx, args) => {
-      // Implement cursor-based pagination
-    }
-  })
-  ```
-- ✅ Implement query result caching with SWR or React Query
-- ✅ Optimize database indexes in schema.ts:
-  - ✅ Add composite indexes for common filter combinations
-  - ✅ Remove redundant indexes
-- ✅ Add query batching for related data fetches
-
-### ✅ Phase 2: Security Hardening (High Priority) - COMPLETED
-
-#### ✅ 4. Enhanced Input Validation - COMPLETED
-- ✅ Add comprehensive input sanitization:
-  - ✅ Use DOMPurify for HTML content
-  - ✅ Validate all file uploads (type, size, content)
-  - ✅ Sanitize user inputs before database storage
-- ✅ Implement Content Security Policy (CSP) headers
-- ✅ Add CSRF protection for forms
-- ✅ Validate and sanitize file names and paths
-
-#### ✅ 5. Authentication & Authorization Improvements - COMPLETED
-- ✅ Implement session timeout handling:
-  ```typescript
-  // Add to auth wrapper
-  const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-  const checkSessionTimeout = () => {
-    // Implementation
-  }
-  ```
-- ✅ Add refresh token rotation with Clerk
-- ✅ Implement IP-based rate limiting per user
-- ✅ Enhance permission checks:
-  - ✅ Add department-level permissions
-  - ✅ Implement data access policies
-  - ✅ Add audit logging for sensitive operations
-
-### ✅ Phase 3: Error Handling & Monitoring (Medium Priority) - COMPLETED
-
-#### ✅ 6. Comprehensive Error Boundaries - COMPLETED
-- ✅ Create global error boundary:
-  ```typescript
-  // src/app/_components/common/GlobalErrorBoundary.tsx
-  export class GlobalErrorBoundary extends React.Component {
-    // Implementation with error logging
-  }
-  ```
-- ✅ Add section-specific error boundaries
-- ✅ Implement fallback UI components
-- ✅ Add error recovery mechanisms
-- ✅ Log errors to external service (Sentry)
-
-#### ✅ 7. Monitoring & Analytics Setup - COMPLETED
-- ✅ Implement performance monitoring:
-  - ✅ Web Vitals tracking
-  - ✅ Custom performance metrics
-  - ✅ Resource loading times
-- ✅ Add error tracking with Sentry:
-  ```typescript
-  // sentry.client.config.ts
-  Sentry.init({
-    dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-    environment: process.env.NODE_ENV,
-    integrations: [
-      new Sentry.BrowserTracing(),
-      new Sentry.Replay()
-    ]
-  })
-  ```
-- ✅ Implement user behavior analytics
-- ✅ Create health check endpoints
-
-### ✅ Phase 4: Code Quality & Maintainability (Medium Priority) - COMPLETED
-
-#### ✅ 8. Type Safety Improvements - COMPLETED
-- ✅ Remove all 'any' types:
-  - ✅ Search for `any` and replace with proper types
-  - ✅ Create type guards for runtime validation
-- ✅ Configure strict TypeScript:
-  ```json
-  // tsconfig.json
-  {
-    "compilerOptions": {
-      "strict": true,
-      "noImplicitAny": true,
-      "strictNullChecks": true,
-      "strictFunctionTypes": true
-    }
-  }
-  ```
-- ✅ Add Zod schemas for runtime validation
-- ✅ Create shared type definitions file
-
-#### ✅ 9. Component Architecture Improvements - COMPLETED
-- ✅ Extract reusable hooks:
-  - ✅ useDebounce
-  - ✅ usePagination
-  - ✅ useInfiniteScroll
-  - ✅ useLocalStorage
-  - ✅ useMediaQuery
-- ✅ Create compound components:
-  - ✅ Table with TableHeader, TableBody, TableRow
-  - ✅ Form with FormField, FormLabel, FormError
-- ✅ Implement design tokens:
-  ```typescript
-  // src/styles/tokens.ts
-  export const tokens = {
-    colors: { /* ... */ },
-    spacing: { /* ... */ },
-    typography: { /* ... */ }
-  }
-  ```
-
-### Phase 5: Testing Infrastructure (Medium Priority)
-
-#### 10. Unit & Integration Tests
-- Configure Jest and React Testing Library:
-  ```json
-  // jest.config.js
-  module.exports = {
-    testEnvironment: 'jsdom',
-    setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-    moduleNameMapper: {
-      '^@/(.*)$': '<rootDir>/src/$1'
-    }
-  }
-  ```
-- Write tests for:
-  - Utility functions
-  - Custom hooks
-  - API mutations
-  - Component logic
-- Achieve 80% code coverage
-
-#### 11. E2E Testing
-- Set up Playwright:
-  ```typescript
-  // e2e/contract-flow.spec.ts
-  test('complete contract creation flow', async ({ page }) => {
-    // Test implementation
-  })
-  ```
-- Test critical user flows:
-  - User registration/login
-  - Contract creation
-  - Vendor management
-  - Approval workflows
-- Add visual regression testing
-
-### Phase 6: Build & Deployment Optimizations (Low Priority)
-
-#### 12. Build Optimizations
-- Configure webpack optimization:
-  ```javascript
-  // next.config.js
-  module.exports = {
-    webpack: (config, { isServer }) => {
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        cacheGroups: {
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            priority: 10
-          }
-        }
-      }
-      return config
-    }
-  }
-  ```
-- Add bundle analysis
-- Configure CDN for static assets
-- Implement proper caching strategies
-
-#### 13. Production Features
-- Implement feature flags:
-  ```typescript
-  // src/lib/feature-flags.ts
-  export const features = {
-    AI_ANALYSIS: process.env.NEXT_PUBLIC_FEATURE_AI_ANALYSIS === 'true',
-    ADVANCED_ANALYTICS: process.env.NEXT_PUBLIC_FEATURE_ADVANCED_ANALYTICS === 'true'
-  }
-  ```
-- Add maintenance mode
-- Create deployment rollback strategy
-- Implement A/B testing framework
-
-### Phase 7: Specific Component Fixes
-
-#### 14. Fix Known Issues
-- Complete AI analysis integration:
-  - Integrate with OpenAI API
-  - Implement contract text extraction
-  - Add analysis result caching
-- Fix TypeScript errors in:
-  - ContractForm component
-  - VendorTable component
-  - Analytics components
-- Update deprecated dependencies
-- Remove console.log statements
-
-#### 15. Mobile Optimization
-- Enhance touch interactions:
-  - Increase tap target sizes
-  - Add swipe gestures
-  - Improve form inputs for mobile
-- Optimize bundle size:
-  - Remove unused dependencies
-  - Tree-shake imports
-  - Compress images
-- Add offline support with service workers
-- Implement responsive images with next/image
-
-## 🎯 Priority Execution Order
-
-### Week 1-2: Performance Optimizations
-- Implement code splitting
-- Add React.memo to components
-- Set up pagination
-
-### Week 2-3: Security Hardening
-- Add input validation
-- Implement rate limiting
-- Enhance authentication
-
-### Week 3-4: Error Handling & Monitoring
-- Set up error boundaries
-- Configure Sentry
-- Add performance monitoring
-
-### Week 4-5: Code Quality
-- Fix TypeScript issues
-- Extract reusable code
-- Improve component structure
-
-### Week 5-6: Testing
-- Set up Jest
-- Write unit tests
-- Configure E2E tests
-
-### Week 6-7: Final Optimizations
-- Build optimizations
-- Fix remaining issues
-- Production deployment prep
-
-## 💡 Quick Wins (Implement First)
-
-1. **Add React.memo() to Table components** - 2 hours
-2. **Implement pagination in queries** - 4 hours
-3. **Add loading skeletons** - 3 hours
-4. **Fix TypeScript errors** - 1 day
-5. **Add environment variable validation** - 1 hour
-
-## 🚀 Production Deployment Checklist
-
-### Environment & Configuration
-- [ ] All environment variables configured and validated
-- [ ] Secrets stored securely (not in code)
-- [ ] Production database configured with backups
-- [ ] Error tracking (Sentry) configured
-
-### Security
-- [ ] Rate limiting enabled
-- [ ] CORS properly configured
-- [ ] Security headers implemented
-- [ ] Input validation comprehensive
-- [ ] File upload restrictions in place
-
-### Performance
-- [ ] Code splitting implemented
-- [ ] Images optimized
-- [ ] CDN configured
-- [ ] Caching strategies implemented
-- [ ] Database queries optimized
-
-### Monitoring
-- [ ] Performance monitoring active
-- [ ] Error tracking configured
-- [ ] Uptime monitoring in place
-- [ ] Alerts configured for critical issues
-
-### Infrastructure
-- [ ] SSL certificates valid
-- [ ] Database backups automated
-- [ ] Deployment pipeline tested
-- [ ] Rollback procedure documented
-- [ ] Load balancing configured
-
-## 📝 Notes for Implementation
-
-- Start with high-impact, low-effort optimizations
-- Test each optimization in staging before production
-- Monitor performance metrics after each change
-- Keep backward compatibility during updates
-- Document all changes and configurations
-
-## 🔧 Tools & Resources Needed
-
-- **Monitoring**: Sentry, Datadog/New Relic
-- **Testing**: Jest, React Testing Library, Playwright
-- **Performance**: Lighthouse, WebPageTest
-- **Security**: OWASP guidelines, Security headers
-- **Analytics**: Google Analytics, Mixpanel
-
-This plan provides a structured approach to transform the contract management system into a production-ready application with enterprise-grade performance, security, and reliability.
-</file>
-
 <file path="sentry.client.config.ts">
 import * as Sentry from '@sentry/nextjs';
 
@@ -29407,11 +31441,7 @@ Sentry.init({
     }),
     new Sentry.BrowserTracing({
       // Set up automatic route change tracking for Next.js App Router
-      routingInstrumentation: Sentry.nextjsRouterInstrumentation({
-        useEffect: React.useEffect,
-        useRouter: require('next/router').useRouter,
-        usePathname: require('next/navigation').usePathname,
-      }),
+      routingInstrumentation: Sentry.nextjsRouterInstrumentation(),
     }),
   ],
 
@@ -30439,12 +32469,41 @@ function generateXLSX(contracts: any[]): string {
 </file>
 
 <file path="convex/security/secureWrapper.ts">
-import { query as baseQuery, mutation as baseMutation, action as baseAction } from "../_generated/server";
+import { query as baseQuery, mutation as baseMutation, action as baseAction, QueryCtx, MutationCtx, ActionCtx } from "../_generated/server";
 import { ConvexError } from "convex/values";
 import { getSecurityContext, SecurityContext, hasPermission, SecureQuery, SecureMutation } from "./rowLevelSecurity";
 import { checkRateLimit } from "./rateLimiting";
 import { logAuditEvent } from "./auditLogging";
 import { api } from "../_generated/api";
+
+/**
+ * Validate Clerk JWT token
+ */
+async function validateClerkToken(token: string): Promise<{ sub: string } | null> {
+  try {
+    // In a real implementation, you would verify the JWT signature using Clerk's public key
+    // For now, we'll use Clerk's API to validate the token
+    const response = await fetch(`${process.env.CLERK_API_URL}/sessions/verify`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.CLERK_SECRET_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token }),
+    });
+    
+    if (!response.ok) {
+      console.error('Clerk token validation failed:', response.statusText);
+      return null;
+    }
+    
+    const result = await response.json();
+    return result.user ? { sub: result.user.id } : null;
+  } catch (error) {
+    console.error('Error validating Clerk token:', error);
+    return null;
+  }
+}
 
 // Role permissions for action authentication
 const ROLE_PERMISSIONS = {
@@ -30495,9 +32554,9 @@ interface SecureOptions {
  * Create a secure query with automatic security checks
  */
 export function createSecureQuery<Args extends Record<string, any>, Output>(
-  args: any,
+  args: Args,
   options: SecureOptions,
-  handler: (ctx: any, args: Args, security: SecurityContext) => Promise<Output>
+  handler: (ctx: QueryCtx, args: Args, security: SecurityContext) => Promise<Output>
 ) {
   return baseQuery({
     args,
@@ -30543,9 +32602,9 @@ export function createSecureQuery<Args extends Record<string, any>, Output>(
  * Create a secure mutation with automatic security checks
  */
 export function createSecureMutation<Args extends Record<string, any>, Output>(
-  args: any,
+  args: Args,
   options: SecureOptions,
-  handler: (ctx: any, args: Args, security: SecurityContext, secure: SecureMutation) => Promise<Output>
+  handler: (ctx: MutationCtx, args: Args, security: SecurityContext, secure: SecureMutation) => Promise<Output>
 ) {
   return baseMutation({
     args,
@@ -30612,25 +32671,30 @@ export function createSecureMutation<Args extends Record<string, any>, Output>(
  * Create a secure action with authentication checks
  */
 export function createSecureAction<Args extends Record<string, any>, Output>(
-  args: any,
+  args: Args,
   options: SecureOptions,
-  handler: (ctx: any, args: Args, security: SecurityContext) => Promise<Output>
+  handler: (ctx: ActionCtx, args: Args, security: SecurityContext) => Promise<Output>
 ) {
   return baseAction({
     args,
     handler: async (ctx, args: Args) => {
-      // Actions need to authenticate differently in Convex
-      // For now, we'll require authentication info to be passed in args
-      if (!args.authToken && !args.userId) {
-        throw new ConvexError("Authentication required for actions. Pass authToken or userId in args.");
+      // Actions require proper authentication via JWT token
+      if (!args.authToken) {
+        throw new ConvexError("Authentication required: Actions must include a valid authToken.");
       }
       
-      // Get user information to build security context
+      // Validate JWT token and get user information
       let securityContext: SecurityContext;
       
-      if (args.userId) {
-        // Direct user ID approach (for internal system actions)
-        const user = await ctx.runQuery(api.users.getById, { userId: args.userId });
+      try {
+        // Validate the JWT token using Clerk's API
+        const clerkUser = await validateClerkToken(args.authToken);
+        if (!clerkUser) {
+          throw new ConvexError("Invalid authentication token");
+        }
+        
+        // Get user from database
+        const user = await ctx.runQuery(api.users.getByClerkId, { clerkId: clerkUser.sub });
         if (!user || !user.isActive) {
           throw new ConvexError("User not found or inactive");
         }
@@ -30641,8 +32705,9 @@ export function createSecureAction<Args extends Record<string, any>, Output>(
           role: user.role,
           permissions: ROLE_PERMISSIONS[user.role as keyof typeof ROLE_PERMISSIONS] || []
         };
-      } else {
-        throw new ConvexError("Authentication method not supported in actions yet");
+      } catch (error) {
+        console.error("Action authentication failed:", error);
+        throw new ConvexError("Authentication failed: Invalid or expired token");
       }
       
       // Check rate limit (with simplified tracking for actions)
@@ -30884,6 +32949,7 @@ export const agentTables = {
   .index("by_status", ["status"])
   .index("by_priority", ["priority"])
   .index("by_scheduled_and_status", ["scheduledFor", "status"]) // For querying scheduled tasks by status
+  .index("by_status_and_scheduled", ["status", "scheduledFor"]) // For filtering by status then sorting by scheduled time
   .index("by_createdAt", ["createdAt"]), // For querying by your string createdAt
 
   // Agent execution logs
@@ -35775,12 +37841,7 @@ class ErrorTracker {
 
   private sendError(errorReport: ErrorReport) {
     // Send to Sentry (if configured)
-    if (typeof window !== 'undefined' && window.Sentry) {
-      window.Sentry.captureException(errorReport.error, {
-        user: { id: errorReport.userId },
-        extra: errorReport.context,
-      });
-    }
+    this.sendToSentry(errorReport);
 
     // Send to Convex
     if (typeof window !== 'undefined' && (window as any).convexAnalytics) {
@@ -35794,6 +37855,53 @@ class ErrorTracker {
         userAgent: errorReport.userAgent,
         context: errorReport.context,
       });
+    }
+  }
+
+  private async sendToSentry(errorReport: ErrorReport) {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const Sentry = await import('@sentry/nextjs');
+      
+      // Set user context
+      Sentry.setUser({
+        id: errorReport.userId || 'anonymous',
+        ip_address: '{{auto}}',
+      });
+
+      // Set additional context
+      Sentry.setContext('error_report', {
+        timestamp: errorReport.timestamp,
+        sessionId: errorReport.sessionId,
+        url: errorReport.url,
+        userAgent: errorReport.userAgent,
+      });
+
+      // Set tags
+      Sentry.setTags({
+        source: 'error_tracker',
+        environment: process.env.NODE_ENV || 'development',
+      });
+
+      // Capture exception with context
+      Sentry.captureException(errorReport.error, {
+        contexts: {
+          errorReport: errorReport.context,
+        },
+        extra: {
+          timestamp: errorReport.timestamp,
+          sessionId: errorReport.sessionId,
+          url: errorReport.url,
+        },
+        fingerprint: [
+          errorReport.error.name,
+          errorReport.error.message,
+          errorReport.url,
+        ],
+      });
+    } catch (sentryError) {
+      console.error('Failed to send error to Sentry:', sentryError);
     }
   }
 
@@ -35958,6 +38066,89 @@ export const measurePerformance = {
       throw error;
     }
   },
+};
+
+// Enhanced error reporting function with Sentry integration
+export const reportError = async (
+  error: Error | string,
+  context?: {
+    contexts?: Record<string, any>;
+    tags?: Record<string, string>;
+    extra?: Record<string, any>;
+    user?: { id?: string; email?: string; username?: string };
+    level?: 'fatal' | 'error' | 'warning' | 'info' | 'debug';
+    fingerprint?: string[];
+  }
+) => {
+  if (typeof window === 'undefined') return;
+
+  const errorObj = typeof error === 'string' ? new Error(error) : error;
+
+  try {
+    const Sentry = await import('@sentry/nextjs');
+    
+    // Set user context if provided
+    if (context?.user) {
+      Sentry.setUser(context.user);
+    }
+
+    // Set additional contexts
+    if (context?.contexts) {
+      Object.entries(context.contexts).forEach(([key, value]) => {
+        Sentry.setContext(key, value);
+      });
+    }
+
+    // Set tags
+    if (context?.tags) {
+      Sentry.setTags(context.tags);
+    }
+
+    // Capture exception
+    Sentry.captureException(errorObj, {
+      level: context?.level || 'error',
+      extra: context?.extra,
+      fingerprint: context?.fingerprint,
+    });
+  } catch (sentryError) {
+    console.error('Failed to report error to Sentry:', sentryError);
+    // Fall back to error tracker
+    errorTracker.captureError(errorObj, context?.extra);
+  }
+};
+
+// Enhanced performance monitoring
+export const reportPerformance = async (
+  metric: {
+    name: string;
+    value: number;
+    unit?: string;
+    tags?: Record<string, string>;
+  }
+) => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const Sentry = await import('@sentry/nextjs');
+    
+    // Send custom metric to Sentry
+    Sentry.addBreadcrumb({
+      category: 'performance',
+      message: `${metric.name}: ${metric.value}${metric.unit || ''}`,
+      level: 'info',
+      data: metric.tags,
+    });
+
+    // Also track via user analytics
+    userAnalytics.track('performance_metric', {
+      metric_name: metric.name,
+      metric_value: metric.value,
+      metric_unit: metric.unit,
+      ...metric.tags,
+    });
+  } catch (error) {
+    console.error('Failed to report performance metric:', error);
+  }
 };
 
 // Type declarations for global objects
@@ -36789,6 +38980,181 @@ next-env.d.ts
 
 # clerk configuration (can include secrets)
 /.clerk/
+</file>
+
+<file path="instructions.md">
+# Production Readiness Report - Critical Issues and Fixes
+
+## 🚨 Critical Issues for Production
+
+### 1. **Authentication Security Vulnerability** (CRITICAL)
+The security wrapper bypasses authentication for actions:
+```typescript
+// convex/security/secureWrapper.ts
+const mockSecurityContext = {
+  userId: "action-user" as any,
+  enterpriseId: "action-enterprise" as any,
+  role: "user" as any,
+  permissions: ["*"]
+};
+```
+**Fix Required:** Implement proper authentication using Clerk webhooks or API tokens for action authentication.
+
+### 2. **Missing Database Indexes** (HIGH)
+Performance will degrade significantly without proper indexes:
+- `contracts` table: Need composite index on `enterpriseId + _creationTime`
+- `auditLogs` table: Need index on `timestamp`
+- `agentTasks` table: Need composite index on `status + scheduledFor`
+
+### 3. **No Input Validation** (HIGH)
+Limited validation on critical operations:
+- File uploads lack comprehensive validation
+- Contract values aren't properly validated
+- User inputs missing sanitization
+- SQL injection vulnerability potential
+
+### 4. **Missing Error Boundaries** (MEDIUM)
+No React error boundaries implemented, causing potential white screens on errors.
+
+### 5. **Missing Core Frontend Pages** (HIGH)
+Critical pages not implemented:
+- `/dashboard/contracts/[id]/page.tsx` - Can't view contract details
+- `/dashboard/contracts/[id]/edit/page.tsx` - Can't edit contracts
+- `/dashboard/vendors/[id]/page.tsx` - Can't view vendor details
+- User management interface
+- Enterprise settings
+
+## 🔧 Required Fixes by Priority
+
+### Priority 1: Security (Week 1)
+1. **Fix Authentication in Actions**
+   - Implement Clerk webhook authentication
+   - Remove mock security context
+   - Add proper JWT validation
+
+2. **Add Input Validation**
+   - Implement Zod schemas for all mutations
+   - Add file upload security checks
+   - Sanitize all user inputs
+
+### Priority 2: Database Performance (Week 1)
+1. **Add Missing Indexes**
+   ```typescript
+   // convex/schema.ts
+   contracts: defineTable({
+     // ... existing fields
+   })
+   .index("by_enterprise_creation", ["enterpriseId", "_creationTime"])
+   .index("by_status_enterprise", ["status", "enterpriseId"]),
+   ```
+
+2. **Optimize Query Patterns**
+   - Replace sequential queries with parallel execution
+   - Implement proper pagination
+   - Add query result caching
+
+### Priority 3: Frontend Completeness (Week 2)
+1. **Implement Missing Pages**
+   - Contract detail/edit views
+   - Vendor management pages
+   - User management interface
+   - Settings pages
+
+2. **Add Error Handling**
+   - Implement error boundaries
+   - Add loading states
+   - Create fallback UI components
+
+### Priority 4: Code Quality (Week 3)
+1. **Reduce Code Duplication**
+   - Extract common utilities
+   - Create shared validation functions
+   - Consolidate parsing logic
+
+2. **Add Testing**
+   - Unit tests for utilities
+   - Integration tests for API
+   - Component testing
+
+## 📋 Production Checklist
+
+### Must-Have Before Launch:
+- [ ] Fix authentication security hole
+- [ ] Add database indexes
+- [ ] Implement input validation
+- [ ] Add error boundaries
+- [ ] Complete missing frontend pages
+- [ ] Set up error logging (Sentry)
+- [ ] Add rate limiting
+- [ ] Configure environment variables
+- [ ] Set up monitoring/alerts
+- [ ] Implement backup strategy
+
+### Nice-to-Have:
+- [ ] Comprehensive test suite
+- [ ] Performance monitoring
+- [ ] A/B testing framework
+- [ ] Advanced analytics
+- [ ] Feature flags
+
+## 🚀 Recommended Implementation Order
+
+1. **Week 1**: Security fixes + Database optimization
+2. **Week 2**: Complete frontend pages + Error handling
+3. **Week 3**: Testing + Code quality improvements
+4. **Week 4**: Performance optimization + Monitoring setup
+
+## 📊 Risk Assessment
+
+### High Risk Areas:
+1. **Security**: Authentication bypass could expose all user data
+2. **Performance**: Missing indexes will cause exponential slowdown with data growth
+3. **User Experience**: Missing pages prevent core functionality
+4. **Data Integrity**: Lack of validation could corrupt database
+
+### Mitigation Strategy:
+1. Implement security fixes immediately
+2. Add indexes before any production data migration
+3. Complete MVP frontend before soft launch
+4. Add comprehensive logging for debugging
+
+## 🛠️ Technical Debt Summary
+
+### Current State:
+- **Security Score**: 3/10 (Critical vulnerabilities)
+- **Performance Score**: 6/10 (Good architecture, missing optimizations)
+- **Code Quality**: 7/10 (Well-structured, some duplication)
+- **Test Coverage**: 0% (No tests implemented)
+- **Documentation**: 8/10 (Good inline docs, missing API docs)
+
+### Target State for Production:
+- **Security Score**: 9/10
+- **Performance Score**: 8/10
+- **Code Quality**: 8/10
+- **Test Coverage**: 70%+
+- **Documentation**: 9/10
+
+## 💡 Quick Wins
+
+1. **Add Loading Skeletons**: Replace all `<LoadingSpinner />` with proper skeleton loaders
+2. **Fix TypeScript Errors**: Run `tsc --noEmit` and fix all type errors
+3. **Add Missing Indexes**: Update `schema.ts` with performance-critical indexes
+4. **Implement Error Boundaries**: Add at least 3 strategic error boundaries
+5. **Create Shared Utils**: Extract duplicate parsing/formatting logic
+
+## 🚦 Go/No-Go Criteria
+
+### Minimum Viable Production:
+- ✅ Security vulnerabilities patched
+- ✅ Core functionality complete
+- ✅ Basic error handling implemented
+- ✅ Performance indexes added
+- ✅ Authentication fully functional
+- ✅ Input validation on all forms
+
+### Current Status: **NOT READY FOR PRODUCTION**
+
+The codebase has a solid foundation but requires these critical fixes before production deployment. The security vulnerability in actions is the most urgent issue to address.
 </file>
 
 <file path="next.config.ts">
@@ -48273,10 +50639,11 @@ export const Hero = () => {
 <file path="src/app/ConvexClientProvider.tsx">
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { ConvexReactClient } from "convex/react";
 import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
+import { performanceTracker, userAnalytics, errorTracker, healthMonitor } from "@/lib/monitoring";
 
 // Initialize the Convex client
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -48285,6 +50652,49 @@ if (!convexUrl) {
 }
 
 const convex = new ConvexReactClient(convexUrl);
+
+// Monitoring wrapper component
+function MonitoringProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    // Initialize monitoring when the app starts
+    if (typeof window !== 'undefined') {
+      // Set up global convex analytics object for monitoring integration
+      (window as any).convexAnalytics = {
+        logEvent: (event: string, properties: Record<string, any>) => {
+          userAnalytics.track(event, properties);
+        },
+        logEventBatch: (events: Array<{ event: string; properties: Record<string, any> }>) => {
+          events.forEach(({ event, properties }) => {
+            userAnalytics.track(event, properties);
+          });
+        },
+        reportError: (errorData: Record<string, any>) => {
+          errorTracker.captureError(new Error(errorData.message), errorData);
+        },
+        getHealthStatus: () => {
+          return {
+            status: healthMonitor.isHealthy() ? 'healthy' : 'unhealthy',
+            checks: healthMonitor.getHealthStatus(),
+          };
+        },
+      };
+
+      // Track initial page load
+      userAnalytics.track('app_loaded', {
+        url: window.location.href,
+        timestamp: Date.now(),
+      });
+
+      // Clean up on unmount
+      return () => {
+        healthMonitor.destroy();
+        userAnalytics.flush();
+      };
+    }
+  }, []);
+
+  return <>{children}</>;
+}
 
 export function ConvexClientProvider({
   children,
@@ -48296,7 +50706,9 @@ export function ConvexClientProvider({
       publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
     >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        {children}
+        <MonitoringProvider>
+          {children}
+        </MonitoringProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>
   );
@@ -49985,38 +52397,47 @@ export const getVendors = query({
       );
     }
 
+    // Optimize: Fetch all contracts for the enterprise once, then group by vendor
+    const allContracts = await ctx.db
+      .query("contracts")
+      .withIndex("by_enterprise", q => q.eq("enterpriseId", args.enterpriseId))
+      .collect();
+
+    // Group contracts by vendor ID for efficient lookup
+    const contractsByVendor = new Map<string, typeof allContracts>();
+    allContracts.forEach(contract => {
+      const vendorId = contract.vendorId;
+      if (!contractsByVendor.has(vendorId)) {
+        contractsByVendor.set(vendorId, []);
+      }
+      contractsByVendor.get(vendorId)!.push(contract);
+    });
+
     // Enrich vendors with contract data and calculate metrics
-    const vendorsWithDetails = await Promise.all(
-        vendors.map(async (vendor) => {
-            const contracts = await ctx.db
-                .query("contracts")
-                .withIndex("by_vendorId_and_enterpriseId", q => 
-                  q.eq("enterpriseId", args.enterpriseId).eq("vendorId", vendor._id)
-                )
-                .collect();
-            
-            const activeContracts = contracts.filter(c => c.status === "active");
-            const totalValue = contracts.reduce((sum, contract) => {
-              const value = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
-              return sum + value;
-            }, 0);
+    const vendorsWithDetails = vendors.map(vendor => {
+      const contracts = contractsByVendor.get(vendor._id) || [];
+      const activeContracts = contracts.filter(c => c.status === "active");
+      
+      const totalValue = contracts.reduce((sum, contract) => {
+        const value = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
+        return sum + value;
+      }, 0);
 
-            // Get last activity (most recent contract creation or update)
-            const lastActivity = contracts.reduce((latest, contract) => {
-              const contractTime = contract._creationTime || 0;
-              return contractTime > latest ? contractTime : latest;
-            }, 0);
+      // Get last activity (most recent contract creation or update)
+      const lastActivity = contracts.reduce((latest, contract) => {
+        const contractTime = contract._creationTime || 0;
+        return contractTime > latest ? contractTime : latest;
+      }, 0);
 
-            return { 
-              ...vendor, 
-              contractCount: contracts.length,
-              activeContractCount: activeContracts.length,
-              totalValue,
-              lastActivity,
-              hasActiveContracts: activeContracts.length > 0,
-            };
-        })
-    );
+      return { 
+        ...vendor, 
+        contractCount: contracts.length,
+        activeContractCount: activeContracts.length,
+        totalValue,
+        lastActivity,
+        hasActiveContracts: activeContracts.length > 0,
+      };
+    });
 
     // Sort vendors
     let sortedVendors = [...vendorsWithDetails];
@@ -51685,6 +54106,7 @@ import { ConvexError } from "convex/values";
 import { internal, api } from "./_generated/api";
 import { triggerContractEvents } from "./realtimeHelpers";
 import { ContractFilters, CreateContractArgs, UpdateContractArgs } from "./types";
+import { rateLimitHelpers } from "./security/applyRateLimit";
 
 // Contract type options (matching schema.ts)
 const contractTypeOptions = [
@@ -51759,6 +54181,9 @@ export const createContract = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Apply rate limiting for contract creation
+    await rateLimitHelpers.forContractMutation("create", "create")(ctx);
+    
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new ConvexError("Authentication required: User must be logged in to create a contract.");
@@ -51896,20 +54321,31 @@ export const getContracts = query({
       contracts = contracts.filter(contract => contract.contractType === args.contractType);
     }
 
-    // Enrich contracts with vendor information
-    const contractsWithVendors = await Promise.all(
-      contracts.map(async (contract) => {
-        const vendor = await ctx.db.get(contract.vendorId);
-        return {
-          ...contract,
-          vendor: vendor ? {
+    // Optimize: Fetch vendor information in parallel for all contracts
+    const vendorIds = [...new Set(contracts.map(contract => contract.vendorId))];
+    const vendorsMap = new Map();
+    
+    if (vendorIds.length > 0) {
+      const vendors = await Promise.all(
+        vendorIds.map(vendorId => ctx.db.get(vendorId))
+      );
+      
+      vendors.forEach(vendor => {
+        if (vendor) {
+          vendorsMap.set(vendor._id, {
             _id: vendor._id,
             name: vendor.name,
             category: vendor.category,
-          } : null,
-        };
-      })
-    );
+          });
+        }
+      });
+    }
+
+    // Enrich contracts with vendor information
+    const contractsWithVendors = contracts.map(contract => ({
+      ...contract,
+      vendor: vendorsMap.get(contract.vendorId) || null,
+    }));
 
     return {
       contracts: contractsWithVendors,
@@ -52510,6 +54946,72 @@ export const getById = query({
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     return user;
+  },
+});
+
+/**
+ * Get user by Clerk ID (for secure action authentication)
+ */
+export const getByClerkId = query({
+  args: {
+    clerkId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+    return user;
+  },
+});
+
+/**
+ * Get all users for an enterprise (admin only)
+ */
+export const getEnterpriseUsers = query({
+  args: {
+    enterpriseId: v.id("enterprises"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required to view users.");
+    }
+
+    // Check if current user is admin or owner of the enterprise
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!currentUser || currentUser.enterpriseId !== args.enterpriseId) {
+      throw new ConvexError("Access denied: You can only view users from your enterprise.");
+    }
+
+    if (!["owner", "admin"].includes(currentUser.role)) {
+      throw new ConvexError("Access denied: Only owners and admins can view all users.");
+    }
+
+    // Get all users for the enterprise
+    const users = await ctx.db
+      .query("users")
+      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", args.enterpriseId))
+      .collect();
+
+    // Return users with sensitive info filtered
+    return users.map(user => ({
+      _id: user._id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      isActive: user.isActive,
+      lastLoginAt: user.lastLoginAt,
+      department: user.department,
+      title: user.title,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    }));
   },
 });
 

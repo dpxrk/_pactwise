@@ -65,7 +65,6 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private reportError = (error: Error, errorInfo: ErrorInfo) => {
-    // In production, you'd send this to your error tracking service
     const errorReport = {
       message: error.message,
       stack: error.stack,
@@ -76,10 +75,31 @@ export class ErrorBoundary extends Component<Props, State> {
       eventId: this.state.eventId,
     };
 
-    // Example: Send to error tracking service
-    // Sentry.captureException(error, { contexts: { react: errorInfo } });
+    // Send to Sentry
+    if (typeof window !== 'undefined') {
+      import('../../../lib/monitoring').then(({ reportError }) => {
+        reportError(error, {
+          contexts: { 
+            react: errorInfo,
+            errorBoundary: {
+              eventId: this.state.eventId,
+              isolate: this.props.isolate || false,
+              componentStack: errorInfo.componentStack
+            }
+          },
+          tags: {
+            errorBoundary: true,
+            component: 'ErrorBoundary',
+            isolate: this.props.isolate ? 'true' : 'false'
+          },
+          extra: errorReport
+        });
+      }).catch(err => {
+        console.error('Failed to report error to monitoring:', err);
+      });
+    }
     
-    // For development, just log to console
+    // For development, also log to console
     if (process.env.NODE_ENV === 'development') {
       console.group('🚨 Error Report');
       console.error('Error:', error);

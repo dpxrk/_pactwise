@@ -5,6 +5,7 @@ import { ConvexError } from "convex/values";
 import { internal, api } from "./_generated/api";
 import { triggerContractEvents } from "./realtimeHelpers";
 import { ContractFilters, CreateContractArgs, UpdateContractArgs } from "./types";
+import { rateLimitHelpers } from "./security/applyRateLimit";
 
 // Contract type options (matching schema.ts)
 const contractTypeOptions = [
@@ -79,6 +80,9 @@ export const createContract = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Apply rate limiting for contract creation
+    await rateLimitHelpers.forContractMutation("create", "create")(ctx);
+    
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new ConvexError("Authentication required: User must be logged in to create a contract.");
@@ -216,20 +220,31 @@ export const getContracts = query({
       contracts = contracts.filter(contract => contract.contractType === args.contractType);
     }
 
-    // Enrich contracts with vendor information
-    const contractsWithVendors = await Promise.all(
-      contracts.map(async (contract) => {
-        const vendor = await ctx.db.get(contract.vendorId);
-        return {
-          ...contract,
-          vendor: vendor ? {
+    // Optimize: Fetch vendor information in parallel for all contracts
+    const vendorIds = [...new Set(contracts.map(contract => contract.vendorId))];
+    const vendorsMap = new Map();
+    
+    if (vendorIds.length > 0) {
+      const vendors = await Promise.all(
+        vendorIds.map(vendorId => ctx.db.get(vendorId))
+      );
+      
+      vendors.forEach(vendor => {
+        if (vendor) {
+          vendorsMap.set(vendor._id, {
             _id: vendor._id,
             name: vendor.name,
             category: vendor.category,
-          } : null,
-        };
-      })
-    );
+          });
+        }
+      });
+    }
+
+    // Enrich contracts with vendor information
+    const contractsWithVendors = contracts.map(contract => ({
+      ...contract,
+      vendor: vendorsMap.get(contract.vendorId) || null,
+    }));
 
     return {
       contracts: contractsWithVendors,

@@ -176,6 +176,7 @@ export const agentTables = {
   .index("by_status", ["status"])
   .index("by_priority", ["priority"])
   .index("by_scheduled_and_status", ["scheduledFor", "status"]) // For querying scheduled tasks by status
+  .index("by_status_and_scheduled", ["status", "scheduledFor"]) // For filtering by status then sorting by scheduled time
   .index("by_createdAt", ["createdAt"]), // For querying by your string createdAt
 
   // Agent execution logs

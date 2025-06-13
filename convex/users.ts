@@ -43,6 +43,72 @@ export const getById = query({
 });
 
 /**
+ * Get user by Clerk ID (for secure action authentication)
+ */
+export const getByClerkId = query({
+  args: {
+    clerkId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+    return user;
+  },
+});
+
+/**
+ * Get all users for an enterprise (admin only)
+ */
+export const getEnterpriseUsers = query({
+  args: {
+    enterpriseId: v.id("enterprises"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required to view users.");
+    }
+
+    // Check if current user is admin or owner of the enterprise
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!currentUser || currentUser.enterpriseId !== args.enterpriseId) {
+      throw new ConvexError("Access denied: You can only view users from your enterprise.");
+    }
+
+    if (!["owner", "admin"].includes(currentUser.role)) {
+      throw new ConvexError("Access denied: Only owners and admins can view all users.");
+    }
+
+    // Get all users for the enterprise
+    const users = await ctx.db
+      .query("users")
+      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", args.enterpriseId))
+      .collect();
+
+    // Return users with sensitive info filtered
+    return users.map(user => ({
+      _id: user._id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      isActive: user.isActive,
+      lastLoginAt: user.lastLoginAt,
+      department: user.department,
+      title: user.title,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    }));
+  },
+});
+
+/**
  * Create or update user from Clerk data.
  * This function is typically called after a user signs in or signs up.
  */

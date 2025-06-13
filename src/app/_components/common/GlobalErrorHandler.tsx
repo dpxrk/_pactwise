@@ -365,6 +365,40 @@ export const triggerErrorEvent = (error: AppError) => {
 export const handleErrorWithNotification = async (error: any, context?: any) => {
   const appError = await globalErrorHandler.handleError(error, context);
   triggerErrorEvent(appError);
+  
+  // Also report to Sentry
+  if (typeof window !== 'undefined') {
+    try {
+      const { reportError } = await import('@/lib/monitoring');
+      await reportError(error, {
+        contexts: {
+          appError: {
+            id: appError.id,
+            category: appError.category,
+            severity: appError.severity,
+            actionable: appError.actionable,
+            retryable: appError.retryable,
+          },
+        },
+        tags: {
+          category: appError.category,
+          severity: appError.severity,
+          source: 'global_error_handler',
+        },
+        level: appError.severity === 'critical' ? 'fatal' : 
+               appError.severity === 'high' ? 'error' :
+               appError.severity === 'medium' ? 'warning' : 'info',
+        extra: {
+          ...context,
+          userMessage: appError.userMessage,
+          metadata: appError.metadata,
+        },
+      });
+    } catch (monitoringError) {
+      console.error('Failed to report error to monitoring:', monitoringError);
+    }
+  }
+  
   return appError;
 };
 

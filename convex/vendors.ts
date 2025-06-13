@@ -160,38 +160,47 @@ export const getVendors = query({
       );
     }
 
+    // Optimize: Fetch all contracts for the enterprise once, then group by vendor
+    const allContracts = await ctx.db
+      .query("contracts")
+      .withIndex("by_enterprise", q => q.eq("enterpriseId", args.enterpriseId))
+      .collect();
+
+    // Group contracts by vendor ID for efficient lookup
+    const contractsByVendor = new Map<string, typeof allContracts>();
+    allContracts.forEach(contract => {
+      const vendorId = contract.vendorId;
+      if (!contractsByVendor.has(vendorId)) {
+        contractsByVendor.set(vendorId, []);
+      }
+      contractsByVendor.get(vendorId)!.push(contract);
+    });
+
     // Enrich vendors with contract data and calculate metrics
-    const vendorsWithDetails = await Promise.all(
-        vendors.map(async (vendor) => {
-            const contracts = await ctx.db
-                .query("contracts")
-                .withIndex("by_vendorId_and_enterpriseId", q => 
-                  q.eq("enterpriseId", args.enterpriseId).eq("vendorId", vendor._id)
-                )
-                .collect();
-            
-            const activeContracts = contracts.filter(c => c.status === "active");
-            const totalValue = contracts.reduce((sum, contract) => {
-              const value = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
-              return sum + value;
-            }, 0);
+    const vendorsWithDetails = vendors.map(vendor => {
+      const contracts = contractsByVendor.get(vendor._id) || [];
+      const activeContracts = contracts.filter(c => c.status === "active");
+      
+      const totalValue = contracts.reduce((sum, contract) => {
+        const value = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
+        return sum + value;
+      }, 0);
 
-            // Get last activity (most recent contract creation or update)
-            const lastActivity = contracts.reduce((latest, contract) => {
-              const contractTime = contract._creationTime || 0;
-              return contractTime > latest ? contractTime : latest;
-            }, 0);
+      // Get last activity (most recent contract creation or update)
+      const lastActivity = contracts.reduce((latest, contract) => {
+        const contractTime = contract._creationTime || 0;
+        return contractTime > latest ? contractTime : latest;
+      }, 0);
 
-            return { 
-              ...vendor, 
-              contractCount: contracts.length,
-              activeContractCount: activeContracts.length,
-              totalValue,
-              lastActivity,
-              hasActiveContracts: activeContracts.length > 0,
-            };
-        })
-    );
+      return { 
+        ...vendor, 
+        contractCount: contracts.length,
+        activeContractCount: activeContracts.length,
+        totalValue,
+        lastActivity,
+        hasActiveContracts: activeContracts.length > 0,
+      };
+    });
 
     // Sort vendors
     let sortedVendors = [...vendorsWithDetails];

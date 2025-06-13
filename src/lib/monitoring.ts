@@ -344,12 +344,7 @@ class ErrorTracker {
 
   private sendError(errorReport: ErrorReport) {
     // Send to Sentry (if configured)
-    if (typeof window !== 'undefined' && window.Sentry) {
-      window.Sentry.captureException(errorReport.error, {
-        user: { id: errorReport.userId },
-        extra: errorReport.context,
-      });
-    }
+    this.sendToSentry(errorReport);
 
     // Send to Convex
     if (typeof window !== 'undefined' && (window as any).convexAnalytics) {
@@ -363,6 +358,53 @@ class ErrorTracker {
         userAgent: errorReport.userAgent,
         context: errorReport.context,
       });
+    }
+  }
+
+  private async sendToSentry(errorReport: ErrorReport) {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const Sentry = await import('@sentry/nextjs');
+      
+      // Set user context
+      Sentry.setUser({
+        id: errorReport.userId || 'anonymous',
+        ip_address: '{{auto}}',
+      });
+
+      // Set additional context
+      Sentry.setContext('error_report', {
+        timestamp: errorReport.timestamp,
+        sessionId: errorReport.sessionId,
+        url: errorReport.url,
+        userAgent: errorReport.userAgent,
+      });
+
+      // Set tags
+      Sentry.setTags({
+        source: 'error_tracker',
+        environment: process.env.NODE_ENV || 'development',
+      });
+
+      // Capture exception with context
+      Sentry.captureException(errorReport.error, {
+        contexts: {
+          errorReport: errorReport.context,
+        },
+        extra: {
+          timestamp: errorReport.timestamp,
+          sessionId: errorReport.sessionId,
+          url: errorReport.url,
+        },
+        fingerprint: [
+          errorReport.error.name,
+          errorReport.error.message,
+          errorReport.url,
+        ],
+      });
+    } catch (sentryError) {
+      console.error('Failed to send error to Sentry:', sentryError);
     }
   }
 
@@ -527,6 +569,89 @@ export const measurePerformance = {
       throw error;
     }
   },
+};
+
+// Enhanced error reporting function with Sentry integration
+export const reportError = async (
+  error: Error | string,
+  context?: {
+    contexts?: Record<string, any>;
+    tags?: Record<string, string>;
+    extra?: Record<string, any>;
+    user?: { id?: string; email?: string; username?: string };
+    level?: 'fatal' | 'error' | 'warning' | 'info' | 'debug';
+    fingerprint?: string[];
+  }
+) => {
+  if (typeof window === 'undefined') return;
+
+  const errorObj = typeof error === 'string' ? new Error(error) : error;
+
+  try {
+    const Sentry = await import('@sentry/nextjs');
+    
+    // Set user context if provided
+    if (context?.user) {
+      Sentry.setUser(context.user);
+    }
+
+    // Set additional contexts
+    if (context?.contexts) {
+      Object.entries(context.contexts).forEach(([key, value]) => {
+        Sentry.setContext(key, value);
+      });
+    }
+
+    // Set tags
+    if (context?.tags) {
+      Sentry.setTags(context.tags);
+    }
+
+    // Capture exception
+    Sentry.captureException(errorObj, {
+      level: context?.level || 'error',
+      extra: context?.extra,
+      fingerprint: context?.fingerprint,
+    });
+  } catch (sentryError) {
+    console.error('Failed to report error to Sentry:', sentryError);
+    // Fall back to error tracker
+    errorTracker.captureError(errorObj, context?.extra);
+  }
+};
+
+// Enhanced performance monitoring
+export const reportPerformance = async (
+  metric: {
+    name: string;
+    value: number;
+    unit?: string;
+    tags?: Record<string, string>;
+  }
+) => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const Sentry = await import('@sentry/nextjs');
+    
+    // Send custom metric to Sentry
+    Sentry.addBreadcrumb({
+      category: 'performance',
+      message: `${metric.name}: ${metric.value}${metric.unit || ''}`,
+      level: 'info',
+      data: metric.tags,
+    });
+
+    // Also track via user analytics
+    userAnalytics.track('performance_metric', {
+      metric_name: metric.name,
+      metric_value: metric.value,
+      metric_unit: metric.unit,
+      ...metric.tags,
+    });
+  } catch (error) {
+    console.error('Failed to report performance metric:', error);
+  }
 };
 
 // Type declarations for global objects

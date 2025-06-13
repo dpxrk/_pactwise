@@ -1,4 +1,4 @@
-import { QueryCtx, MutationCtx, ActionCtx, internalMutation } from "../_generated/server";
+import { QueryCtx, MutationCtx, ActionCtx, internalMutation, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
 import { defineTable } from "convex/server";
@@ -213,6 +213,40 @@ async function logRateLimit(
     metadata: data.metadata,
   });
 }
+
+/**
+ * Rate limit check for actions (called from action context)
+ */
+export const checkRateLimitAction = mutation({
+  args: {
+    operation: v.string(),
+    cost: v.optional(v.number()),
+    clerkId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    let userId: Id<"users"> | undefined;
+    
+    // Get user by Clerk ID if provided
+    if (args.clerkId) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
+        .first();
+      userId = user?._id;
+    }
+    
+    const rateLimitResult = await checkRateLimit(ctx, args.operation, {
+      userId,
+      cost: args.cost,
+    });
+    
+    if (!rateLimitResult.allowed) {
+      throw new ConvexError(`Rate limit exceeded for operation: ${args.operation}. Please try again in ${rateLimitResult.resetIn || 60} seconds.`);
+    }
+    
+    return rateLimitResult;
+  },
+});
 
 /**
  * Clean up old rate limit data

@@ -1,5 +1,5 @@
 import { QueryCtx, MutationCtx, DatabaseReader, DatabaseWriter } from "../_generated/server";
-import { Id } from "../_generated/dataModel";
+import { Id, Doc } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
 
 /**
@@ -82,21 +82,21 @@ export function hasPermission(
 /**
  * Secure query builder that automatically filters by enterprise
  */
-export class SecureQuery<T extends string> {
+export class SecureQuery<T extends keyof typeof import("../_generated/dataModel").default> {
   constructor(
     private ctx: QueryCtx | MutationCtx,
     private table: T,
     private securityContext: SecurityContext
   ) {}
 
-  async all(): Promise<any[]> {
+  async all(): Promise<Doc<T>[]> {
     return await this.ctx.db
-      .query(this.table as any)
-      .filter((q: any) => q.eq(q.field("enterpriseId"), this.securityContext.enterpriseId))
+      .query(this.table)
+      .filter((q) => q.eq(q.field("enterpriseId"), this.securityContext.enterpriseId))
       .collect();
   }
 
-  async byId(id: any): Promise<any | null> {
+  async byId(id: Id<T>): Promise<Doc<T> | null> {
     const doc = await this.ctx.db.get(id);
     if (!doc) return null;
     
@@ -108,10 +108,10 @@ export class SecureQuery<T extends string> {
     return doc;
   }
 
-  async where(filter: (q: any) => any): Promise<any[]> {
+  async where(filter: (q: any) => any): Promise<Doc<T>[]> {
     return await this.ctx.db
-      .query(this.table as any)
-      .filter((q: any) => 
+      .query(this.table)
+      .filter((q) => 
         q.and(
           q.eq(q.field("enterpriseId"), this.securityContext.enterpriseId),
           filter(q)
@@ -130,11 +130,11 @@ export class SecureMutation {
     private securityContext: SecurityContext
   ) {}
 
-  async insert(
-    table: string,
-    data: any,
+  async insert<T extends keyof typeof import("../_generated/dataModel").default>(
+    table: T,
+    data: Omit<Doc<T>, "_id" | "_creationTime" | "enterpriseId">,
     permission?: string
-  ): Promise<any> {
+  ): Promise<Id<T>> {
     // Check permission if specified
     if (permission && !hasPermission(this.securityContext, permission)) {
       throw new ConvexError(`Permission denied: ${permission}`);
@@ -144,14 +144,14 @@ export class SecureMutation {
     const secureData = {
       ...data,
       enterpriseId: this.securityContext.enterpriseId
-    };
+    } as any;
 
-    return await this.ctx.db.insert(table as any, secureData);
+    return await this.ctx.db.insert(table, secureData);
   }
 
-  async update(
-    id: any,
-    data: any,
+  async update<T extends keyof typeof import("../_generated/dataModel").default>(
+    id: Id<T>,
+    data: Partial<Omit<Doc<T>, "_id" | "_creationTime" | "enterpriseId">>,
     permission?: string
   ): Promise<void> {
     // Check permission if specified
@@ -170,13 +170,13 @@ export class SecureMutation {
     }
 
     // Remove enterprise ID from updates to prevent tampering
-    const { enterpriseId, ...safeData } = data;
+    const { enterpriseId, ...safeData } = data as any;
     
     await this.ctx.db.patch(id, safeData);
   }
 
-  async delete(
-    id: any,
+  async delete<T extends keyof typeof import("../_generated/dataModel").default>(
+    id: Id<T>,
     permission?: string
   ): Promise<void> {
     // Check permission if specified
@@ -198,7 +198,10 @@ export class SecureMutation {
   }
 
   // Helper method for byId that's used in secureContractOperations.ts
-  async byId(table: string, id: any): Promise<any | null> {
+  async byId<T extends keyof typeof import("../_generated/dataModel").default>(
+    table: T, 
+    id: Id<T>
+  ): Promise<Doc<T> | null> {
     const doc = await this.ctx.db.get(id);
     if (!doc) return null;
     

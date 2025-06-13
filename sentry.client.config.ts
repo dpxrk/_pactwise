@@ -26,11 +26,7 @@ Sentry.init({
     }),
     new Sentry.BrowserTracing({
       // Set up automatic route change tracking for Next.js App Router
-      routingInstrumentation: Sentry.nextjsRouterInstrumentation({
-        useEffect: React.useEffect,
-        useRouter: require('next/router').useRouter,
-        usePathname: require('next/navigation').usePathname,
-      }),
+      routingInstrumentation: Sentry.nextjsRouterInstrumentation(),
     }),
   ],
 
