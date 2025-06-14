@@ -27,16 +27,16 @@ export interface ToastAction {
 }
 
 export interface CustomToastOptions {
-  title?: string;
-  description?: string;
-  duration?: number;
-  action?: ToastAction;
+  title: string 
+  description: string 
+  duration: number;
+  action: ToastAction;
   onDismiss?: () => void;
   dismissible?: boolean;
-  position?: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
-  className?: string;
-  id?: string;
-  data?: Record<string, any>;
+  position: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+  className: string;
+  id: string;
+  data: Record<string, any>;
 }
 
 export interface PromiseToastOptions {
@@ -62,7 +62,7 @@ const CustomToast = ({
   data 
 }: {
   type: ToastType;
-  title?: string;
+  title?: string ;
   description?: string;
   action?: ToastAction;
   onDismiss?: () => void;
@@ -146,7 +146,7 @@ export const showToast = {
       (t) => (
         <CustomToast
           type="success"
-          title={options?.title}
+          title={options?.title ?? ''}
           description={message}
           action={options?.action}
           onDismiss={() => toast.dismiss(t)}

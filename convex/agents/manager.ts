@@ -144,7 +144,6 @@ export const startAgentSystem = mutation({
       isRunning: true,
       status: "running",
       lastStarted: new Date().toISOString(),
-      errorMessage: undefined,
     });
 
     const manager = await ctx.db

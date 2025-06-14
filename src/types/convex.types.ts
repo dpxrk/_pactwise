@@ -1,6 +1,6 @@
 // Enhanced type definitions for Convex operations and data structures
 
-import { type QueryCtx, type MutationCtx, type ActionCtx } from "../convex/_generated/server";
+import { type QueryCtx, type MutationCtx, type ActionCtx } from "../../convex/_generated/server";
 import { Id, TableNames } from "../../convex/_generated/dataModel";
 
 // Convex Context Types

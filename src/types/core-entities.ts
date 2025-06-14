@@ -3,7 +3,7 @@
  * These provide type safety for contracts, users, vendors, and other core entities
  */
 
-import { Id, Doc } from "../../convex/_generated/dataModel";
+import { Id, Doc, TableNames } from "../../convex/_generated/dataModel";
 
 // ============================================================================
 // CORE ENTITY INTERFACES
@@ -64,7 +64,7 @@ export interface UserEntity extends Doc<"users"> {
  */
 export interface VendorEntity extends Doc<"vendors"> {
   _id: Id<"vendors">;
-  _creationTime?: number;
+  _creationTime: number;
   enterpriseId: Id<"enterprises">;
   name: string;
   contactEmail?: string;
@@ -100,10 +100,10 @@ export interface EnterpriseEntity extends Doc<"enterprises"> {
  */
 export interface TypedQueryContext {
   db: {
-    query: <T extends keyof typeof import("../../convex/_generated/dataModel").default>(
+    query: <T extends TableNames>(
       table: T
     ) => any;
-    get: <T extends keyof typeof import("../../convex/_generated/dataModel").default>(
+    get: <T extends TableNames>(
       id: Id<T>
     ) => Promise<Doc<T> | null>;
   };
@@ -117,15 +117,15 @@ export interface TypedQueryContext {
  */
 export interface TypedMutationContext extends TypedQueryContext {
   db: TypedQueryContext["db"] & {
-    insert: <T extends keyof typeof import("../../convex/_generated/dataModel").default>(
+    insert: <T extends TableNames>(
       table: T,
       value: any
     ) => Promise<Id<T>>;
-    patch: <T extends keyof typeof import("../../convex/_generated/dataModel").default>(
+    patch: <T extends TableNames>(
       id: Id<T>,
       value: Partial<Doc<T>>
     ) => Promise<void>;
-    replace: <T extends keyof typeof import("../../convex/_generated/dataModel").default>(
+    replace: <T extends TableNames>(
       id: Id<T>,
       value: Doc<T>
     ) => Promise<void>;
@@ -315,11 +315,11 @@ export interface TypedNotification extends Doc<"notifications"> {
   _creationTime: number;
   enterpriseId: Id<"enterprises">;
   userId?: Id<"users">;
-  type: "contract_expiry" | "approval_required" | "system_alert" | "payment_due" | "renewal_reminder";
+  type: "contract_expiration" | "contract_created" | "approval_required" | "payment_reminder" | "vendor_risk_alert" | "compliance_issue" | "task_assigned" | "system_alert" | "digest";
   title: string;
   message: string;
-  status: "pending" | "sent" | "failed" | "read";
-  priority: "low" | "medium" | "high" | "urgent";
+  status: "pending" | "failed" | "scheduled" | "sending" | "delivered" | "failed_permanently" | "batched" | "batched_sent" | "archived";
+  priority: "low" | "medium" | "high" | "critical";
   channels: ("email" | "in_app" | "sms")[];
   scheduledFor?: string;
   sentAt?: string;

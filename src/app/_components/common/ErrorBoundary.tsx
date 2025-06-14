@@ -23,17 +23,19 @@ interface State {
   errorInfo: ErrorInfo | null;
   eventId: string | null;
   isExpanded: boolean;
+  setIsExpanded: (isExpanded:boolean) => void;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   private retryTimeoutId: NodeJS.Timeout | null = null;
 
-  public state: State = {
+  public override state: State = {
     hasError: false,
     error: null,
     errorInfo: null,
     eventId: null,
     isExpanded: false,
+    setIsExpanded:() => {}
   };
 
   public static getDerivedStateFromError(error: Error): Partial<State> {
@@ -45,7 +47,7 @@ export class ErrorBoundary extends Component<Props, State> {
     };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log error details
     console.error('ErrorBoundary caught an error:', error, errorInfo);
 
@@ -88,7 +90,7 @@ export class ErrorBoundary extends Component<Props, State> {
             }
           },
           tags: {
-            errorBoundary: true,
+            errorBoundary: 'true',
             component: 'ErrorBoundary',
             isolate: this.props.isolate ? 'true' : 'false'
           },
@@ -184,7 +186,7 @@ export class ErrorBoundary extends Component<Props, State> {
     return 'Application';
   };
 
-  public render() {
+  public override render() {
     const { hasError, error, errorInfo, eventId, isExpanded } = this.state;
     const { children, fallback, showErrorDetails = true } = this.props;
 

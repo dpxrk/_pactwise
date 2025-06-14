@@ -786,14 +786,14 @@ async function createExecutiveDashboard(
   const dashboard = {
     overview: {
       totalContracts: contracts.length,
-      activeContracts: contracts.filter(c => c.status === "active").length,
+      activeContracts: contracts.filter((c: any) => c.status === "active").length,
       totalVendors: vendors.length,
-      activeVendors: vendors.filter(v => 
-        contracts.some(c => c.vendorId === v._id && c.status === "active")
+      activeVendors: vendors.filter((v: any) => 
+        contracts.some((c: any) => c.vendorId === v._id && c.status === "active")
       ).length,
     },
     financial: {
-      totalContractValue: contracts.reduce((sum, c) => 
+      totalContractValue: contracts.reduce((sum: number, c: any) => 
         sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0
       ),
       monthlyBurn: 0, // Would calculate from payment schedules
@@ -806,7 +806,7 @@ async function createExecutiveDashboard(
       avgContractCycleTime: 0,
     },
     alerts: {
-      expiringContracts: contracts.filter(c => {
+      expiringContracts: contracts.filter((c: any) => {
         if (!c.extractedEndDate) return false;
         const daysUntil = Math.ceil(
           (new Date(c.extractedEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
@@ -892,8 +892,8 @@ function analyzeVolumeTrends(contracts: any[]): any {
   const recentMonths = months.slice(-3);
   const recentVolumes = recentMonths.map(m => monthlyVolume[m]);
   
-  const avgFirst = recentVolumes[0];
-  const avgLast = recentVolumes[recentVolumes.length - 1];
+  const avgFirst = recentVolumes[0] || 0;
+  const avgLast = recentVolumes[recentVolumes.length - 1] || 0;
   const changeRate = avgFirst > 0 ? (avgLast - avgFirst) / avgFirst : 0;
   
   return {
@@ -1013,7 +1013,7 @@ function groupByQuarter(monthlyData: Record<string, number>): Record<string, num
   
   Object.entries(monthlyData).forEach(([month, value]) => {
     const [year, monthNum] = month.split('-');
-    const quarter = Math.ceil(parseInt(monthNum) / 3);
+    const quarter = Math.ceil(parseInt(monthNum || '1') / 3);
     const quarterKey = `${year}-Q${quarter}`;
     quarters[quarterKey] = (quarters[quarterKey] || 0) + value;
   });
@@ -1030,11 +1030,11 @@ function calculateYoYGrowth(monthlySpend: Record<string, number>): number {
   let lastYearTotal = 0;
   
   Object.entries(monthlySpend).forEach(([month, value]) => {
-    const year = parseInt(month.split('-')[0]);
+    const year = parseInt(month.split('-')[0] || '0');
     if (year === currentYear) {
-      currentYearTotal += value;
+      currentYearTotal += value || 0;
     } else if (year === lastYear) {
-      lastYearTotal += value;
+      lastYearTotal += value || 0;
     }
   });
   
@@ -1056,14 +1056,16 @@ function analyzeSpendingPatterns(contracts: any[]): any {
   const monthlyCounts: number[] = new Array(12).fill(0);
   
   Object.entries(monthlySpend).forEach(([month, value]) => {
-    const monthNum = parseInt(month.split('-')[1]) - 1;
-    monthlyAverages[monthNum] += value;
-    monthlyCounts[monthNum]++;
+    const monthNum = Math.max(0, Math.min(11, parseInt(month.split('-')[1] || '1') - 1));
+    if (monthlyAverages[monthNum] !== undefined && monthlyCounts[monthNum] !== undefined) {
+      monthlyAverages[monthNum] += value || 0;
+      monthlyCounts[monthNum]++;
+    }
   });
   
   for (let i = 0; i < 12; i++) {
-    if (monthlyCounts[i] > 0) {
-      monthlyAverages[i] /= monthlyCounts[i];
+    if ((monthlyCounts[i] || 0) > 0 && (monthlyAverages[i] || 0) > 0) {
+      monthlyAverages[i] = (monthlyAverages[i] || 0) / (monthlyCounts[i] || 1);
     }
   }
   
@@ -1078,7 +1080,8 @@ function analyzeSpendingPatterns(contracts: any[]): any {
       variance: maxVariance,
     },
     monthlyAverages,
-    trend: monthlyValues.length > 1 && monthlyValues[monthlyValues.length - 1] > monthlyValues[0] 
+    trend: monthlyValues && monthlyValues.length > 1 && 
+           (monthlyValues[monthlyValues.length - 1] || 0) > (monthlyValues[0] || 0)
       ? "increasing" : "decreasing",
   };
 }
@@ -1177,7 +1180,7 @@ async function detectVendorActivityAnomalies(ctx: any): Promise<any[]> {
   
   // Count contracts per vendor
   const vendorActivity: Record<string, number> = {};
-  recentContracts.forEach(contract => {
+  recentContracts.forEach((contract: any) => {
     const vendorId = contract.vendorId.toString();
     vendorActivity[vendorId] = (vendorActivity[vendorId] || 0) + 1;
   });
@@ -1281,8 +1284,8 @@ function forecastSpending(contracts: any[]): any {
   
   // Calculate average monthly spend
   const recentMonths = months.slice(-6);
-  const recentSpend = recentMonths.map(m => monthlySpend[m]);
-  const avgMonthlySpend = recentSpend.reduce((sum, v) => sum + v, 0) / recentSpend.length;
+  const recentSpend = recentMonths.map(m => monthlySpend[m] || 0);
+  const avgMonthlySpend = recentSpend.reduce((sum, v) => sum + (v || 0), 0) / recentSpend.length;
   
   // Add seasonality adjustment
   const currentMonth = new Date().getMonth();
@@ -1484,10 +1487,10 @@ async function gatherWeeklyMetrics(ctx: any, since: Date): Promise<any> {
     startDate: since.toISOString(),
     endDate: new Date().toISOString(),
     newContracts: contracts.length,
-    totalValue: contracts.reduce((sum, c) => 
+    totalValue: contracts.reduce((sum: number, c: any) => 
       sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0
     ),
-    byStatus: contracts.reduce((acc, c) => {
+    byStatus: contracts.reduce((acc: Record<string, number>, c: any) => {
       acc[c.status] = (acc[c.status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>),
@@ -1512,29 +1515,29 @@ async function gatherMonthlyMetrics(ctx: any, since: Date): Promise<any> {
   ]);
 
   // Filter contracts by period
-  const periodContracts = contracts.filter(c => 
+  const periodContracts = contracts.filter((c: any) => 
     c._creationTime && c._creationTime >= since.getTime()
   );
   const previousPeriodStart = new Date(since.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const previousPeriodContracts = contracts.filter(c => 
+  const previousPeriodContracts = contracts.filter((c: any) => 
     c._creationTime && 
     c._creationTime >= previousPeriodStart.getTime() && 
     c._creationTime < since.getTime()
   );
 
   // Calculate comprehensive metrics
-  const activeContracts = contracts.filter(c => c.status === "active");
-  const expiredThisPeriod = periodContracts.filter(c => c.status === "expired");
-  const newActiveContracts = periodContracts.filter(c => c.status === "active");
+  const activeContracts = contracts.filter((c: any) => c.status === "active");
+  const expiredThisPeriod = periodContracts.filter((c: any) => c.status === "expired");
+  const newActiveContracts = periodContracts.filter((c: any) => c.status === "active");
 
   // Financial metrics
-  const totalValue = activeContracts.reduce((sum, c) => 
+  const totalValue = activeContracts.reduce((sum: number, c: any) => 
     sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0
   );
-  const periodValue = periodContracts.reduce((sum, c) => 
+  const periodValue = periodContracts.reduce((sum: number, c: any) => 
     sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0
   );
-  const previousPeriodValue = previousPeriodContracts.reduce((sum, c) => 
+  const previousPeriodValue = previousPeriodContracts.reduce((sum: number, c: any) => 
     sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0
   );
   const valueGrowth = previousPeriodValue > 0 
@@ -1542,27 +1545,27 @@ async function gatherMonthlyMetrics(ctx: any, since: Date): Promise<any> {
     : 0;
 
   // Vendor metrics
-  const activeVendors = new Set(activeContracts.map(c => c.vendorId.toString())).size;
-  const newVendors = vendors.filter(v => 
+  const activeVendors = new Set(activeContracts.map((c: any) => c.vendorId.toString())).size;
+  const newVendors = vendors.filter((v: any) => 
     v._creationTime && v._creationTime >= since.getTime()
   ).length;
 
   // Contract cycle time (simplified - would track actual status changes in production)
-  const completedContracts = periodContracts.filter(c => 
+  const completedContracts = periodContracts.filter((c: any) => 
     c.analysisStatus === "completed" && c._creationTime
   );
   const avgCycleTime = completedContracts.length > 0
-    ? completedContracts.reduce((sum, c) => sum + 7, 0) / completedContracts.length // Placeholder
+    ? completedContracts.reduce((sum: number, c: any) => sum + 7, 0) / completedContracts.length // Placeholder
     : 0;
 
   // Risk metrics
-  const highRiskInsights = insights.filter(i => 
+  const highRiskInsights = insights.filter((i: any) => 
     i.priority === "critical" || (i.priority === "high" && i.actionRequired)
   );
-  const resolvedRisks = insights.filter(i => i.actionTaken).length;
+  const resolvedRisks = insights.filter((i: any) => i.actionTaken).length;
 
   // Compliance metrics
-  const complianceIssues = insights.filter(i => 
+  const complianceIssues = insights.filter((i: any) => 
     i.type === "compliance_alert" || i.type === "legal_review"
   );
   const complianceRate = activeContracts.length > 0
@@ -1570,14 +1573,14 @@ async function gatherMonthlyMetrics(ctx: any, since: Date): Promise<any> {
     : 1;
 
   // Cost savings
-  const savingsInsights = insights.filter(i => i.type === "cost_optimization");
-  const identifiedSavings = savingsInsights.reduce((sum, i) => 
+  const savingsInsights = insights.filter((i: any) => i.type === "cost_optimization");
+  const identifiedSavings = savingsInsights.reduce((sum: number, i: any) => 
     sum + (i.data?.potentialSavings || 0), 0
   );
 
   // Upcoming expirations
   const next30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-  const expiringNext30Days = activeContracts.filter(c => {
+  const expiringNext30Days = activeContracts.filter((c: any) => {
     if (!c.extractedEndDate) return false;
     const endDate = new Date(c.extractedEndDate);
     return endDate <= next30Days && endDate > now;
@@ -1649,11 +1652,11 @@ async function gatherMonthlyMetrics(ctx: any, since: Date): Promise<any> {
     },
     
     contractMetrics: {
-      byStatus: periodContracts.reduce((acc, c) => {
+      byStatus: periodContracts.reduce((acc: Record<string, number>, c: any) => {
         acc[c.status] = (acc[c.status] || 0) + 1;
         return acc;
       }, {} as Record<string, number>),
-      byType: periodContracts.reduce((acc, c) => {
+      byType: periodContracts.reduce((acc: Record<string, number>, c: any) => {
         const type = c.contractType || "other";
         acc[type] = (acc[type] || 0) + 1;
         return acc;
@@ -1673,7 +1676,7 @@ async function gatherMonthlyMetrics(ctx: any, since: Date): Promise<any> {
       totalRisksIdentified: highRiskInsights.length,
       risksResolved: resolvedRisks,
       openRisks: highRiskInsights.length - resolvedRisks,
-      risksByType: highRiskInsights.reduce((acc, i) => {
+      risksByType: highRiskInsights.reduce((acc: Record<string, number>, i: any) => {
         acc[i.type] = (acc[i.type] || 0) + 1;
         return acc;
       }, {} as Record<string, number>),
@@ -1681,10 +1684,10 @@ async function gatherMonthlyMetrics(ctx: any, since: Date): Promise<any> {
     
     upcomingEvents: {
       contractsExpiringNext30Days: expiringNext30Days.length,
-      expiringValue: expiringNext30Days.reduce((sum, c) => 
+      expiringValue: expiringNext30Days.reduce((sum: number, c: any) => 
         sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0
       ),
-      upcomingRenewals: expiringNext30Days.filter(c => 
+      upcomingRenewals: expiringNext30Days.filter((c: any) => 
         c.metadata?.autoRenewal || c.contractType === "saas"
       ).length,
       paymentsDueNext30Days: calculateUpcomingPayments(activeContracts, 30),
@@ -1692,10 +1695,10 @@ async function gatherMonthlyMetrics(ctx: any, since: Date): Promise<any> {
     
     performanceIndicators: {
       taskCompletionRate: tasks.length > 0 
-        ? (tasks.filter(t => t.status === "completed").length / tasks.length) * 100 
+        ? (tasks.filter((t: any) => t.status === "completed").length / tasks.length) * 100 
         : 100,
       insightActionRate: insights.length > 0
-        ? (insights.filter(i => i.actionTaken).length / insights.filter(i => i.actionRequired).length) * 100
+        ? (insights.filter((i: any) => i.actionTaken).length / insights.filter((i: any) => i.actionRequired).length) * 100
         : 100,
       systemUptime: 99.9, // Would calculate from agent logs
       dataQuality: calculateDataQualityScore(activeContracts),
@@ -1722,23 +1725,23 @@ async function gatherQuarterlyMetrics(ctx: any, since: Date): Promise<any> {
   ]);
 
   // Period filtering
-  const quarterContracts = contracts.filter(c => 
+  const quarterContracts = contracts.filter((c: any) => 
     c._creationTime && c._creationTime >= quarterStart.getTime()
   );
-  const previousQuarterContracts = contracts.filter(c => 
+  const previousQuarterContracts = contracts.filter((c: any) => 
     c._creationTime && 
     c._creationTime >= previousQuarterStart.getTime() && 
     c._creationTime < quarterStart.getTime()
   );
-  const yearAgoQuarterContracts = contracts.filter(c => 
+  const yearAgoQuarterContracts = contracts.filter((c: any) => 
     c._creationTime && 
     c._creationTime >= yearAgoStart.getTime() && 
     c._creationTime < (yearAgoStart.getTime() + 90 * 24 * 60 * 60 * 1000)
   );
 
   // Active contracts analysis
-  const activeContracts = contracts.filter(c => c.status === "active");
-  const activeContractValue = activeContracts.reduce((sum, c) => 
+  const activeContracts = contracts.filter((c: any) => c.status === "active");
+  const activeContractValue = activeContracts.reduce((sum: number, c: any) => 
     sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0
   );
 
@@ -2354,19 +2357,19 @@ function analyzeExpirationSchedule(contracts: any[]): any {
   
   contracts.forEach(contract => {
     if (!contract.extractedEndDate) {
-      schedule.noEndDate++;
+      schedule.noEndDate = (schedule.noEndDate || 0) + 1;
       return;
     }
     
     const endDate = new Date(contract.extractedEndDate);
     const daysUntil = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     
-    if (daysUntil < 0) schedule.expired++;
-    else if (daysUntil <= 30) schedule.within30Days++;
-    else if (daysUntil <= 90) schedule.within90Days++;
-    else if (daysUntil <= 180) schedule.within180Days++;
-    else if (daysUntil <= 365) schedule.within1Year++;
-    else schedule.beyond1Year++;
+    if (daysUntil < 0) schedule.expired = (schedule.expired || 0) + 1;
+    else if (daysUntil <= 30) schedule.within30Days = (schedule.within30Days || 0) + 1;
+    else if (daysUntil <= 90) schedule.within90Days = (schedule.within90Days || 0) + 1;
+    else if (daysUntil <= 180) schedule.within180Days = (schedule.within180Days || 0) + 1;
+    else if (daysUntil <= 365) schedule.within1Year = (schedule.within1Year || 0) + 1;
+    else schedule.beyond1Year = (schedule.beyond1Year || 0) + 1;
   });
   
   return schedule;
@@ -2617,17 +2620,17 @@ function analyzeSpendTrend(contracts: any[]): any {
   if (months.length < 3) return { trend: "insufficient_data" };
   
   const recentMonths = months.slice(-12);
-  const values = recentMonths.map(m => monthlySpend[m]);
+  const values = recentMonths.map(m => monthlySpend[m] || 0);
   
   // Simple linear regression
   const n = values.length;
   const sumX = n * (n - 1) / 2;
-  const sumY = values.reduce((a, b) => a + b, 0);
-  const sumXY = values.reduce((sum, val, i) => sum + (val * i), 0);
+  const sumY = values.reduce((a, b) => (a || 0) + (b || 0), 0);
+  const sumXY = values.reduce((sum, val, i) => (sum || 0) + ((val || 0) * i), 0);
   const sumXX = n * (n - 1) * (2 * n - 1) / 6;
   
-  const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-  const intercept = (sumY - slope * sumX) / n;
+  const slope = (n * (sumXY || 0) - sumX * (sumY || 0)) / (n * sumXX - sumX * sumX);
+  const intercept = ((sumY || 0) - slope * sumX) / n;
   
   return {
     trend: slope > 0 ? "increasing" : "decreasing",
@@ -2815,8 +2818,10 @@ function analyzeRiskTrends(insights: any[]): any {
     });
   
   const months = Object.keys(monthlyRisks).sort();
-  const trend = months.length >= 3 && 
-    monthlyRisks[months[months.length - 1]] > monthlyRisks[months[0]]
+  const lastMonth = months[months.length - 1];
+  const firstMonth = months[0];
+  const trend = months.length >= 3 && lastMonth && firstMonth &&
+    (monthlyRisks[lastMonth] || 0) > (monthlyRisks[firstMonth] || 0)
     ? "increasing" : "stable";
   
   return { monthlyRisks, trend };
@@ -3168,7 +3173,7 @@ export const getTrends = internalQuery({
     
     if (args.trendType) {
       return insights.filter(i => 
-        i.title.toLowerCase().includes(args.trendType.replace("_", " "))
+        i.title.toLowerCase().includes((args.trendType || "").replace("_", " "))
       );
     }
     

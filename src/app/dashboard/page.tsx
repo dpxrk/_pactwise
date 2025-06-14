@@ -6,7 +6,8 @@ import { useQuery } from 'convex/react';
 import { api } from "../../../convex/_generated/api";
 
 interface HomeDashboardProps {
-  children?: React.ReactNode;
+  params?: Promise<{ [key: string]: string | string[] | undefined }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 const HomeDashboard: React.FC<HomeDashboardProps> = () => {

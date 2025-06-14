@@ -96,7 +96,7 @@ export const searchAll = query({
       ...contractResults.map(r => ({ ...r, type: 'contract' as const })),
       ...vendorResults.map(r => ({ ...r, type: 'vendor' as const })),
       ...userResults.map(r => ({ ...r, type: 'user' as const })),
-    ].sort((a, b) => b.relevance - a.relevance);
+    ].sort((a, b) => b.score - a.score);
 
     return {
       results: allResults.slice(0, limit),
@@ -177,13 +177,13 @@ export const searchContractsWithAdvancedFilters = query({
 
     // Apply filters
     if (args.filters) {
-      contracts = await applyContractFilters(ctx, contracts, args.filters);
+      contracts = await applyContractFilters(ctx, contracts, args.filters as ContractFilters);
     }
 
     // Search and score
     let results = [];
     if (searchQuery.length >= SEARCH_CONFIG.minQueryLength) {
-      results = await scoreContractResults(ctx, contracts, searchQuery);
+      results = await scoreContractResults(contracts, searchQuery);
     } else {
       // No search query, just return filtered results
       results = contracts.map(contract => ({
@@ -282,7 +282,7 @@ export const searchVendorsWithFilters = query({
     // Search and score
     let results = [];
     if (searchQuery.length >= SEARCH_CONFIG.minQueryLength) {
-      results = await scoreVendorResults(ctx, vendors, searchQuery);
+      results = await scoreVendorResults(vendors, searchQuery);
     } else {
       results = vendors.map(vendor => ({
         ...vendor,

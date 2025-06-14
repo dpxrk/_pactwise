@@ -75,6 +75,24 @@ export const AgentSystemStatus: React.FC<AgentSystemStatusProps> = ({
   }
 
   const { system, stats } = systemStatus;
+  
+  if (!system) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <AlertTriangle className="h-16 w-16 text-yellow-500 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">System Data Unavailable</h3>
+          <p className="text-muted-foreground text-center mb-6 max-w-md">
+            Unable to load agent system information. Please try refreshing.
+          </p>
+          <Button onClick={onRefreshStatus} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh Status
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const getSystemStatusColor = (status: string) => {
     switch (status) {

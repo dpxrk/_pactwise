@@ -1,6 +1,6 @@
 'use client';
 
-import { getCLS, getFID, getFCP, getLCP, getTTFB, onCLS, onFCP, onFID, onLCP, onTTFB } from 'web-vitals';
+import { getCLS, getINP, getFCP, getLCP, getTTFB, onCLS, onFCP, onINP, onLCP, onTTFB } from 'web-vitals';
 
 // Web Vitals tracking
 interface WebVitalsMetric {
@@ -26,7 +26,7 @@ class PerformanceTracker {
   private initializeWebVitals() {
     // Track Core Web Vitals
     onCLS((metric) => this.handleMetric({ ...metric, name: 'CLS' }));
-    onFID((metric) => this.handleMetric({ ...metric, name: 'FID' }));
+    onINP((metric) => this.handleMetric({ ...metric, name: 'INP' }));
     onLCP((metric) => this.handleMetric({ ...metric, name: 'LCP' }));
     onFCP((metric) => this.handleMetric({ ...metric, name: 'FCP' }));
     onTTFB((metric) => this.handleMetric({ ...metric, name: 'TTFB' }));

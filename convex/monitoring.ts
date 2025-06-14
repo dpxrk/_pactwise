@@ -276,23 +276,20 @@ export const getHealthStatus = query({
       // Check database connectivity by counting users
       const userCount = await ctx.db.query("users").collect().then(users => users.length);
       
-      // Check if we can write/read (simple test)
-      const testId = await ctx.db.insert("health_checks", {
-        timestamp: now,
-        status: "test",
-        createdAt: new Date().toISOString(),
-      });
-      
-      const testRecord = await ctx.db.get(testId);
-      
-      // Clean up test record
-      await ctx.db.delete(testId);
+      // Check if we can read (removed write test since this is a query)
+      // const testId = await ctx.db.insert("health_checks", {
+      //   timestamp: now,
+      //   status: "test",
+      //   createdAt: new Date().toISOString(),
+      // });
+      // const testRecord = await ctx.db.get(testId);
+      // await ctx.db.delete(testId);
 
       return {
         status: "healthy",
         timestamp: new Date().toISOString(),
         checks: {
-          database: testRecord ? "ok" : "error",
+          database: "ok", // Simplified health check (write operations removed)
           userCount,
           responseTime: Date.now() - now,
         },

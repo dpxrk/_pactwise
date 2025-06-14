@@ -113,19 +113,27 @@ export const createContract = mutation({
     }
 
     // Create the contract
-    const contractId = await ctx.db.insert("contracts", {
+    const contractData: any = {
       enterpriseId: args.enterpriseId,
       vendorId: args.vendorId,
       title: args.title.trim(),
       status: "draft",
-      contractType: args.contractType,
       storageId: args.storageId,
       fileName: args.fileName,
       fileType: args.fileType,
       analysisStatus: "pending",
-      notes: args.notes?.trim() || undefined,
-      createdAt: ""
-    });
+      createdAt: new Date().toISOString()
+    };
+    
+    if (args.contractType) {
+      contractData.contractType = args.contractType;
+    }
+    
+    if (args.notes?.trim()) {
+      contractData.notes = args.notes.trim();
+    }
+    
+    const contractId = await ctx.db.insert("contracts", contractData);
 
     // Trigger real-time event
     await triggerContractEvents(
@@ -205,7 +213,7 @@ export const getContracts = query({
     
     if (args.cursor) {
       // Continue from cursor
-      const result = await paginationBuilder.paginate({ cursor: args.cursor, numItems: limit });
+      const result = await paginationBuilder.paginate({ numItems: limit, cursor: args.cursor });
       contracts = result.page;
       nextCursor = result.continueCursor;
     } else {
@@ -261,7 +269,7 @@ export const getContractsSimple = query({
   args: {
     enterpriseId: v.id("enterprises"),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<any[]> => {
     const result = await ctx.runQuery(api.contracts.getContracts, {
       enterpriseId: args.enterpriseId,
       limit: 100, // Get first 100 contracts

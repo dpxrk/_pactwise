@@ -691,7 +691,14 @@ async function analyzeContractForClauses(contract: any, requiredClauses: string[
 }
 
 function calculateLegalDeadlines(contract: any): any[] {
-  const deadlines = [];
+  const deadlines: Array<{
+    type: string;
+    description: string;
+    dueDate: string;
+    daysUntil: number;
+    warningDays: number;
+    requiredAction: string;
+  }> = [];
   const now = new Date();
 
   if (contract.extractedEndDate) {
@@ -1076,7 +1083,7 @@ async function createComplianceTask(ctx: any, agentId: Id<"agents">, contract: a
 }
 
 async function checkRequiredLegalElements(contract: any, contractType: string): Promise<string[]> {
-  const missingElements = [];
+  const missingElements: string[] = [];
   const contractText = [
     contract.extractedScope || '',
     contract.extractedPaymentSchedule || '',
@@ -1318,7 +1325,7 @@ function assessContractComplexity(contract: any): any {
 }
 
 function generateMitigationStrategies(riskFactors: any[]): string[] {
-  const strategies = [];
+  const strategies: string[] = [];
 
   for (const factor of riskFactors) {
     switch (factor.factor) {

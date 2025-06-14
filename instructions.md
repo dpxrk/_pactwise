@@ -1,217 +1,85 @@
-# TypeScript 'any' Types Analysis & Production Readiness
+# Next.js Development Server Error Fix
 
-## Overview
+## Issues Identified
 
-This document provides a comprehensive analysis of all `any` type instances found in the repomix-output.xml file and outlines the requirements for making the codebase production-ready.
+1. **Web Vitals Import Error**: The `onFID` export no longer exists in the web-vitals package
+2. **Missing Dependency**: The `critters` module is not installed
 
-## All "any" Types Found
+## Solutions
 
-### 1. Security Wrapper Issues (CRITICAL)
-```typescript
-userId: "action-user" as any,
-enterpriseId: "action-enterprise" as any,
-role: "user" as any,
-```
-**Location**: `convex/security/secureWrapper.ts`
-**Risk**: High - Authentication bypass vulnerability
+### 1. Fix Web Vitals Import Error
 
-### 2. Function Parameters and Arguments
-```typescript
-createSecureAction<Args extends Record<string, any>, Output>
-createSecureMutation<Args extends Record<string, any>, Output>
-createSecureQuery<Args extends Record<string, any>, Output>
-```
-**Location**: Security wrapper functions
-**Risk**: Medium - Type safety issues
+The `web-vitals` library has deprecated `FID` (First Input Delay) in favor of `INP` (Interaction to Next Paint). You need to update your imports in `/src/lib/monitoring.ts`.
 
-### 3. Context and Type Declarations
-```typescript
-async function getContractFacets(ctx: any, contracts: any[]): Promise<any>
-function getVendorCategoryFacets(vendors: any[]): Record<string, number>
-function getUserRoleFacets(users: any[]): Record<string, number>
-function getUserDepartmentFacets(users: any[]): Record<string, number>
-async function applyContractFilters(ctx: any, contracts: any[], filters: any): Promise<any[]>
-function scoreContractResults(contracts: any[], query: string): any[]
-function scoreVendorResults(vendors: any[], query: string): any[]
-function scoreUserResults(users: any[], query: string): any[]
-```
-**Location**: Search and filtering functions
-**Risk**: Medium - Runtime errors possible
-
-### 4. CSV Generation Functions
-```typescript
-function generateCSV(contracts: any[]): string
-rows.map((row: any) => row.join(","))
-contracts.map((c: any) => [...])
-```
-**Location**: CSV export functionality
-**Risk**: Low - Data integrity issues
-
-### 5. Onboarding Updates
-```typescript
-const updates: any = {
-metadata: v.optional(v.any()),
-```
-**Location**: Onboarding system
-**Risk**: Medium - Data validation issues
-
-### 6. Notification System
-```typescript
-type: (args.type || "system_alert") as any,
-```
-**Location**: Notification handlers
-**Risk**: Low - Type casting issues
-
-### 7. API Type Declarations
-```typescript
-export declare const api: FilterApi<typeof fullApi, FunctionReference<any, "public">>;
-export declare const internal: FilterApi<typeof fullApi, FunctionReference<any, "internal">>;
-```
-**Location**: API declarations
-**Risk**: Medium - API contract issues
-
-### 8. Error Handling
-```typescript
-public async handleComponentError(error: any, component: string, props?: any): Promise<AppError>
-public async handleUserError(error: any, userId?: string, action?: string): Promise<AppError>
-public async handleApiError(error: any, endpoint?: string, operation?: string): Promise<AppError>
-metadata?: Record<string, any>;
-```
-**Location**: Error handling system
-**Risk**: Medium - Error reporting issues
-
-### 9. Color Helper Function
-```typescript
-let color: any = colors;
-```
-**Location**: Utility functions
-**Risk**: Low - UI inconsistencies
-
-### 10. Additional Search Functions
-Various `any` types in search result scoring and filtering functions throughout the codebase.
-
-## Production-Ready Requirements
-
-### IMMEDIATE (Critical Security Fixes)
-
-#### 1. Fix Authentication Bypass
-- **File**: `convex/security/secureWrapper.ts`
-- **Issue**: Mock security context allows bypassing authentication
-- **Solution**: Implement proper JWT validation and user context
-- **Priority**: P0 - Must fix before any production deployment
-
-### HIGH PRIORITY (Type Safety & Core Functionality)
-
-#### 2. Replace All `any` Types
-Create proper TypeScript interfaces for:
+**Option A: Replace FID with INP**
 
 ```typescript
-// Contract Interface
-interface Contract {
-  _id: Id<"contracts">;
-  title: string;
-  vendor: string;
-  status: ContractStatus;
-  value: number;
-  startDate: string;
-  endDate: string;
-  // ... other properties
-}
+// src/lib/monitoring.ts
+'use client';
 
-// User Interface
-interface User {
-  _id: Id<"users">;
-  name: string;
-  email: string;
-  role: UserRole;
-  department: string;
-  // ... other properties
-}
+import { getCLS, getFCP, getLCP, getTTFB, getINP, onCLS, onFCP, onLCP, onTTFB, onINP } from 'web-vitals';
 
-// Context Types
-interface QueryContext extends QueryCtx {
-  user: User;
-  permissions: Permission[];
-}
+// Update your code to use INP instead of FID
+// Replace any references to FID with INP
 ```
 
-#### 3. Database Performance
-- Add missing database indexes
-- Optimize query patterns
-- Implement proper pagination
+**Option B: Remove FID completely**
 
-#### 4. Frontend Completeness
-- Create missing pages:
-  - Contract detail view
-  - Contract edit form
-  - Vendor detail view
-- Add error boundaries
-- Implement loading states
-- Add form validation
+```typescript
+// src/lib/monitoring.ts
+'use client';
 
-### MEDIUM PRIORITY (Infrastructure & Quality)
+import { getCLS, getFCP, getLCP, getTTFB, onCLS, onFCP, onLCP, onTTFB } from 'web-vitals';
 
-#### 5. Infrastructure Setup
-- Configure environment variables
-- Set up monitoring (Sentry integration)
-- Implement rate limiting
-- Add health check endpoints
-- Set up CI/CD pipeline
+// Remove any FID-related code
+```
 
-#### 6. Code Quality Improvements
-- Extract duplicate code into shared utilities
-- Add comprehensive error handling
-- Implement structured logging
-- Add unit and integration tests
-- Set up ESLint and Prettier rules
+### 2. Install Missing Critters Dependency
 
-### LOW PRIORITY (Documentation & Maintenance)
+The `critters` package is required by Next.js for CSS optimization. Install it:
 
-#### 7. Documentation
-- Create API documentation
-- Add inline code comments
-- Write deployment guide
-- Document security practices
-- Create user guides
+```bash
+npm install critters
+```
 
-## Risk Assessment
+or if you're using yarn:
 
-| Risk Level | Count | Impact |
-|------------|-------|--------|
-| **Critical** | 3 | Authentication bypass, data security |
-| **High** | 15+ | Type safety, runtime errors |
-| **Medium** | 10+ | Data integrity, API contracts |
-| **Low** | 5+ | UI consistency, minor bugs |
+```bash
+yarn add critters
+```
 
-## Recommended Timeline
+### 3. Complete Fix Steps
 
-### Week 1: Critical Security
-- Fix authentication bypass
-- Implement proper user context
-- Add basic authorization checks
+1. **Update your monitoring.ts file** with one of the options above
+2. **Install the missing dependency**:
+   ```bash
+   npm install critters
+   ```
+3. **Clear Next.js cache** (optional but recommended):
+   ```bash
+   rm -rf .next
+   ```
+4. **Restart your development server**:
+   ```bash
+   npm run dev
+   ```
 
-### Week 2-3: Type Safety
-- Create core interfaces (Contract, User, Vendor)
-- Replace context `any` types
-- Update function signatures
+## Additional Notes
 
-### Week 4-5: Frontend & Database
-- Complete missing UI components
-- Add database indexes
-- Implement error handling
+- The warning about Webpack configuration while using Turbopack is not critical but you may want to review your `next.config.js` if you have custom Webpack configurations
+- Make sure your `web-vitals` package is up to date:
+  ```bash
+  npm update web-vitals
+  ```
 
-### Week 6-7: Infrastructure
-- Set up monitoring
-- Add tests
-- Configure CI/CD
+## If Issues Persist
 
-### Week 8: Documentation & Polish
-- Complete documentation
-- Final security review
-- Performance optimization
+If you continue to have issues after these fixes:
 
-## Conclusion
-
-The codebase has **significant security vulnerabilities** and **type safety issues** that must be addressed before production deployment. The authentication bypass is the most critical issue requiring immediate attention.
-
-With systematic refactoring to remove `any` types and proper security implementation, this codebase can become production-ready within 6-8 weeks of focused development effort.
+1. Check your `package.json` to ensure all dependencies are properly listed
+2. Try deleting `node_modules` and `package-lock.json`, then reinstalling:
+   ```bash
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
+3. Ensure you're using a compatible Node.js version with Next.js 15.3.3 (Node.js 18.17 or later)

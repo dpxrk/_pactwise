@@ -219,7 +219,7 @@ export const upsertUser = mutation({
  * Get all users for a specific enterprise.
  * Requires the current user to be part of that enterprise.
  */
-export const getEnterpriseUsers = query({
+export const getEnterpriseUsersSecure = query({
   args: {
     enterpriseId: v.id("enterprises"),
   },

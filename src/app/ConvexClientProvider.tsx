@@ -52,6 +52,8 @@ function MonitoringProvider({ children }: { children: ReactNode }) {
         userAnalytics.flush();
       };
     }
+    // Return undefined if not in browser (SSR)
+    return undefined;
   }, []);
 
   return <>{children}</>;
