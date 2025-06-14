@@ -43,8 +43,8 @@ export const logAnalyticsEvent = mutation({
     // Store analytics event
     const eventId = await ctx.db.insert("analytics_events", {
       ...args,
-      authenticatedUserId: user?._id,
-      enterpriseId: user?.enterpriseId,
+      ...(user?._id && { authenticatedUserId: user._id }),
+      ...(user?.enterpriseId && { enterpriseId: user.enterpriseId }),
       serverTimestamp: Date.now(),
       createdAt: new Date().toISOString(),
     });
@@ -94,8 +94,8 @@ export const logAnalyticsEventBatch = mutation({
       validEvents.map(event => 
         ctx.db.insert("analytics_events", {
           ...event,
-          authenticatedUserId: user?._id,
-          enterpriseId: user?.enterpriseId,
+          ...(user?._id && { authenticatedUserId: user._id }),
+          ...(user?.enterpriseId && { enterpriseId: user.enterpriseId }),
           serverTimestamp: Date.now(),
           createdAt: new Date().toISOString(),
         })
@@ -188,8 +188,8 @@ export const reportError = mutation({
     // Store error report
     const errorId = await ctx.db.insert("error_reports", {
       ...args,
-      authenticatedUserId: user?._id,
-      enterpriseId: user?.enterpriseId,
+      ...(user?._id && { authenticatedUserId: user._id }),
+      ...(user?.enterpriseId && { enterpriseId: user.enterpriseId }),
       serverTimestamp: Date.now(),
       createdAt: new Date().toISOString(),
     });

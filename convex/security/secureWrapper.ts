@@ -4,7 +4,6 @@ import { getSecurityContext, SecurityContext, hasPermission, SecureQuery, Secure
 import { checkRateLimit } from "./rateLimiting";
 import { logAuditEvent } from "./auditLogging";
 import { api } from "../_generated/api";
-import { Value } from "convex/values";
 
 /**
  * Validate Clerk JWT token
@@ -83,14 +82,14 @@ interface SecureOptions {
 /**
  * Create a secure query with automatic security checks
  */
-export function createSecureQuery<Args extends Value, Output>(
-  args: Args,
+export function createSecureQuery<Args, Output>(
+  args: any,
   options: SecureOptions,
   handler: (ctx: QueryCtx, args: Args, security: SecurityContext) => Promise<Output>
 ) {
   return baseQuery({
     args,
-    handler: async (ctx, args: Args) => {
+    handler: async (ctx, args) => {
       // Get security context
       const securityContext = await getSecurityContext(ctx);
       
@@ -131,14 +130,14 @@ export function createSecureQuery<Args extends Value, Output>(
 /**
  * Create a secure mutation with automatic security checks
  */
-export function createSecureMutation<Args extends Value, Output>(
-  args: Args,
+export function createSecureMutation<Args, Output>(
+  args: any,
   options: SecureOptions,
   handler: (ctx: MutationCtx, args: Args, security: SecurityContext, secure: SecureMutation) => Promise<Output>
 ) {
   return baseMutation({
     args,
-    handler: async (ctx, args: Args) => {
+    handler: async (ctx, args) => {
       // Get security context
       const securityContext = await getSecurityContext(ctx);
       
@@ -200,16 +199,17 @@ export function createSecureMutation<Args extends Value, Output>(
 /**
  * Create a secure action with authentication checks
  */
-export function createSecureAction<Args extends Value, Output>(
-  args: Args,
+export function createSecureAction<Args, Output>(
+  args: any,
   options: SecureOptions,
   handler: (ctx: ActionCtx, args: Args, security: SecurityContext) => Promise<Output>
 ) {
   return baseAction({
     args,
-    handler: async (ctx, args: Args) => {
+    handler: async (ctx, args) => {
       // Actions require proper authentication via JWT token
-      if (!args.authToken) {
+      const argsWithAuth = args as any;
+      if (!argsWithAuth.authToken) {
         throw new ConvexError("Authentication required: Actions must include a valid authToken.");
       }
       
@@ -218,7 +218,7 @@ export function createSecureAction<Args extends Value, Output>(
       
       try {
         // Validate the JWT token using Clerk's API
-        const clerkUser = await validateClerkToken(args.authToken);
+        const clerkUser = await validateClerkToken(argsWithAuth.authToken);
         if (!clerkUser) {
           throw new ConvexError("Invalid authentication token");
         }

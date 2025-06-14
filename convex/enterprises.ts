@@ -37,15 +37,15 @@ export const createEnterpriseWithOwner = mutation({
     // Create enterprise
     const enterpriseId = await ctx.db.insert("enterprises", {
       name: args.enterpriseName.trim(),
-      domain: args.domain,
+      ...(args.domain && { domain: args.domain }),
     });
 
     // Create user as owner
     await ctx.db.insert("users", {
       clerkId: String(identity.subject),
       email: typeof identity.email === "string" ? identity.email : "",
-      firstName: typeof identity.given_name === "string" ? identity.given_name : undefined,
-      lastName: typeof identity.family_name === "string" ? identity.family_name : undefined,
+      ...(typeof identity.given_name === "string" && identity.given_name && { firstName: identity.given_name }),
+      ...(typeof identity.family_name === "string" && identity.family_name && { lastName: identity.family_name }),
       enterpriseId,
       role: "owner",
       isActive: true,
@@ -511,8 +511,8 @@ export const acceptInvitation = mutation({
       return await ctx.db.insert("users", {
         clerkId: identity.subject,
         email: identity.email || "",
-        firstName: typeof identity.given_name === "string" ? identity.given_name : undefined,
-        lastName: typeof identity.family_name === "string" ? identity.family_name : undefined,
+        ...(typeof identity.given_name === "string" && identity.given_name && { firstName: identity.given_name }),
+        ...(typeof identity.family_name === "string" && identity.family_name && { lastName: identity.family_name }),
         enterpriseId: invitation.enterpriseId,
         role: invitation.role,
         isActive: true,

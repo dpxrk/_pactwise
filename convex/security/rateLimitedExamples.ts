@@ -8,6 +8,7 @@
 import { query, mutation, action } from "../_generated/server";
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
+import { Id } from "../_generated/dataModel";
 import { withRateLimit, rateLimitPatterns } from "./rateLimitedWrapper";
 
 // ============================================================================
@@ -72,7 +73,7 @@ export const searchContractsWithRateLimit = query({
 
       // Filter and search logic would go here
       return results.filter(contract => 
-        contract.title?.toLowerCase().includes(args.searchQuery.toLowerCase())
+        contract.title?.toLowerCase().includes((args as {searchQuery: string}).searchQuery.toLowerCase())
       );
     },
     rateLimitPatterns.search("contracts")
@@ -144,16 +145,24 @@ export const createContractWithRateLimit = mutation({
       }
 
       // Create contract
+      const typedArgs = args as {
+        title: string;
+        description?: string;
+        vendorId: Id<"vendors">;
+        contractType: string;
+        status?: string;
+      };
+
       const contractId = await ctx.db.insert("contracts", {
-        title: args.title,
-        description: args.description,
-        vendorId: args.vendorId,
-        contractType: args.contractType as any,
-        status: (args.status as any) || "draft",
+        title: typedArgs.title,
+        vendorId: typedArgs.vendorId,
+        contractType: typedArgs.contractType as any,
+        status: (typedArgs.status as any) || "draft",
         enterpriseId: user.enterpriseId,
-        createdBy: user._id,
+        storageId: "" as Id<"_storage">, // Required field
+        fileName: "", // Required field
+        fileType: "", // Required field
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       });
 
       return contractId;
@@ -181,19 +190,25 @@ export const updateContractWithRateLimit = mutation({
         throw new ConvexError("Authentication required");
       }
 
+      const typedArgs = args as {
+        contractId: Id<"contracts">;
+        updates: {
+          title?: string;
+          description?: string;
+          status?: string;
+        };
+      };
+
       // Check contract exists and user has permission
-      const contract = await ctx.db.get(args.contractId);
+      const contract = await ctx.db.get(typedArgs.contractId);
       if (!contract) {
         throw new ConvexError("Contract not found");
       }
 
       // Update contract
-      await ctx.db.patch(args.contractId, {
-        ...args.updates,
-        updatedAt: new Date().toISOString(),
-      });
+      await ctx.db.patch(typedArgs.contractId, typedArgs.updates as any);
 
-      return args.contractId;
+      return typedArgs.contractId;
     },
     rateLimitPatterns.update("contracts")
   ),
@@ -216,15 +231,19 @@ export const bulkUpdateContractsWithRateLimit = mutation({
         throw new ConvexError("Authentication required");
       }
 
+      const typedArgs = args as {
+        contractIds: Id<"contracts">[];
+        updates: {
+          status?: string;
+        };
+      };
+
       // Bulk update logic
-      const results = [];
-      for (const contractId of args.contractIds) {
+      const results: Id<"contracts">[] = [];
+      for (const contractId of typedArgs.contractIds) {
         const contract = await ctx.db.get(contractId);
         if (contract) {
-          await ctx.db.patch(contractId, {
-            ...args.updates,
-            updatedAt: new Date().toISOString(),
-          });
+          await ctx.db.patch(contractId, typedArgs.updates as any);
           results.push(contractId);
         }
       }
@@ -260,7 +279,7 @@ export const uploadContractFileWithRateLimit = action({
       
       return {
         success: true,
-        message: `File ${args.fileName} uploaded for contract ${args.contractId}`,
+        message: `File ${(args as any).fileName} uploaded for contract ${(args as any).contractId}`,
       };
     },
     rateLimitPatterns.fileUpload()
@@ -321,7 +340,7 @@ export const exportContractsWithRateLimit = action({
       
       return {
         exportId: `export_${Date.now()}`,
-        downloadUrl: `https://example.com/exports/export_${Date.now()}.${args.format}`,
+        downloadUrl: `https://example.com/exports/export_${Date.now()}.${(args as any).format}`,
         expiresAt: new Date(Date.now() + 3600000).toISOString(), // 1 hour
       };
     },

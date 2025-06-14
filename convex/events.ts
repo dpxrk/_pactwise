@@ -40,10 +40,10 @@ export const broadcastEvent = mutation({
       enterpriseId: security.enterpriseId,
       userId: security.userId,
       eventType: args.eventType,
-      resourceId: args.resourceId,
-      resourceType: args.resourceType,
-      data: args.data,
-      targetUsers: args.targetUsers,
+      ...(args.resourceId && { resourceId: args.resourceId }),
+      ...(args.resourceType && { resourceType: args.resourceType }),
+      ...(args.data && { data: args.data }),
+      ...(args.targetUsers && { targetUsers: args.targetUsers }),
       timestamp: new Date().toISOString(),
       processed: false,
     });
@@ -190,7 +190,7 @@ export const createSystemAlert = mutation({
         message: args.message,
         severity: args.severity,
       },
-      targetUsers,
+      ...(targetUsers && { targetUsers }),
       timestamp: new Date().toISOString(),
       processed: false,
     });
@@ -311,7 +311,7 @@ export const updateTypingIndicator = mutation({
         enterpriseId: security.enterpriseId,
         resourceId: args.resourceId,
         resourceType: args.resourceType,
-        field: args.field,
+        ...(args.field && { field: args.field }),
         lastTyped: new Date().toISOString(),
       };
 

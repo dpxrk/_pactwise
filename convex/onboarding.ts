@@ -310,9 +310,9 @@ export const completeProfileSetup = mutation({
     await ctx.db.patch(user._id, {
       firstName: args.firstName.trim(),
       lastName: args.lastName.trim(),
-      phoneNumber: args.phoneNumber?.trim(),
-      department: args.department?.trim(),
-      title: args.title?.trim(),
+      ...(args.phoneNumber?.trim() && { phoneNumber: args.phoneNumber.trim() }),
+      ...(args.department?.trim() && { department: args.department.trim() }),
+      ...(args.title?.trim() && { title: args.title.trim() }),
       updatedAt: new Date().toISOString(),
     });
 
@@ -375,8 +375,8 @@ export const completeEnterpriseConfig = mutation({
     await ctx.db.patch(user.enterpriseId, {
       industry: args.industry,
       size: args.size,
-      contractVolume: args.contractVolume,
-      primaryUseCase: args.primaryUseCase,
+      ...(args.contractVolume && { contractVolume: args.contractVolume }),
+      ...(args.primaryUseCase && { primaryUseCase: args.primaryUseCase }),
     });
 
     // Update onboarding step

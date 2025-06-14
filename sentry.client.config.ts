@@ -1,7 +1,12 @@
 import * as Sentry from '@sentry/nextjs';
+import { Replay } from '@sentry/replay';
+import { BrowserTracing } from '@sentry/tracing';
 
-Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+
+if (dsn) {
+  Sentry.init({
+    dsn,
   
   // Set tracesSampleRate to 1.0 to capture 100% of the transactions for performance monitoring.
   // We recommend adjusting this value in production
@@ -18,15 +23,15 @@ Sentry.init({
   debug: process.env.NODE_ENV === 'development',
 
   integrations: [
-    new Sentry.Replay({
+    new Replay({
       // Mask all text content, images, and user input, except for UI text
       maskAllText: true,
       blockAllMedia: true,
       maskAllInputs: true,
     }),
-    new Sentry.BrowserTracing({
+    new BrowserTracing({
       // Set up automatic route change tracking for Next.js App Router
-      routingInstrumentation: Sentry.nextjsRouterInstrumentation(),
+      routingInstrumentation: Sentry.nextRouterInstrumentation(),
     }),
   ],
 
@@ -60,7 +65,8 @@ Sentry.init({
       component: 'client',
     },
   },
-});
+  });
+}
 
 // Global error handler enhancement
 if (typeof window !== 'undefined') {

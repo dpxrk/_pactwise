@@ -6,49 +6,6 @@ const nextConfig: NextConfig = {
 
   // Turbopack configuration
   experimental: {
-    // Enable Turbopack for production builds (when stable)
-    turbo: {
-      // Module resolution rules
-      rules: {
-        // Handle CSS imports
-        '*.module.css': {
-          loaders: ['css-loader'],
-          as: '*.css',
-        },
-        // Handle SCSS if you're using it
-        '*.module.scss': {
-          loaders: ['sass-loader', 'css-loader'],
-          as: '*.css',
-        },
-        // Handle SVG as React components
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
-      },
-      
-      // Resolve aliases (replaces webpack alias)
-      resolveAlias: {
-        '@': './src',
-        '@components': './src/components',
-        '@lib': './src/lib',
-        '@utils': './src/lib/utils',
-        '@hooks': './src/hooks',
-        '@types': './src/types',
-        '@styles': './src/styles',
-      },
-
-      // External packages (for server-side)
-      resolveExtensions: [
-        '.tsx',
-        '.ts',
-        '.jsx',
-        '.js',
-        '.mjs',
-        '.json',
-      ],
-    },
-
     // Additional experimental features that work well with Turbopack
     optimizeCss: true, // CSS optimization
     scrollRestoration: true, // Better scroll behavior   
@@ -59,8 +16,7 @@ const nextConfig: NextConfig = {
 
   // TypeScript configuration
   typescript: {
-    // Don't fail production builds on TypeScript errors
-    // (useful during migration, but set to false for production)
+ 
     ignoreBuildErrors: false,
   },
 

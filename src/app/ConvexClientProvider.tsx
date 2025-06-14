@@ -52,8 +52,6 @@ function MonitoringProvider({ children }: { children: ReactNode }) {
         userAnalytics.flush();
       };
     }
-    // Return undefined if not in browser (SSR)
-    return undefined;
   }, []);
 
   return <>{children}</>;
@@ -64,10 +62,14 @@ export function ConvexClientProvider({
 }: {
   children: ReactNode;
 }) {
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  
+  if (!publishableKey) {
+    throw new Error("Missing NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY environment variable");
+  }
+
   return (
-    <ClerkProvider
-      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
-    >
+    <ClerkProvider publishableKey={publishableKey}>
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
         <MonitoringProvider>
           {children}

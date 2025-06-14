@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { SelectRangeEventHandler } from "react-day-picker";
 import {
   Popover,
   PopoverContent,
@@ -119,7 +120,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     }
   };
 
-  const handleDateSelect = (range: DateRange | undefined) => {
+  const handleDateSelect: SelectRangeEventHandler = (range) => {
     if (range && onChange) {
       onChange(range);
       setSelectedPreset(""); // Clear preset when custom date is selected

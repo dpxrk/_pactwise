@@ -131,8 +131,8 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
   const trend = useMemo(() => {
     if (processedData.length < 2) return null;
     
-    const firstValue = processedData[0].value || 0;
-    const lastValue = processedData[processedData.length - 1].value || 0;
+    const firstValue = processedData[0]?.value || 0;
+    const lastValue = processedData[processedData.length - 1]?.value || 0;
     const change = ((lastValue - firstValue) / firstValue) * 100;
     
     return {
@@ -168,12 +168,14 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
   };
 
   const handleDataPointClick = (data: any) => {
+    if (!data) return;
+    
     if (onDataPointClick) {
       onDataPointClick(data);
     }
     
     // Auto drill-down if category and value are available
-    if (onDrillDown && data.category) {
+    if (onDrillDown && data?.category) {
       onDrillDown(data.category, data.value);
     }
   };

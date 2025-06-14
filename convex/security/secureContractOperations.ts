@@ -14,7 +14,7 @@ import { ContractEntity, ContractCSVRow } from "../../src/types/core-entities";
 
 // Secure contract creation
 export const createSecureContract = createSecureMutation(
-  {
+  v.object({
     vendorId: v.id("vendors"),
     title: v.string(),
     storageId: v.id("_storage"),
@@ -22,7 +22,7 @@ export const createSecureContract = createSecureMutation(
     fileType: v.string(),
     contractType: v.optional(v.string()),
     notes: v.optional(v.string()),
-  },
+  }),
   {
     rateLimit: { operation: "mutation.create", cost: 2 },
     audit: {
@@ -34,22 +34,23 @@ export const createSecureContract = createSecureMutation(
   },
   async (ctx, args, security, secure) => {
     // Validate vendor belongs to enterprise
-    const vendor = await secure.byId("vendors", args.vendorId);
+    const vendor = await secure.byId("vendors", (args as any).vendorId);
     if (!vendor) {
       throw new ConvexError("Vendor not found");
     }
     
     // Create contract with automatic enterprise ID
     const contractId = await secure.insert("contracts", {
-      vendorId: args.vendorId,
-      title: args.title.trim(),
+      vendorId: (args as any).vendorId,
+      title: (args as any).title.trim(),
       status: "draft",
-      contractType: args.contractType,
-      storageId: args.storageId,
-      fileName: args.fileName,
-      fileType: args.fileType,
+      contractType: (args as any).contractType,
+      storageId: (args as any).storageId,
+      fileName: (args as any).fileName,
+      fileType: (args as any).fileType,
       analysisStatus: "pending",
-      notes: args.notes?.trim(),
+      notes: (args as any).notes?.trim(),
+      createdAt: new Date().toISOString(),
     }, "contracts.create");
     
     // Update audit log with created resource
@@ -59,7 +60,7 @@ export const createSecureContract = createSecureMutation(
       resourceId: contractId,
       action: "create",
       status: "success",
-      metadata: { title: args.title, vendorId: args.vendorId }
+      metadata: { title: (args as any).title, vendorId: (args as any).vendorId }
     });
     
     return contractId;
@@ -82,11 +83,11 @@ export const getSecureContracts = createSecureQuery(
     
     // Build filters
     const filters: Array<(q: any) => any> = [];
-    if (args.status) {
-      filters.push((q: any) => q.eq(q.field("status"), args.status));
+    if ((args as any).status) {
+      filters.push((q: any) => q.eq(q.field("status"), (args as any).status));
     }
-    if (args.contractType) {
-      filters.push((q: any) => q.eq(q.field("contractType"), args.contractType));
+    if ((args as any).contractType) {
+      filters.push((q: any) => q.eq(q.field("contractType"), (args as any).contractType));
     }
     
     // Query with automatic enterprise filtering
@@ -97,7 +98,7 @@ export const getSecureContracts = createSecureQuery(
     });
     
     // Apply limit
-    const limited = args.limit ? contracts.slice(0, args.limit) : contracts;
+    const limited = (args as any).limit ? contracts.slice(0, (args as any).limit) : contracts;
     
     // Enrich with vendor data
     const enriched = await Promise.all(
@@ -120,7 +121,7 @@ export const getSecureContracts = createSecureQuery(
 
 // Secure contract update with change tracking
 export const updateSecureContract = createSecureMutation(
-  {
+  v.object({
     contractId: v.id("contracts"),
     updates: v.object({
       title: v.optional(v.string()),
@@ -128,7 +129,7 @@ export const updateSecureContract = createSecureMutation(
       contractType: v.optional(v.string()),
       notes: v.optional(v.string()),
     }),
-  },
+  }),
   {
     rateLimit: { operation: "mutation.update" },
     audit: {
@@ -140,14 +141,14 @@ export const updateSecureContract = createSecureMutation(
   },
   async (ctx, args, security, secure) => {
     // Get existing contract to track changes
-    const existing = await secure.byId("contracts", args.contractId);
+    const existing = await secure.byId("contracts", (args as any).contractId);
     if (!existing) {
       throw new ConvexError("Contract not found");
     }
     
     // Track changes for audit
     const changes: any = {};
-    Object.entries(args.updates).forEach(([key, value]) => {
+    Object.entries((args as any).updates).forEach(([key, value]) => {
       if (value !== undefined && existing[key as keyof typeof existing] !== value) {
         changes[key] = {
           old: existing[key as keyof typeof existing],
@@ -157,13 +158,13 @@ export const updateSecureContract = createSecureMutation(
     });
     
     // Update contract
-    await secure.update(args.contractId, args.updates, "contracts.update");
+    await secure.update((args as any).contractId, (args as any).updates, "contracts.update");
     
     // Log with changes
     await logAuditEvent(ctx, security, {
       operation: "updateContract",
       resourceType: "contracts",
-      resourceId: args.contractId,
+      resourceId: (args as any).contractId,
       action: "update",
       changes,
       status: "success",
@@ -176,9 +177,9 @@ export const updateSecureContract = createSecureMutation(
 
 // Secure contract deletion
 export const deleteSecureContract = createSecureMutation(
-  {
+  v.object({
     contractId: v.id("contracts"),
-  },
+  }),
   {
     rateLimit: { operation: "mutation.delete", cost: 3 },
     audit: {
@@ -190,7 +191,7 @@ export const deleteSecureContract = createSecureMutation(
   },
   async (ctx, args, security, secure) => {
     // Get contract details for audit
-    const contract = await secure.byId("contracts", args.contractId);
+    const contract = await secure.byId("contracts", (args as any).contractId);
     if (!contract) {
       throw new ConvexError("Contract not found");
     }
@@ -199,17 +200,17 @@ export const deleteSecureContract = createSecureMutation(
     try {
       await ctx.storage.delete(contract.storageId);
     } catch (error) {
-      console.warn(`Failed to delete file for contract ${args.contractId}:`, error);
+      console.warn(`Failed to delete file for contract ${(args as any).contractId}:`, error);
     }
     
     // Delete contract
-    await secure.delete(args.contractId, "contracts.delete");
+    await secure.delete((args as any).contractId, "contracts.delete");
     
     // Log deletion with contract details
     await logAuditEvent(ctx, security, {
       operation: "deleteContract",
       resourceType: "contracts",
-      resourceId: args.contractId,
+      resourceId: (args as any).contractId,
       action: "delete",
       status: "success",
       metadata: { 
@@ -226,14 +227,14 @@ export const deleteSecureContract = createSecureMutation(
 // Secure bulk export with special auditing
 // Note: Changed to mutation since actions require complex authentication setup
 export const exportSecureContracts = createSecureMutation(
-  {
+  v.object({
     format: v.union(v.literal("csv"), v.literal("json"), v.literal("xlsx")),
     filters: v.optional(v.object({
       status: v.optional(v.string()),
       startDate: v.optional(v.string()),
       endDate: v.optional(v.string()),
     })),
-  },
+  }),
   {
     rateLimit: { operation: "mutation.export", cost: 5 },
     audit: {
@@ -249,21 +250,21 @@ export const exportSecureContracts = createSecureMutation(
     let contracts = await secureQuery.all();
     
     // Apply additional filters
-    if (args.filters) {
-      if (args.filters.status) {
-        contracts = contracts.filter((c: any) => c.status === args.filters.status);
+    if ((args as any).filters) {
+      if ((args as any).filters.status) {
+        contracts = contracts.filter((c: any) => c.status === (args as any).filters.status);
       }
-      if (args.filters.startDate) {
-        contracts = contracts.filter((c: any) => c._creationTime >= new Date(args.filters.startDate!).getTime());
+      if ((args as any).filters.startDate) {
+        contracts = contracts.filter((c: any) => c._creationTime >= new Date((args as any).filters.startDate!).getTime());
       }
-      if (args.filters.endDate) {
-        contracts = contracts.filter((c: any) => c._creationTime <= new Date(args.filters.endDate!).getTime());
+      if ((args as any).filters.endDate) {
+        contracts = contracts.filter((c: any) => c._creationTime <= new Date((args as any).filters.endDate!).getTime());
       }
     }
     
     // Generate export - initialize with empty string or add default case
     let exportData: string;
-    switch (args.format) {
+    switch ((args as any).format) {
       case "csv":
         exportData = generateCSV(contracts);
         break;
@@ -275,12 +276,12 @@ export const exportSecureContracts = createSecureMutation(
         break;
       default:
         // This should never happen due to validation, but TypeScript needs it
-        throw new Error(`Unsupported format: ${args.format}`);
+        throw new Error(`Unsupported format: ${(args as any).format}`);
     }
     
     // Return download URL (would upload to storage in practice)
     return {
-      format: args.format,
+      format: (args as any).format,
       count: contracts.length,
       data: exportData,
       timestamp: new Date().toISOString()

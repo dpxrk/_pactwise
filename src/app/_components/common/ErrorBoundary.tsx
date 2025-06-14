@@ -23,7 +23,6 @@ interface State {
   errorInfo: ErrorInfo | null;
   eventId: string | null;
   isExpanded: boolean;
-  setIsExpanded: (isExpanded:boolean) => void;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -35,7 +34,6 @@ export class ErrorBoundary extends Component<Props, State> {
     errorInfo: null,
     eventId: null,
     isExpanded: false,
-    setIsExpanded:() => {}
   };
 
   public static getDerivedStateFromError(error: Error): Partial<State> {
@@ -262,7 +260,7 @@ export class ErrorBoundary extends Component<Props, State> {
               {showErrorDetails && (error || errorInfo) && (
                 <>
                   <Separator />
-                  <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+                  <Collapsible open={isExpanded} onOpenChange={(expanded) => this.setState({ isExpanded: expanded })}>
                     <CollapsibleTrigger asChild>
                       <Button variant="ghost" className="w-full justify-between">
                         <span className="flex items-center gap-2">

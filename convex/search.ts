@@ -181,9 +181,14 @@ export const searchContractsWithAdvancedFilters = query({
     }
 
     // Search and score
-    let results = [];
+    let results: any[] = [];
     if (searchQuery.length >= SEARCH_CONFIG.minQueryLength) {
-      results = await scoreContractResults(contracts, searchQuery);
+      const searchResults = await scoreContractResults(contracts, searchQuery);
+      results = searchResults.map(r => ({
+        ...r.item,
+        relevance: r.score,
+        matchedFields: r.highlights,
+      }));
     } else {
       // No search query, just return filtered results
       results = contracts.map(contract => ({
@@ -202,7 +207,7 @@ export const searchContractsWithAdvancedFilters = query({
     // Enrich with vendor information
     const enrichedResults = await Promise.all(
       paginatedResults.map(async (result) => {
-        const vendor = await ctx.db.get(result.vendorId);
+        const vendor = await ctx.db.get(result.vendorId as Id<"vendors">);
         return {
           ...result,
           vendor: vendor ? {
@@ -280,9 +285,14 @@ export const searchVendorsWithFilters = query({
     }
 
     // Search and score
-    let results = [];
+    let results: any[] = [];
     if (searchQuery.length >= SEARCH_CONFIG.minQueryLength) {
-      results = await scoreVendorResults(vendors, searchQuery);
+      const searchResults = await scoreVendorResults(vendors, searchQuery);
+      results = searchResults.map(r => ({
+        ...r.item,
+        relevance: r.score,
+        matchedFields: r.highlights,
+      }));
     } else {
       results = vendors.map(vendor => ({
         ...vendor,
@@ -392,9 +402,14 @@ export const searchUsersWithinEnterprise = query({
     }
 
     // Search and score
-    let results = [];
+    let results: any[] = [];
     if (searchQuery.length >= SEARCH_CONFIG.minQueryLength) {
-      results = scoreUserResults(users, searchQuery);
+      const searchResults = scoreUserResults(users, searchQuery);
+      results = searchResults.map(r => ({
+        ...r.item,
+        relevance: r.score,
+        matchedFields: r.highlights,
+      }));
     } else {
       results = users.map(user => ({
         ...user,
@@ -681,36 +696,28 @@ async function applyContractFilters(ctx: QueryCtx, contracts: Doc<"contracts">[]
 
   // Status filter
   if (filters.status && filters.status.length > 0) {
-    filtered = filtered.filter(c => filters.status.includes(c.status));
+    filtered = filtered.filter(c => filters.status!.includes(c.status));
   }
 
   // Contract type filter
   if (filters.contractType && filters.contractType.length > 0) {
-    filtered = filtered.filter(c => filters.contractType.includes(c.contractType));
+    filtered = filtered.filter(c => c.contractType && filters.contractType!.includes(c.contractType));
   }
 
   // Vendor filter
-  if (filters.vendorId) {
-    filtered = filtered.filter(c => c.vendorId === filters.vendorId);
+  if (filters.vendorId && filters.vendorId.length > 0) {
+    filtered = filtered.filter(c => filters.vendorId!.includes(c.vendorId));
   }
 
   // Date range filter
   if (filters.dateRange) {
-    const { startDate, endDate, dateField } = filters.dateRange;
+    const { start, end } = filters.dateRange;
     filtered = filtered.filter(c => {
-      let dateValue: string | undefined;
+      const dateValue = c._creationTime ? new Date(c._creationTime).toISOString() : undefined;
       
-      if (dateField === 'created') {
-        dateValue = c._creationTime ? new Date(c._creationTime).toISOString() : undefined;
-      } else if (dateField === 'start') {
-        dateValue = c.extractedStartDate;
-      } else if (dateField === 'end') {
-        dateValue = c.extractedEndDate;
-      }
-
       if (!dateValue) return false;
       
-      return dateValue >= startDate && dateValue <= endDate;
+      return dateValue >= start && dateValue <= end;
     });
   }
 
@@ -718,7 +725,7 @@ async function applyContractFilters(ctx: QueryCtx, contracts: Doc<"contracts">[]
   if (filters.valueRange) {
     filtered = filtered.filter(c => {
       const value = parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
-      return value >= filters.valueRange.min && value <= filters.valueRange.max;
+      return value >= filters.valueRange!.min && value <= filters.valueRange!.max;
     });
   }
 

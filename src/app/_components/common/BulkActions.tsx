@@ -446,7 +446,7 @@ export const SelectAllHeader: React.FC<SelectAllHeaderProps> = ({
     <div className={cn('flex items-center gap-2', className)}>
       <Checkbox
         checked={isAllSelected}
-        ref={(el) => {
+        ref={(el: HTMLInputElement | null) => {
           if (el) el.indeterminate = isPartiallySelected;
         }}
         onCheckedChange={onToggleAll}

@@ -27,16 +27,16 @@ export interface ToastAction {
 }
 
 export interface CustomToastOptions {
-  title: string 
-  description: string 
-  duration: number;
-  action: ToastAction;
+  title?: string ;
+  description?: string  ;
+  duration?: number ;
+  action?: ToastAction;
   onDismiss?: () => void;
   dismissible?: boolean;
-  position: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
-  className: string;
-  id: string;
-  data: Record<string, any>;
+  position?: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+  className?: string ;
+  id?: string | number ;
+  data?: Record<string, any>;
 }
 
 export interface PromiseToastOptions {
@@ -62,7 +62,7 @@ const CustomToast = ({
   data 
 }: {
   type: ToastType;
-  title?: string ;
+  title?: string;
   description?: string;
   action?: ToastAction;
   onDismiss?: () => void;
@@ -141,106 +141,106 @@ const CustomToast = ({
 
 // Enhanced toast functions
 export const showToast = {
-  success: (message: string, options?: CustomToastOptions) => {
+  success: (message: string, options: CustomToastOptions) => {
     return toast.custom(
-      (t) => (
+      (t: string | number) => (
         <CustomToast
           type="success"
-          title={options?.title ?? ''}
+          {...(options?.title && { title: options.title })}
           description={message}
-          action={options?.action}
-          onDismiss={() => toast.dismiss(t)}
-          dismissible={options?.dismissible}
-          className={options?.className}
-          data={options?.data}
+          {...(options?.action && { action: options.action })}
+          onDismiss={() => { toast.dismiss(t); }}
+          {...(options?.dismissible !== undefined && { dismissible: options.dismissible })}
+          {...(options?.className && { className: options.className })}
+          {...(options?.data && { data: options.data })}
         />
       ),
       {
         duration: options?.duration || 4000,
-        id: options?.id,
+        ...(options?.id && { id: options.id }),
       }
     );
   },
 
   error: (message: string, options?: CustomToastOptions) => {
     return toast.custom(
-      (t) => (
+      (t: string | number) => (
         <CustomToast
           type="error"
           title={options?.title || 'Error'}
           description={message}
-          action={options?.action}
-          onDismiss={() => toast.dismiss(t)}
-          dismissible={options?.dismissible}
-          className={options?.className}
-          data={options?.data}
+          {...(options?.action && { action: options.action })}
+          onDismiss={() => { toast.dismiss(t); }}
+          {...(options?.dismissible !== undefined && { dismissible: options.dismissible })}
+          {...(options?.className && { className: options.className })}
+          {...(options?.data && { data: options.data })}
         />
       ),
       {
         duration: options?.duration || 6000,
-        id: options?.id,
+        ...(options?.id && { id: options.id }),
       }
     );
   },
 
   warning: (message: string, options?: CustomToastOptions) => {
     return toast.custom(
-      (t) => (
+      (t: string | number) => (
         <CustomToast
           type="warning"
           title={options?.title || 'Warning'}
           description={message}
-          action={options?.action}
-          onDismiss={() => toast.dismiss(t)}
-          dismissible={options?.dismissible}
-          className={options?.className}
-          data={options?.data}
+          {...(options?.action && { action: options.action })}
+          onDismiss={() => { toast.dismiss(t); }}
+          {...(options?.dismissible !== undefined && { dismissible: options.dismissible })}
+          {...(options?.className && { className: options.className })}
+          {...(options?.data && { data: options.data })}
         />
       ),
       {
         duration: options?.duration || 5000,
-        id: options?.id,
+        ...(options?.id && { id: options.id }),
       }
     );
   },
 
   info: (message: string, options?: CustomToastOptions) => {
     return toast.custom(
-      (t) => (
+      (t: string | number) => (
         <CustomToast
           type="info"
-          title={options?.title}
+          {...(options?.title && { title: options.title })}
           description={message}
-          action={options?.action}
-          onDismiss={() => toast.dismiss(t)}
-          dismissible={options?.dismissible}
-          className={options?.className}
-          data={options?.data}
+          {...(options?.action && { action: options.action })}
+          onDismiss={() => { toast.dismiss(t); }}
+          {...(options?.dismissible !== undefined && { dismissible: options.dismissible })}
+          {...(options?.className && { className: options.className })}
+          {...(options?.data && { data: options.data })}
         />
       ),
       {
         duration: options?.duration || 4000,
-        id: options?.id,
+        ...(options?.id && { id: options.id }),
       }
     );
   },
 
   loading: (message: string, options?: CustomToastOptions) => {
     return toast.custom(
-      (t) => (
+      (t: string | number) => (
         <CustomToast
           type="loading"
-          title={options?.title}
+          {...(options?.title && { title: options.title })}
           description={message}
-          onDismiss={() => toast.dismiss(t)}
+          onDismiss={() => { toast.dismiss(t); }}
           dismissible={options?.dismissible !== false}
-          className={options?.className}
-          data={options?.data}
+          {...(options?.className && { className: options.className })}
+          {...(options?.data && { data: options.data })}
         />
       ),
       {
         duration: options?.duration || Infinity,
-        id: options?.id,
+        ...(options?.id && { id: options.id }),
       }
     );
   },
@@ -248,7 +248,7 @@ export const showToast = {
   promise: <T,>(
     promise: Promise<T>,
     options: PromiseToastOptions
-  ): Promise<T> => {
+  ) => {
     return toast.promise(promise, {
       loading: options.loading,
       success: (data) => {
@@ -265,11 +265,11 @@ export const showToast = {
   },
 
   dismiss: (toastId?: string | number) => {
-    return toast.dismiss(toastId);
+    toast.dismiss(toastId);
   },
 
   dismissAll: () => {
-    return toast.dismiss();
+    toast.dismiss();
   },
 };
 

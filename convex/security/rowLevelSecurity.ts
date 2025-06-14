@@ -90,10 +90,11 @@ export class SecureQuery<T extends TableNames> {
   ) {}
 
   async all(): Promise<Doc<T>[]> {
-    return await this.ctx.db
-      .query(this.table as any)
-      .filter((q) => q.eq(q.field("enterpriseId"), this.securityContext.enterpriseId))
-      .collect() as Promise<Doc<T>[]>;
+    const results = await this.ctx.db
+      .query(this.table)
+      .filter((q) => q.eq(q.field("enterpriseId"), this.securityContext.enterpriseId as any))
+      .collect();
+    return results as Doc<T>[];
   }
 
   async byId(id: Id<T>): Promise<Doc<T> | null> {
@@ -113,7 +114,7 @@ export class SecureQuery<T extends TableNames> {
       .query(this.table)
       .filter((q) => 
         q.and(
-          q.eq(q.field("enterpriseId"), this.securityContext.enterpriseId),
+          q.eq(q.field("enterpriseId"), this.securityContext.enterpriseId as any),
           filter(q)
         )
       )
@@ -130,7 +131,7 @@ export class SecureMutation {
     private securityContext: SecurityContext
   ) {}
 
-  async insert<T extends keyof typeof import("../_generated/dataModel").default>(
+  async insert<T extends TableNames>(
     table: T,
     data: Omit<Doc<T>, "_id" | "_creationTime" | "enterpriseId">,
     permission?: string
@@ -146,10 +147,10 @@ export class SecureMutation {
       enterpriseId: this.securityContext.enterpriseId
     } as any;
 
-    return await this.ctx.db.insert(table, secureData);
+    return await this.ctx.db.insert(table as any, secureData) as Id<T>;
   }
 
-  async update<T extends keyof typeof import("../_generated/dataModel").default>(
+  async update<T extends TableNames>(
     id: Id<T>,
     data: Partial<Omit<Doc<T>, "_id" | "_creationTime" | "enterpriseId">>,
     permission?: string
@@ -172,10 +173,10 @@ export class SecureMutation {
     // Remove enterprise ID from updates to prevent tampering
     const { enterpriseId, ...safeData } = data as Partial<Doc<T> & { enterpriseId: any }>;
     
-    await this.ctx.db.patch(id, safeData);
+    await this.ctx.db.patch(id, safeData as any);
   }
 
-  async delete<T extends keyof typeof import("../_generated/dataModel").default>(
+  async delete<T extends TableNames>(
     id: Id<T>,
     permission?: string
   ): Promise<void> {
@@ -198,7 +199,7 @@ export class SecureMutation {
   }
 
   // Helper method for byId that's used in secureContractOperations.ts
-  async byId<T extends keyof typeof import("../_generated/dataModel").default>(
+  async byId<T extends TableNames>(
     table: T, 
     id: Id<T>
   ): Promise<Doc<T> | null> {

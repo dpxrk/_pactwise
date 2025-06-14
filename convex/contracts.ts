@@ -1,6 +1,6 @@
 import { query, mutation, action, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
+import { Id, Doc } from "./_generated/dataModel";
 import { ConvexError } from "convex/values";
 import { internal, api } from "./_generated/api";
 import { triggerContractEvents } from "./realtimeHelpers";
@@ -218,7 +218,7 @@ export const getContracts = query({
       nextCursor = result.continueCursor;
     } else {
       // First page
-      const result = await paginationBuilder.paginate({ numItems: limit });
+      const result = await paginationBuilder.paginate({ numItems: limit, cursor: null });
       contracts = result.page;
       nextCursor = result.continueCursor;
     }
@@ -234,7 +234,7 @@ export const getContracts = query({
     
     if (vendorIds.length > 0) {
       const vendors = await Promise.all(
-        vendorIds.map(vendorId => ctx.db.get(vendorId))
+        vendorIds.map(vendorId => ctx.db.get(vendorId as Id<"vendors">))
       );
       
       vendors.forEach(vendor => {
@@ -269,7 +269,7 @@ export const getContractsSimple = query({
   args: {
     enterpriseId: v.id("enterprises"),
   },
-  handler: async (ctx, args): Promise<any[]> => {
+  handler: async (ctx, args): Promise<Doc<"contracts">[]> => {
     const result = await ctx.runQuery(api.contracts.getContracts, {
       enterpriseId: args.enterpriseId,
       limit: 100, // Get first 100 contracts
@@ -568,7 +568,7 @@ export const updateAnalysisStatus = mutation({
       updates.analysisError = args.error;
     } else if (args.status === "processing") {
       // Clear any previous error when starting processing
-      updates.analysisError = undefined;
+      // Note: omitting analysisError to avoid setting undefined
     }
 
     await ctx.db.patch(args.contractId, updates);
@@ -590,7 +590,6 @@ export const updateAnalysisResults = mutation({
   handler: async (ctx, args) => {
     await ctx.db.patch(args.contractId, {
       analysisStatus: "completed",
-      analysisError: undefined,
       status: "active", // Move to active status after successful analysis
       ...args.analysisResult,
     });
@@ -767,7 +766,6 @@ export const triggerContractAnalysis = mutation({
     // Update analysis status to pending
     await ctx.db.patch(args.contractId, {
       analysisStatus: "pending",
-      analysisError: undefined,
     });
 
     // Schedule analysis action (in a real implementation, this would trigger the AI analysis)
@@ -791,7 +789,6 @@ export const analyzeContractInternal = internalMutation({
       // Update status to processing
       await ctx.db.patch(args.contractId, {
         analysisStatus: "processing",
-        analysisError: undefined,
       });
       
       // In a real implementation, this would perform AI analysis

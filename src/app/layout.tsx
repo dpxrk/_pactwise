@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ConvexClientProvider } from "./ConvexClientProvider";
-import { ClerkProvider } from '@clerk/nextjs'; // Import ClerkProvider
 import { ErrorBoundary } from './_components/common/ErrorBoundary';
 import { SessionWrapper } from './_components/auth/SessionWrapper';
 import { MonitoringProvider, HealthIndicator } from './_components/common/MonitoringProvider';
@@ -17,21 +16,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}>
-      <html lang="en">
-        <body>
-          <ErrorBoundary>
+    <html lang="en">
+      <body>
+        <ErrorBoundary>
+          <ConvexClientProvider>
             <MonitoringProvider>
               <SessionWrapper>
-                <ConvexClientProvider>
-                  {children}
-                  <HealthIndicator />
-                </ConvexClientProvider>
+                {children}
+                <HealthIndicator />
               </SessionWrapper>
             </MonitoringProvider>
-          </ErrorBoundary>
-        </body>
-      </html>
-    </ClerkProvider>
+          </ConvexClientProvider>
+        </ErrorBoundary>
+      </body>
+    </html>
   );
 }

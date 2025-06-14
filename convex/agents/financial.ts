@@ -236,7 +236,7 @@ async function analyzeContract(
   agentId: Id<"agents">,
   task: Doc<"agentTasks">
 ): Promise<FinancialAnalysis> {
-  const contract = task.contractId ? await ctx.db.get(task.contractId) : null;
+  const contract = task.contractId ? await ctx.db.get(task.contractId!) : null;
   if (!contract) {
     throw new Error("Contract not found");
   }
@@ -706,7 +706,7 @@ async function generateFinancialForecast(
 
   const recentMonths = months.slice(-6); // Last 6 months
   const recentValues = recentMonths.map(m => monthlySpend[m] || 0);
-  const averageMonthlySpend = recentValues.reduce((a, b) => (a || 0) + (b || 0), 0) / recentValues.length;
+  const averageMonthlySpend = recentValues.reduce((a: number, b: number) => (a || 0) + (b || 0), 0) / recentValues.length;
   
   // Simple linear projection for next 3 months
   const growthRate = calculateGrowthRate(recentValues.filter(v => v !== undefined) as number[]);
@@ -761,7 +761,7 @@ function parseContractValue(priceString: string): number {
   } else if (cleaned.includes(',')) {
     // Check if comma is decimal separator (European format)
     const parts = cleaned.split(',');
-    if (parts && parts.length === 2 && parts[1] && parts[1].length <= 2) {
+    if (parts && parts.length === 2 && parts[1] && parts[1]!.length <= 2) {
       normalized = cleaned.replace(',', '.');
     } else {
       normalized = cleaned.replace(/,/g, '');
@@ -1126,8 +1126,8 @@ function calculateStatistics(values: number[]): { mean: number; stdDev: number; 
   
   const sorted = [...values].sort((a, b) => a - b);
   const median = sorted.length % 2 === 0 
-    ? ((sorted[sorted.length / 2 - 1] || 0) + (sorted[sorted.length / 2] || 0)) / 2
-    : (sorted[Math.floor(sorted.length / 2)] || 0);
+    ? ((sorted[sorted.length / 2 - 1]!) + (sorted[sorted.length / 2]!)) / 2
+    : sorted[Math.floor(sorted.length / 2)]!;
   
   return { mean, stdDev, median };
 }
@@ -1159,19 +1159,19 @@ function parsePaymentSchedule(scheduleText: string): Array<{ amount: number; due
     const match = line.match(/\$?([\d,]+)\s*(?:due\s*(?:on|by))?\s*(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})/i);
     
     if (match && match[1] && match[2]) {
-      const amount = parseFloat(match[1].replace(/,/g, ''));
-      let dateStr = match[2];
+      const amount = parseFloat(match[1]!.replace(/,/g, ''));
+      let dateStr = match[2]!;
       
       // Convert MM/DD/YYYY to YYYY-MM-DD
       if (dateStr && dateStr.includes('/')) {
         const parts = dateStr.split('/');
         if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
-          dateStr = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+          dateStr = `${parts[2]!}-${parts[0]!.padStart(2, '0')}-${parts[1]!.padStart(2, '0')}`;
         }
       }
       
       try {
-        const dueDate = new Date(dateStr || '');
+        const dueDate = new Date(dateStr!);
         if (!isNaN(dueDate.getTime())) {
           payments.push({ amount, dueDate });
         }

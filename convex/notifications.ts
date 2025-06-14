@@ -98,13 +98,13 @@ export const createNotification = mutation({
       channels: channels,
       status: args.scheduledFor ? "scheduled" : "pending",
       isRead: false,
-      scheduledFor: args.scheduledFor,
+      ...(args.scheduledFor && { scheduledFor: args.scheduledFor }),
       retryCount: 0,
-      contractId: args.contractId,
-      vendorId: args.vendorId,
-      taskId: args.taskId,
-      actionUrl: args.actionUrl,
-      metadata: args.metadata,
+      ...(args.contractId && { contractId: args.contractId }),
+      ...(args.vendorId && { vendorId: args.vendorId }),
+      ...(args.taskId && { taskId: args.taskId }),
+      ...(args.actionUrl && { actionUrl: args.actionUrl }),
+      ...(args.metadata && { metadata: args.metadata }),
       createdAt: new Date().toISOString(),
     });
 
@@ -604,10 +604,18 @@ export const updatePreferences = mutation({
 
     if (existingPreferences) {
       // Update existing preferences
-      await ctx.db.patch(existingPreferences._id, {
-        ...args.preferences,
+      const updateData: Record<string, any> = {
         updatedAt: new Date().toISOString(),
+      };
+      
+      // Only include defined properties to avoid exactOptionalPropertyTypes issues
+      Object.entries(args.preferences).forEach(([key, value]) => {
+        if (value !== undefined) {
+          updateData[key] = value;
+        }
       });
+      
+      await ctx.db.patch(existingPreferences._id, updateData);
     } else {
       // Create new preferences
       await ctx.db.insert("userNotificationPreferences", {
@@ -625,7 +633,7 @@ export const updatePreferences = mutation({
         quietHoursEnabled: args.preferences.quietHoursEnabled ?? false,
         quietHoursStart: args.preferences.quietHoursStart ?? 22,
         quietHoursEnd: args.preferences.quietHoursEnd ?? 7,
-        timezone: args.preferences.timezone,
+        ...(args.preferences.timezone && { timezone: args.preferences.timezone }),
         emailFrequency: args.preferences.emailFrequency ?? "immediate",
         emailDigestTime: args.preferences.emailDigestTime ?? 9,
         createdAt: new Date().toISOString(),

@@ -194,7 +194,7 @@ export const getRecentActivity = query({
         metadata: {
           vendorId: vendor._id,
           vendorName: vendor.name,
-          category: vendor.category,
+          ...(vendor.category && { category: vendor.category }),
         },
       });
     }

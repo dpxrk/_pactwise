@@ -93,6 +93,11 @@ export const DrillDownModal: React.FC<DrillDownModalProps> = ({
       let aVal = a[sortBy as keyof DrillDownData];
       let bVal = b[sortBy as keyof DrillDownData];
       
+      // Handle undefined values
+      if (aVal === undefined && bVal === undefined) return 0;
+      if (aVal === undefined) return 1;
+      if (bVal === undefined) return -1;
+      
       if (typeof aVal === "string") aVal = aVal.toLowerCase();
       if (typeof bVal === "string") bVal = bVal.toLowerCase();
       

@@ -1851,10 +1851,10 @@ async function gatherQuarterlyMetrics(ctx: any, since: Date): Promise<any> {
 
 // Helper functions for quarterly metrics
 function calculateQuarterGrowth(current: any[], previous: any[]): any {
-  const currentValue = current.reduce((sum, c) => 
+  const currentValue = current.reduce((sum: number, c: any) => 
     sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0
   );
-  const previousValue = previous.reduce((sum, c) => 
+  const previousValue = previous.reduce((sum: number, c: any) => 
     sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0
   );
   
@@ -2038,11 +2038,11 @@ function calculateOperationalEfficiency(
   users: any[],
   since: Date
 ): any {
-  const periodTasks = tasks.filter(t => 
+  const periodTasks = tasks.filter((t: any) => 
     t.createdAt && new Date(t.createdAt) >= since
   );
   
-  const completedTasks = periodTasks.filter(t => t.status === "completed");
+  const completedTasks = periodTasks.filter((t: any) => t.status === "completed");
   const avgTaskCompletionTime = calculateAverageTaskCompletionTime(completedTasks);
   
   return {
@@ -2060,10 +2060,10 @@ function calculateOperationalEfficiency(
     },
     
     automationMetrics: {
-      automatedTasks: periodTasks.filter(t => t.createdByAgentId).length,
-      manualTasks: periodTasks.filter(t => !t.createdByAgentId).length,
+      automatedTasks: periodTasks.filter((t: any) => t.createdByAgentId).length,
+      manualTasks: periodTasks.filter((t: any) => !t.createdByAgentId).length,
       automationRate: periodTasks.length > 0
-        ? (periodTasks.filter(t => t.createdByAgentId).length / periodTasks.length) * 100
+        ? (periodTasks.filter((t: any) => t.createdByAgentId).length / periodTasks.length) * 100
         : 0,
     },
     
@@ -2328,7 +2328,7 @@ function calculateTrend(oldest: number, middle: number, newest: number): string 
 }
 
 function groupContractsByType(contracts: any[]): Record<string, number> {
-  return contracts.reduce((acc, c) => {
+  return contracts.reduce((acc: Record<string, number>, c: any) => {
     const type = c.contractType || "other";
     acc[type] = (acc[type] || 0) + 1;
     return acc;
@@ -2336,7 +2336,7 @@ function groupContractsByType(contracts: any[]): Record<string, number> {
 }
 
 function groupContractsByStatus(contracts: any[]): Record<string, number> {
-  return contracts.reduce((acc, c) => {
+  return contracts.reduce((acc: Record<string, number>, c: any) => {
     acc[c.status] = (acc[c.status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -2357,19 +2357,19 @@ function analyzeExpirationSchedule(contracts: any[]): any {
   
   contracts.forEach(contract => {
     if (!contract.extractedEndDate) {
-      schedule.noEndDate = (schedule.noEndDate || 0) + 1;
+      schedule.noEndDate = schedule.noEndDate + 1;
       return;
     }
     
     const endDate = new Date(contract.extractedEndDate);
     const daysUntil = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     
-    if (daysUntil < 0) schedule.expired = (schedule.expired || 0) + 1;
-    else if (daysUntil <= 30) schedule.within30Days = (schedule.within30Days || 0) + 1;
-    else if (daysUntil <= 90) schedule.within90Days = (schedule.within90Days || 0) + 1;
-    else if (daysUntil <= 180) schedule.within180Days = (schedule.within180Days || 0) + 1;
-    else if (daysUntil <= 365) schedule.within1Year = (schedule.within1Year || 0) + 1;
-    else schedule.beyond1Year = (schedule.beyond1Year || 0) + 1;
+    if (daysUntil < 0) schedule.expired = schedule.expired + 1;
+    else if (daysUntil <= 30) schedule.within30Days = schedule.within30Days + 1;
+    else if (daysUntil <= 90) schedule.within90Days = schedule.within90Days + 1;
+    else if (daysUntil <= 180) schedule.within180Days = schedule.within180Days + 1;
+    else if (daysUntil <= 365) schedule.within1Year = schedule.within1Year + 1;
+    else schedule.beyond1Year = schedule.beyond1Year + 1;
   });
   
   return schedule;
@@ -2395,7 +2395,7 @@ function identifyOptimizationOpportunities(
   const opportunities: any[] = [];
   
   // Bundle opportunities
-  const vendorCounts = contracts.reduce((acc, c) => {
+  const vendorCounts = contracts.reduce((acc: Record<string, number>, c: any) => {
     if (c.status === "active") {
       acc[c.vendorId.toString()] = (acc[c.vendorId.toString()] || 0) + 1;
     }
@@ -2625,8 +2625,8 @@ function analyzeSpendTrend(contracts: any[]): any {
   // Simple linear regression
   const n = values.length;
   const sumX = n * (n - 1) / 2;
-  const sumY = values.reduce((a, b) => (a || 0) + (b || 0), 0);
-  const sumXY = values.reduce((sum, val, i) => (sum || 0) + ((val || 0) * i), 0);
+  const sumY = values.reduce((a: number, b: number) => (a || 0) + (b || 0), 0);
+  const sumXY = values.reduce((sum: number, val: number, i: number) => (sum || 0) + ((val || 0) * i), 0);
   const sumXX = n * (n - 1) * (2 * n - 1) / 6;
   
   const slope = (n * (sumXY || 0) - sumX * (sumY || 0)) / (n * sumXX - sumX * sumX);
@@ -2699,10 +2699,10 @@ function calculateOneTimeCosts(contracts: any[]): number {
 
 function calculateQuarterlyROI(current: any[], previous: any[]): string {
   // Simplified ROI calculation
-  const currentValue = current.reduce((sum, c) => 
+  const currentValue = current.reduce((sum: number, c: any) => 
     sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0
   );
-  const previousValue = previous.reduce((sum, c) => 
+  const previousValue = previous.reduce((sum: number, c: any) => 
     sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0
   );
   
@@ -2791,7 +2791,7 @@ function identifyEmergingRisks(contracts: any[], insights: any[]): string[] {
   });
   
   // Pattern detection
-  const riskTypes = recentInsights.reduce((acc, i) => {
+  const riskTypes = recentInsights.reduce((acc: Record<string, number>, i: any) => {
     if (i.type.includes("risk")) {
       acc[i.type] = (acc[i.type] || 0) + 1;
     }
@@ -2821,7 +2821,7 @@ function analyzeRiskTrends(insights: any[]): any {
   const lastMonth = months[months.length - 1];
   const firstMonth = months[0];
   const trend = months.length >= 3 && lastMonth && firstMonth &&
-    (monthlyRisks[lastMonth] || 0) > (monthlyRisks[firstMonth] || 0)
+    (monthlyRisks[lastMonth!] || 0) > (monthlyRisks[firstMonth!] || 0)
     ? "increasing" : "stable";
   
   return { monthlyRisks, trend };
@@ -3173,7 +3173,7 @@ export const getTrends = internalQuery({
     
     if (args.trendType) {
       return insights.filter(i => 
-        i.title.toLowerCase().includes((args.trendType || "").replace("_", " "))
+        i.title.toLowerCase().includes((args.trendType!).replace("_", " "))
       );
     }
     

@@ -110,6 +110,7 @@ export const AgentSystemStatus: React.FC<AgentSystemStatusProps> = ({
   };
 
   const getSystemStatusIcon = () => {
+    if (!system) return <Activity className="h-5 w-5 text-gray-600" />;
     switch (system.status) {
       case 'running':
         return <CheckCircle className="h-5 w-5 text-green-600" />;
@@ -125,7 +126,7 @@ export const AgentSystemStatus: React.FC<AgentSystemStatusProps> = ({
   };
 
   const formatUptime = () => {
-    if (!system.lastStarted || !system.isRunning) return "N/A";
+    if (!system || !system.lastStarted || !system.isRunning) return "N/A";
     
     const startTime = new Date(system.lastStarted);
     const now = new Date();
