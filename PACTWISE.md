@@ -1,10 +1,10 @@
-# PACTWISE - Enterprise Contract & Vendor Management Platform
+# PACTWISE - AI-Powered Contract Management SaaS Platform
 
-> **AI-Powered Contract Intelligence for Modern Enterprises**
+> **Enterprise Contract Intelligence as a Service**
 
 ## 🎯 Executive Summary
 
-**PactWise** is a comprehensive enterprise-grade contract and vendor management platform that transforms how organizations handle their contractual relationships. By combining traditional document repository functionality with advanced AI-powered insights, real-time collaboration, and automated workflows, PactWise addresses the critical challenges faced by legal, procurement, and operations teams in today's fast-paced business environment.
+**PactWise** is a comprehensive Software-as-a-Service (SaaS) platform that delivers enterprise-grade contract and vendor management capabilities through the cloud. Designed for organizations of all sizes, PactWise transforms how businesses handle their contractual relationships by combining traditional document repository functionality with advanced AI-powered insights, real-time collaboration, and automated workflows delivered through a scalable, multi-tenant architecture.
 
 ### The Problem We Solve
 
@@ -15,14 +15,15 @@ Modern enterprises struggle with:
 - **Vendor Fragmentation**: Disconnected vendor relationships and performance tracking
 - **Security Concerns**: Inadequate access controls and audit trails for sensitive documents
 
-### Our Solution
+### Our SaaS Solution
 
-PactWise provides:
-- **Centralized Intelligence Hub**: AI-powered contract repository with automated analysis
-- **Proactive Risk Management**: Real-time alerts, compliance monitoring, and predictive insights
-- **Streamlined Workflows**: Automated approval processes and collaborative review tools
-- **Vendor Ecosystem Management**: Comprehensive relationship tracking and performance analytics
-- **Enterprise Security**: Multi-layered security with audit trails and role-based access
+PactWise delivers:
+- **Cloud-Native Intelligence Hub**: AI-powered contract repository with automated analysis, accessible anywhere
+- **Scalable Multi-Tenant Architecture**: Secure enterprise data isolation with shared infrastructure efficiency
+- **Subscription-Based Pricing**: Flexible plans that scale with your organization's needs
+- **Instant Deployment**: Get started in minutes with no infrastructure setup required
+- **Automatic Updates**: Continuous feature delivery and security updates with zero downtime
+- **Global Accessibility**: Access your contracts and data from anywhere with enterprise-grade security
 
 ---
 
@@ -32,30 +33,30 @@ PactWise provides:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        PACTWISE PLATFORM                        │
+│                     PACTWISE SAAS PLATFORM                      │
 ├─────────────────────────────────────────────────────────────────┤
-│  Frontend Layer (Next.js 15 + React 19 + TypeScript)          │
+│  Client Layer (Multi-Tenant Web Application)                   │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
 │  │ Dashboard   │ │ Contracts   │ │ Vendors     │ │ Analytics   ││
-│  │ Components  │ │ Management  │ │ Management  │ │ & Reports   ││
+│  │ Interface   │ │ Management  │ │ Management  │ │ & Reports   ││
 │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘│
 ├─────────────────────────────────────────────────────────────────┤
-│  API Layer (Convex Real-time Backend)                          │
+│  SaaS API Layer (Subscription-Aware Backend)                   │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
-│  │ GraphQL-    │ │ Real-time   │ │ File        │ │ Security    ││
-│  │ style API   │ │ Subscriptions│ │ Management  │ │ Framework   ││
+│  │ Billing &   │ │ Real-time   │ │ File        │ │ Enterprise  ││
+│  │ Usage API   │ │ Sync Engine │ │ Storage CDN │ │ Security    ││
 │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘│
 ├─────────────────────────────────────────────────────────────────┤
-│  AI Agent System (Autonomous Contract Intelligence)            │
+│  AI-as-a-Service Layer (Shared Intelligence)                   │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
-│  │ Analytics   │ │ Legal       │ │ Financial   │ │ Manager     ││
-│  │ Agent       │ │ Agent       │ │ Agent       │ │ Agent       ││
+│  │ Analytics   │ │ Legal       │ │ Financial   │ │ Orchestration││
+│  │ Service     │ │ Service     │ │ Service     │ │ Manager     ││
 │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘│
 ├─────────────────────────────────────────────────────────────────┤
-│  Data Layer (Convex Database + File Storage)                   │
+│  Multi-Tenant Data Platform (Enterprise Isolation)             │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
-│  │ Multi-tenant│ │ Real-time   │ │ File        │ │ Audit &     ││
-│  │ Database    │ │ Events      │ │ Storage     │ │ Security    ││
+│  │ Tenant      │ │ Real-time   │ │ Global      │ │ Compliance  ││
+│  │ Database    │ │ Event Bus   │ │ File CDN    │ │ & Audit     ││
 │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘│
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -77,10 +78,12 @@ PactWise provides:
 - **Real-time**: Native Convex subscriptions
 - **Security**: Custom row-level security framework
 
-**Infrastructure:**
-- **Deployment**: Vercel (Frontend) + Convex Cloud (Backend)
-- **Monitoring**: Built-in Convex dashboard + custom metrics
-- **CDN**: Global edge network for file delivery
+**SaaS Infrastructure:**
+- **Deployment**: Vercel (Global CDN) + Convex Cloud (Multi-tenant Backend)
+- **Billing**: Stripe subscription management with usage-based pricing
+- **Monitoring**: Built-in Convex dashboard + custom SaaS metrics and tenant analytics
+- **CDN**: Global edge network for file delivery and application performance
+- **Scaling**: Auto-scaling infrastructure with pay-per-use model
 
 ---
 
@@ -757,7 +760,62 @@ export class SecureQuery<T> {
 
 ---
 
-## 📈 Business Model & Market Position
+## 💼 SaaS Business Model
+
+### Subscription Plans
+
+**Starter Plan** - $49/month per organization
+- Up to 10 users
+- 1,000 contracts storage
+- Basic AI analysis (50 analyses/month)
+- Standard support
+- Core workflow automation
+
+**Professional Plan** - $149/month per organization  
+- Up to 50 users
+- 10,000 contracts storage
+- Advanced AI analysis (500 analyses/month)
+- Priority support
+- Advanced workflows and approvals
+- Custom integrations
+
+**Enterprise Plan** - Custom pricing
+- Unlimited users
+- Unlimited contracts storage
+- Unlimited AI analysis
+- Dedicated support and success manager
+- Custom workflows and branding
+- Advanced security and compliance
+- API access and custom integrations
+
+**Features by Plan:**
+
+| Feature | Starter | Professional | Enterprise |
+|---------|---------|--------------|------------|
+| Users | 10 | 50 | Unlimited |
+| Contracts | 1,000 | 10,000 | Unlimited |
+| AI Analysis | 50/month | 500/month | Unlimited |
+| Storage | 10GB | 100GB | Unlimited |
+| Support | Standard | Priority | Dedicated |
+| SLA | 99.5% | 99.9% | 99.99% |
+| Custom Branding | ❌ | ❌ | ✅ |
+| API Access | ❌ | Limited | Full |
+| SSO/SAML | ❌ | ✅ | ✅ |
+
+### Revenue Model
+
+**Subscription Revenue:**
+- Monthly and annual billing options (20% discount for annual)
+- Usage-based pricing for AI analyses and storage overages
+- Enterprise custom pricing based on scale and requirements
+
+**Value-Added Services:**
+- Professional onboarding and migration services
+- Custom integration development
+- Training and certification programs
+- White-label licensing for partners
+
+## 📈 Market Position & Strategy
 
 ### Target Market
 
@@ -767,38 +825,60 @@ export class SecureQuery<T> {
 - **Operations Teams**: Process automation and efficiency improvement
 - **C-Suite Executives**: Strategic insights and risk visibility
 
-**Enterprise Segments:**
-- **Mid-Market (50-500 employees)**: Streamlined contract management
-- **Enterprise (500+ employees)**: Advanced analytics and automation
-- **Legal Firms**: Multi-client contract management
-- **Consulting Companies**: Project-based contract tracking
+**Target Market Segments:**
+
+**Small-Medium Business (10-50 employees)** - Starter Plan
+- Growing companies needing organized contract management
+- Legal departments transitioning from manual processes
+- Procurement teams seeking vendor relationship visibility
+
+**Mid-Market (50-500 employees)** - Professional Plan  
+- Established companies with complex contract portfolios
+- Cross-functional teams requiring collaboration tools
+- Organizations with compliance and audit requirements
+
+**Large Enterprise (500+ employees)** - Enterprise Plan
+- Complex multi-department contract ecosystems
+- Advanced security and integration requirements  
+- Custom workflow and approval processes
+- Global organizations with distributed teams
+
+**Industry Verticals:**
+- **Technology Companies**: Software licensing and vendor agreements
+- **Healthcare Organizations**: Compliance-heavy contract management
+- **Financial Services**: Regulatory compliance and risk management
+- **Manufacturing**: Supplier and partnership contract tracking
+- **Professional Services**: Client engagement and subcontractor management
 
 ### Competitive Advantages
 
-**Technical Differentiators:**
-- Real-time collaborative platform with instant updates
-- AI-powered insights and automation capabilities
-- Comprehensive security with enterprise-grade compliance
-- Modern, intuitive user experience with mobile support
+**SaaS Technical Differentiators:**
+- **True Multi-Tenancy**: Secure enterprise data isolation with shared infrastructure efficiency
+- **Real-time Collaboration**: Instant updates and live collaboration without page refreshes
+- **AI-as-a-Service**: Shared AI infrastructure delivering intelligent insights at scale
+- **Zero Infrastructure**: Complete cloud-native solution with no hardware or software to maintain
+- **Global Performance**: CDN-delivered application with sub-100ms response times worldwide
 
-**Business Differentiators:**
-- Rapid deployment and onboarding (< 24 hours)
-- Flexible pricing model with transparent costs
-- Industry-specific templates and workflows
-- Dedicated customer success and support teams
+**SaaS Business Differentiators:**
+- **Instant Activation**: Start using PactWise in under 5 minutes with guided onboarding
+- **Transparent Pricing**: Clear subscription tiers with no hidden fees or surprise charges
+- **Elastic Scaling**: Automatically scale from startup to enterprise without migration
+- **Continuous Innovation**: Monthly feature releases and improvements without disruption
+- **Success-Driven Support**: Dedicated customer success team focused on ROI achievement
 
 ### Market Opportunity
 
-**Addressable Market:**
-- **TAM**: $50B+ global contract management market
-- **SAM**: $15B+ enterprise software solutions
-- **SOM**: $2B+ AI-powered legal tech solutions
+**SaaS Market Opportunity:**
+- **TAM**: $50B+ global contract management software market
+- **SAM**: $15B+ cloud-based enterprise legal tech solutions
+- **SOM**: $3B+ AI-powered SaaS contract management platforms
 
-**Growth Drivers:**
-- Increasing regulatory compliance requirements
-- Digital transformation in legal and procurement
-- Rising demand for AI-powered automation
-- Remote work driving need for collaborative tools
+**SaaS Growth Drivers:**
+- **Cloud-First Adoption**: 87% of organizations prefer SaaS solutions over on-premise
+- **Subscription Economy**: Businesses increasingly adopting recurring revenue models
+- **AI Democratization**: SaaS making advanced AI accessible to organizations of all sizes
+- **Remote/Hybrid Work**: Cloud-based collaboration tools becoming business critical
+- **Compliance Automation**: Growing regulatory requirements driving demand for automated compliance
 
 ---
 
@@ -970,13 +1050,33 @@ npm run dev
 - Mobile-responsive design with touch-optimized interactions
 - Consistent error handling and loading states throughout
 
-**Architecture Highlights:**
-- Modular component structure with clear separation of concerns
-- Reusable patterns for data tables, forms, and modals
-- Consistent prop interfaces and component APIs
-- Performance optimizations with proper state management
-- Accessibility features and keyboard navigation support
+**SaaS Architecture Highlights:**
+- **Multi-tenant Component Architecture**: Reusable patterns designed for enterprise data isolation
+- **Subscription-Aware UI Components**: Built-in plan limits and feature gating capabilities  
+- **Scalable State Management**: Optimized for thousands of concurrent enterprise users
+- **Global Performance Optimization**: CDN-ready components with intelligent caching
+- **Enterprise Accessibility**: WCAG 2.1 AA compliance for all user interfaces
+- **Mobile-First SaaS Experience**: Touch-optimized interfaces for field teams and remote workers
+
+**Production SaaS Readiness:**
+- **Multi-tenant Security**: Enterprise data isolation at component and API levels
+- **Billing Integration Ready**: Built for Stripe subscription and usage tracking integration
+- **Global Deployment**: Optimized for worldwide CDN distribution and edge computing
+- **Enterprise Compliance**: SOC 2, GDPR, and HIPAA-ready architecture and workflows
+- **Scalable Infrastructure**: Auto-scaling backend designed for viral SaaS growth patterns
 
 ---
 
-*This document serves as the definitive reference for PactWise development, architecture, and business strategy. Last updated: June 2025*
+*This document serves as the definitive reference for PactWise SaaS development, architecture, and business strategy. Last updated: June 2025*
+
+---
+
+## 🌟 Get Started with PactWise
+
+**Ready to transform your contract management?**
+
+- **Start Free Trial**: [Sign up now](https://pactwise.com/signup) for 14-day free access to all Professional features
+- **Book a Demo**: [Schedule a personalized demo](https://pactwise.com/demo) with our team
+- **Enterprise Consultation**: [Contact sales](https://pactwise.com/contact) for custom enterprise solutions
+
+**Questions?** Reach out to our team at [hello@pactwise.com](mailto:hello@pactwise.com)
