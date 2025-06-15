@@ -42,3 +42,7 @@ next-env.d.ts
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+#my plan for incorporation to be ignored
+SaasIncorporationPlan.md
+pricing.md
