@@ -5,6 +5,13 @@ import { agentTables } from "./agent_schema";
 import { notificationTables } from "./notification_schema";
 import { rateLimitTables } from "./security/rateLimiting";
 import { auditTables } from "./security/auditLogging";
+import { memoryTables } from "./memory_schema";
+import { 
+  onboardingMetadataValidator,
+  analyticsEventPropertiesValidator,
+  errorReportContextValidator,
+  realtimeEventDataValidator 
+} from "./types/schema_types";
 
 // ============================================================================
 // OPTIONS / ENUMS
@@ -216,7 +223,7 @@ export default defineSchema({
     skippedAt: v.optional(v.string()),
     skipReason: v.optional(v.string()),
     updatedAt: v.optional(v.string()),
-    metadata: v.optional(v.any()),
+    metadata: v.optional(onboardingMetadataValidator),
   })
     .index("by_userId", ["userId"])
     .index("by_enterprise", ["enterpriseId"]),
@@ -261,7 +268,7 @@ export default defineSchema({
     ),
     resourceId: v.optional(v.string()),
     resourceType: v.optional(v.string()),
-    data: v.optional(v.any()),
+    data: v.optional(realtimeEventDataValidator),
     targetUsers: v.optional(v.array(v.id("users"))),
     timestamp: v.string(),
     processed: v.boolean(),
@@ -289,7 +296,7 @@ export default defineSchema({
     timestamp: v.number(),
     url: v.string(),
     userId: v.optional(v.string()),
-    properties: v.optional(v.any()),
+    properties: v.optional(analyticsEventPropertiesValidator),
     sessionId: v.string(),
     userAgent: v.optional(v.string()),
     ip: v.optional(v.string()),
@@ -314,7 +321,7 @@ export default defineSchema({
     userId: v.optional(v.string()),
     sessionId: v.string(),
     userAgent: v.string(),
-    context: v.optional(v.any()),
+    context: v.optional(errorReportContextValidator),
     authenticatedUserId: v.optional(v.id("users")),
     enterpriseId: v.optional(v.id("enterprises")),
     serverTimestamp: v.number(),
@@ -338,7 +345,7 @@ export default defineSchema({
     timestamp: v.number(),
     url: v.string(),
     userId: v.optional(v.string()),
-    properties: v.optional(v.any()),
+    properties: v.optional(analyticsEventPropertiesValidator),
     sessionId: v.string(),
     userAgent: v.optional(v.string()),
     authenticatedUserId: v.optional(v.id("users")),
@@ -355,5 +362,6 @@ export default defineSchema({
   ...agentTables,
   ...notificationTables,
   ...rateLimitTables,
-  ...auditTables
+  ...auditTables,
+  ...memoryTables
 });

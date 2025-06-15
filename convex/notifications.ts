@@ -115,7 +115,8 @@ export const createNotification = mutation({
       timestamp: new Date().toISOString(),
       metadata: {
         createdBy: identity.subject,
-        channels,
+        channelsList: channels.join(","), // Convert array to comma-separated string
+        channelCount: channels.length,
       },
     });
 

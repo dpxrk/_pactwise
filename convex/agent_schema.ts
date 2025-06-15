@@ -1,6 +1,12 @@
 // convex/agent-schema.ts
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
+import { 
+  agentInsightDataValidator,
+  agentTaskDataValidator,
+  agentTaskResultValidator,
+  agentLogDataValidator
+} from "./types/schema_types";
 
 // Agent system status
 const agentSystemStatusOptions = [ // Renamed for clarity with other options arrays
@@ -130,7 +136,7 @@ export const agentTables = {
     priority: v.union(...taskPriorityOptions.map(p => v.literal(p))),
     contractId: v.optional(v.id("contracts")),
     vendorId: v.optional(v.id("vendors")),
-    data: v.optional(v.any()), // Structured insight data - can be v.object with known shapes
+    data: v.optional(agentInsightDataValidator), // Structured insight data
     actionRequired: v.boolean(),
     actionTaken: v.boolean(),
     actionDetails: v.optional(v.string()),
@@ -160,8 +166,8 @@ export const agentTables = {
     description: v.optional(v.string()),
     contractId: v.optional(v.id("contracts")),
     vendorId: v.optional(v.id("vendors")),
-    data: v.optional(v.any()), // Task-specific data
-    result: v.optional(v.any()), // Task execution result
+    data: v.optional(agentTaskDataValidator), // Task-specific data
+    result: v.optional(agentTaskResultValidator), // Task execution result
     errorMessage: v.optional(v.string()),
     scheduledFor: v.optional(v.string()), // ISO 8601
     startedAt: v.optional(v.string()), // ISO 8601
@@ -184,7 +190,7 @@ export const agentTables = {
     agentId: v.id("agents"), // Or v.string() if it can be non-agent system ID
     level: v.union(...logLevelOptions.map(l => v.literal(l))), // Use the new comprehensive list
     message: v.string(),
-    data: v.optional(v.any()), // Can be v.object with known shapes
+    data: v.optional(agentLogDataValidator), // Structured log data
     taskId: v.optional(v.id("agentTasks")),
     timestamp: v.string(), // Your defined ISO 8601 string for event time
     category: v.optional(v.string()), // Added from manager.ts usage

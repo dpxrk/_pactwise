@@ -1,6 +1,7 @@
 // convex/notification_schema.ts
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
+import { notificationMetadataValidator } from "./types/schema_types";
 
 // Notification types
 const notificationTypeOptions = [
@@ -81,7 +82,7 @@ export const notificationTables = {
     taskId: v.optional(v.id("agentTasks")),
     
     // Additional data
-    metadata: v.optional(v.any()), // Flexible field for notification-specific data
+    metadata: v.optional(notificationMetadataValidator), // Structured notification metadata
     actionUrl: v.optional(v.string()), // Deep link or URL for action
     
     // Timestamps
@@ -181,7 +182,7 @@ export const notificationTables = {
     ),
     channel: v.optional(v.union(...notificationChannelOptions.map(c => v.literal(c)))),
     timestamp: v.string(), // ISO 8601
-    metadata: v.optional(v.any()), // Additional event data
+    metadata: v.optional(v.record(v.string(), v.union(v.string(), v.number(), v.boolean()))), // Additional event data
   })
   .index("by_notification", ["notificationId"])
   .index("by_event_type", ["eventType"])
