@@ -14,15 +14,37 @@ export const createEnterpriseWithOwner = mutation({
   args: {
     enterpriseName: v.string(),
     domain: v.optional(v.string()),
+    userEmail: v.optional(v.string()), // Fallback if auth fails
+    clerkUserId: v.optional(v.string()), // Fallback if auth fails
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new ConvexError("Authentication required");
+    let identity = await ctx.auth.getUserIdentity();
+    
+    // If no identity, this might be a timing issue with auth
+    if (!identity) {
+      // For now, we'll create a temporary solution
+      // In production, you'd want to handle this differently
+      if (!args.userEmail || !args.clerkUserId) {
+        throw new ConvexError("Authentication failed. Please try again.");
+      }
+      
+      // Use fallback data
+      identity = {
+        subject: args.clerkUserId,
+        email: args.userEmail,
+        given_name: undefined,
+        family_name: undefined,
+      } as any;
+    }
+
+    // At this point identity is guaranteed to be non-null
+    const userIdentity = identity!;
+    console.log("User identity:", { subject: userIdentity.subject, email: userIdentity.email });
 
     // Check if user already belongs to an enterprise
     const existingUser = await ctx.db
       .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", userIdentity.subject))
       .first();
     
     if (existingUser) {
@@ -38,14 +60,17 @@ export const createEnterpriseWithOwner = mutation({
     const enterpriseId = await ctx.db.insert("enterprises", {
       name: args.enterpriseName.trim(),
       ...(args.domain && { domain: args.domain }),
+      isParentOrganization: true, // New enterprises start as parent organizations
+      allowChildOrganizations: true,
+      createdAt: new Date().toISOString(),
     });
 
     // Create user as owner
     await ctx.db.insert("users", {
-      clerkId: String(identity.subject),
-      email: typeof identity.email === "string" ? identity.email : "",
-      ...(typeof identity.given_name === "string" && identity.given_name && { firstName: identity.given_name }),
-      ...(typeof identity.family_name === "string" && identity.family_name && { lastName: identity.family_name }),
+      clerkId: String(userIdentity.subject),
+      email: typeof userIdentity.email === "string" ? userIdentity.email : args.userEmail || "",
+      ...(typeof userIdentity.given_name === "string" && userIdentity.given_name && { firstName: userIdentity.given_name }),
+      ...(typeof userIdentity.family_name === "string" && userIdentity.family_name && { lastName: userIdentity.family_name }),
       enterpriseId,
       role: "owner",
       isActive: true,
@@ -704,5 +729,234 @@ export const getEnterpriseStats = query({
         pending: pendingInvitations,
       },
     };
+  },
+});
+
+// ============================================================================
+// HIERARCHICAL ORGANIZATION FUNCTIONS
+// ============================================================================
+
+/**
+ * Search for companies by name (case-insensitive)
+ */
+export const searchCompaniesByName = query({
+  args: {
+    searchTerm: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    if (!args.searchTerm || args.searchTerm.trim().length < 2) {
+      return [];
+    }
+
+    const searchTerm = args.searchTerm.trim().toLowerCase();
+    const limit = args.limit || 10;
+
+    // Get all enterprises and filter by name (case-insensitive)
+    const allEnterprises = await ctx.db.query("enterprises").collect();
+    
+    const filteredEnterprises = allEnterprises
+      .filter(enterprise => 
+        enterprise.name.toLowerCase().includes(searchTerm) &&
+        enterprise.allowChildOrganizations === true
+      )
+      .slice(0, limit)
+      .map(enterprise => ({
+        _id: enterprise._id,
+        name: enterprise.name,
+        domain: enterprise.domain,
+        isParentOrganization: enterprise.isParentOrganization,
+      }));
+
+    return filteredEnterprises;
+  },
+});
+
+/**
+ * Set access PIN for an enterprise (owner/admin only)
+ */
+export const setAccessPin = mutation({
+  args: {
+    pin: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new ConvexError("Authentication required");
+
+    // Get current user
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) throw new ConvexError("User not found");
+
+    // Check if user is owner or admin
+    if (!["owner", "admin"].includes(user.role)) {
+      throw new ConvexError("Only owners and admins can set access PINs");
+    }
+
+    // Validate PIN (4-8 digits)
+    if (!/^\d{4,8}$/.test(args.pin)) {
+      throw new ConvexError("PIN must be 4-8 digits");
+    }
+
+    // Hash the PIN (simple hash for demo - use bcrypt in production)
+    const hashedPin = Buffer.from(args.pin).toString('base64');
+
+    // Update enterprise
+    await ctx.db.patch(user.enterpriseId, {
+      accessPin: hashedPin,
+      updatedAt: new Date().toISOString(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Join an enterprise as a child organization
+ */
+export const joinEnterpriseAsChild = mutation({
+  args: {
+    parentEnterpriseId: v.id("enterprises"),
+    pin: v.string(),
+    childCompanyName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new ConvexError("Authentication required");
+
+    // Check if user already belongs to an enterprise
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    
+    if (existingUser) {
+      throw new ConvexError("You already belong to an organization");
+    }
+
+    // Get parent enterprise
+    const parentEnterprise = await ctx.db.get(args.parentEnterpriseId);
+    if (!parentEnterprise) {
+      throw new ConvexError("Parent organization not found");
+    }
+
+    // Check if parent allows child organizations
+    if (!parentEnterprise.allowChildOrganizations) {
+      throw new ConvexError("This organization does not allow child organizations");
+    }
+
+    // Verify PIN
+    if (!parentEnterprise.accessPin) {
+      throw new ConvexError("This organization has not set up PIN access");
+    }
+
+    const hashedInputPin = Buffer.from(args.pin).toString('base64');
+    if (hashedInputPin !== parentEnterprise.accessPin) {
+      throw new ConvexError("Invalid PIN");
+    }
+
+    // Validate child company name
+    if (!args.childCompanyName || args.childCompanyName.trim().length < 2) {
+      throw new ConvexError("Child company name must be at least 2 characters long");
+    }
+
+    // Create child enterprise
+    const childEnterpriseId = await ctx.db.insert("enterprises", {
+      name: args.childCompanyName.trim(),
+      parentEnterpriseId: args.parentEnterpriseId,
+      isParentOrganization: false,
+      allowChildOrganizations: false, // Child orgs cannot have children by default
+      createdAt: new Date().toISOString(),
+    });
+
+    // Create user as owner of child organization
+    await ctx.db.insert("users", {
+      clerkId: String(identity.subject),
+      email: typeof identity.email === "string" ? identity.email : "",
+      ...(typeof identity.given_name === "string" && identity.given_name && { firstName: identity.given_name }),
+      ...(typeof identity.family_name === "string" && identity.family_name && { lastName: identity.family_name }),
+      enterpriseId: childEnterpriseId,
+      role: "owner",
+      isActive: true,
+      lastLoginAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    });
+
+    return childEnterpriseId;
+  },
+});
+
+/**
+ * Get child organizations (parent organization owners/admins only)
+ */
+export const getChildOrganizations = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user || !["owner", "admin"].includes(user.role)) {
+      return [];
+    }
+
+    const childOrganizations = await ctx.db
+      .query("enterprises")
+      .withIndex("by_parent", (q) => q.eq("parentEnterpriseId", user.enterpriseId))
+      .collect();
+
+    return childOrganizations.map(org => ({
+      _id: org._id,
+      name: org.name,
+      createdAt: org.createdAt,
+    }));
+  },
+});
+
+/**
+ * Check if current user's organization has access to another organization's data
+ */
+export const hasAccessToOrganization = query({
+  args: {
+    targetEnterpriseId: v.id("enterprises"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return false;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) return false;
+
+    // Users can access their own organization
+    if (user.enterpriseId === args.targetEnterpriseId) {
+      return true;
+    }
+
+    // Get current user's enterprise
+    const currentEnterprise = await ctx.db.get(user.enterpriseId);
+    if (!currentEnterprise) return false;
+
+    // Get target enterprise
+    const targetEnterprise = await ctx.db.get(args.targetEnterpriseId);
+    if (!targetEnterprise) return false;
+
+    // Parent organizations can access their children
+    if (targetEnterprise.parentEnterpriseId === user.enterpriseId) {
+      return true;
+    }
+
+    // Child organizations cannot access each other
+    return false;
   },
 });

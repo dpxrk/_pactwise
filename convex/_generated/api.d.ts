@@ -44,6 +44,7 @@ import type * as security_secureContractOperations from "../security/secureContr
 import type * as security_secureWrapper from "../security/secureWrapper.js";
 import type * as server from "../server.js";
 import type * as types from "../types.js";
+import type * as userEvents from "../userEvents.js";
 import type * as users from "../users.js";
 import type * as vendors from "../vendors.js";
 
@@ -87,6 +88,7 @@ declare const fullApi: ApiFromModules<{
   "security/secureWrapper": typeof security_secureWrapper;
   server: typeof server;
   types: typeof types;
+  userEvents: typeof userEvents;
   users: typeof users;
   vendors: typeof vendors;
 }>;

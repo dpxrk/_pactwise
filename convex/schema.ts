@@ -83,9 +83,20 @@ export default defineSchema({
       v.literal("enterprise")
     )),
     primaryUseCase: v.optional(v.array(v.string())),
+    // Hierarchical organization support
+    parentEnterpriseId: v.optional(v.id("enterprises")), // Parent company
+    isParentOrganization: v.optional(v.boolean()), // True if this is a parent company
+    // PIN-based access control
+    accessPin: v.optional(v.string()), // Hashed PIN for joining the organization
+    allowChildOrganizations: v.optional(v.boolean()), // Whether this org allows child orgs
+    // Metadata
+    createdAt: v.optional(v.string()),
+    updatedAt: v.optional(v.string()),
   })
     .index("by_name", ["name"])
-    .index("by_domain", ["domain"]),
+    .index("by_domain", ["domain"])
+    .index("by_parent", ["parentEnterpriseId"])
+    .index("by_is_parent", ["isParentOrganization"]),
 
  // ===== USERS =====
  users: defineTable({
@@ -321,6 +332,25 @@ export default defineSchema({
     createdAt: v.string(),
   })
     .index("by_timestamp", ["timestamp"]),
+
+  user_events: defineTable({
+    event: v.string(),
+    timestamp: v.number(),
+    url: v.string(),
+    userId: v.optional(v.string()),
+    properties: v.optional(v.any()),
+    sessionId: v.string(),
+    userAgent: v.optional(v.string()),
+    authenticatedUserId: v.optional(v.id("users")),
+    enterpriseId: v.optional(v.id("enterprises")),
+    serverTimestamp: v.number(),
+    createdAt: v.string(),
+  })
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_user", ["authenticatedUserId"])
+    .index("by_event", ["event"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_session", ["sessionId"]),
 
   ...agentTables,
   ...notificationTables,

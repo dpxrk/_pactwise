@@ -45,15 +45,17 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
 
   // Fetch data from Convex backend
   const contractStats = useQuery(api.contracts.getContractStats, { enterpriseId });
-  const contracts = useQuery(api.contracts.getContracts, { 
+  const contractsData = useQuery(api.contracts.getContracts, { 
     enterpriseId,
     status: "all",
     contractType: "all"
   });
-  const vendors = useQuery(api.vendors.getVendors, { 
+  const contracts = contractsData?.contracts;
+  const vendorsData = useQuery(api.vendors.getVendors, { 
     enterpriseId,
     category: "all"
   });
+  const vendors = vendorsData?.vendors;
   
   // Agent system data
   const agentSystemStatus = useQuery(api.agents.manager.getAgentSystemStatus, {});
@@ -82,7 +84,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
 
   // Calculate metrics from actual data
   const calculateTotalContractValue = () => {
-    if (!contracts) return 0;
+    if (!contracts || !Array.isArray(contracts)) return 0;
     return contracts.reduce((total, contract) => {
       const value = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
       return total + (isNaN(value) ? 0 : value);
@@ -94,7 +96,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
   };
 
   const calculateExpiringContracts = () => {
-    if (!contracts) return 0;
+    if (!contracts || !Array.isArray(contracts)) return 0;
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
     
@@ -146,7 +148,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
   };
 
   const getVendorCategoryData = () => {
-    if (!vendors) return [];
+    if (!vendors || !Array.isArray(vendors)) return [];
     
     const categoryCount: Record<string, number> = {};
     vendors.forEach(vendor => {
@@ -176,7 +178,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
 
   const getRiskDistributionData = () => {
     // Calculate risk based on contract values and types
-    if (!contracts) return [];
+    if (!contracts || !Array.isArray(contracts)) return [];
     
     let lowRisk = 0, mediumRisk = 0, highRisk = 0;
     
@@ -202,7 +204,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
   };
 
   // Loading state
-  const isLoading = contractStats === undefined || contracts === undefined || vendors === undefined;
+  const isLoading = contractStats === undefined || contractsData === undefined || vendorsData === undefined;
 
   if (isLoading) {
     return (
@@ -220,7 +222,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
   const totalContractValue = calculateTotalContractValue();
   const activeContracts = calculateActiveContracts();
   const expiringCount = calculateExpiringContracts();
-  const totalVendors = vendors?.length || 0;
+  const totalVendors = (vendors && Array.isArray(vendors)) ? vendors.length : 0;
   const agentInsights = recentInsights?.length || 0;
 
   return (
@@ -478,7 +480,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
               />
               <MetricCard 
                 title="Active Relationships" 
-                value={vendors?.filter(v => v.contractCount > 0).length.toString() || "0"} 
+                value={(vendors && Array.isArray(vendors)) ? vendors.filter(v => v.contractCount > 0).length.toString() : "0"} 
                 icon={Activity} 
                 description="Vendors with active contracts"
               />
@@ -519,12 +521,13 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
                   <div className="h-80">
                     <DynamicChart 
                       type="bar" 
-                      data={vendors?.sort((a, b) => (b.contractCount || 0) - (a.contractCount || 0))
+                      data={(vendors && Array.isArray(vendors)) ? vendors
+                        .sort((a, b) => (b.contractCount || 0) - (a.contractCount || 0))
                         .slice(0, 5)
                         .map(vendor => ({
                           name: vendor.name.length > 15 ? vendor.name.substring(0, 15) + '...' : vendor.name,
                           value: vendor.contractCount || 0
-                        })) || []
+                        })) : []
                       } 
                       series={[{ dataKey: "value", name: "Contracts", fill: CHART_COLORS.tertiary }]} 
                       xAxisKey="name" 

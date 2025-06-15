@@ -21,7 +21,7 @@ You're working on **Pactwise** - an enterprise contract and vendor management pl
 ### 1. Code Quality Standards
 ```typescript
 // ALWAYS follow these patterns:
-- Use TypeScript strict mode with proper type safety
+- Use TypeScript strict mode with proper type safety. Ensure that "any" or "unknown" is never used.
 - Implement proper error boundaries and fallback UI
 - Add comprehensive error handling with user-friendly messages
 - Use proper loading states (Suspense boundaries, skeleton loaders)

@@ -1,8 +1,9 @@
 'use client'
 
-import React from "react";
+import React, { useEffect } from "react";
 import DashboardContent from "@/app/_components/dashboard/DashboardContent";
-import { useQuery } from 'convex/react';
+import { useQuery, useMutation } from 'convex/react';
+import { useAuth } from '@clerk/nextjs';
 import { api } from "../../../convex/_generated/api";
 
 interface HomeDashboardProps {
@@ -11,10 +12,20 @@ interface HomeDashboardProps {
 }
 
 const HomeDashboard: React.FC<HomeDashboardProps> = () => {
-  const currentUser = useQuery(api.users.getCurrentUser, {});
+  const { isSignedIn, isLoaded } = useAuth();
+  const currentUser = useQuery(api.users.getCurrentUser, isLoaded ? {} : "skip");
   
-  // Handle loading state
-  if (currentUser === undefined) {
+  // Redirect to onboarding if user not found in database
+  useEffect(() => {
+    if (isLoaded && isSignedIn && currentUser === null) {
+      // User is authenticated with Clerk but doesn't exist in our database
+      // Redirect to onboarding to create their account
+      window.location.href = '/onboarding';
+    }
+  }, [isLoaded, isSignedIn, currentUser]);
+  
+  // Handle loading state - wait for auth to load
+  if (!isLoaded || currentUser === undefined) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -25,25 +36,27 @@ const HomeDashboard: React.FC<HomeDashboardProps> = () => {
     );
   }
 
-  // Handle unauthenticated state
+  // Handle unauthenticated state or redirect in progress
   if (currentUser === null) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Authentication Required</h2>
-          <p className="text-gray-600">Please sign in to access the dashboard.</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Redirecting to account setup...</p>
         </div>
       </div>
     );
   }
 
-  // Handle case where user doesn't have an enterprise
+  // Handle case where user doesn't have an enterprise - redirect to onboarding
   if (!currentUser.enterpriseId) {
+    // Redirect to onboarding flow
+    window.location.href = '/onboarding';
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">No Enterprise Found</h2>
-          <p className="text-gray-600">Please contact your administrator to be assigned to an enterprise.</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Redirecting to setup...</p>
         </div>
       </div>
     );

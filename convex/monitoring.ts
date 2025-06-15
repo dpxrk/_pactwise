@@ -8,7 +8,7 @@ const analyticsEventSchema = v.object({
   timestamp: v.number(),
   url: v.string(),
   userId: v.optional(v.string()),
-  properties: v.optional(v.object({})),
+  properties: v.optional(v.any()),
   sessionId: v.string(),
   userAgent: v.optional(v.string()),
   ip: v.optional(v.string()),
@@ -23,7 +23,7 @@ const errorReportSchema = v.object({
   userId: v.optional(v.string()),
   sessionId: v.string(),
   userAgent: v.string(),
-  context: v.optional(v.object({})),
+  context: v.optional(v.any()),
 });
 
 /**

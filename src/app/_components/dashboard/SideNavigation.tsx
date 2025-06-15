@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -28,12 +28,14 @@ const NavItem = React.memo(
     isExpanded,
     onExpand,
     onClick,
+    pathname,
   }: {
     item: NavSection["items"][0];
     isActive: boolean;
     isExpanded: boolean;
     onExpand: () => void;
     onClick: (href: string, label: string) => void;
+    pathname: string;
   }) => {
     const { setSelectedType } = useDashboardStore();
     
@@ -74,7 +76,7 @@ const NavItem = React.memo(
                 variant="ghost"
                 className={cn(
                   "w-full justify-start h-9 cursor-pointer",
-                  location.pathname === subItem.href && "bg-muted" // This line changes
+                  pathname === subItem.href && "bg-muted"
                 )}
                 onClick={() => onClick(subItem.href, subItem.label)}
               >
@@ -92,6 +94,7 @@ const NavItem = React.memo(
 export const SideNavigation = ({ className }: { className?: string }) => {
  
   const router = useRouter();
+  const pathname = usePathname();
 
   const { expandedItems, setExpandedItems, setSelectedType } =
     useDashboardStore();
@@ -198,28 +201,28 @@ export const SideNavigation = ({ className }: { className?: string }) => {
       router.push(href);
       setSelectedType(label);
     },
-    [ setSelectedType]
+    [router, setSelectedType]
   );
 
   const isItemActive = useCallback(
     (href: string, subItems?: NavSection["items"][0]["subItems"]) => {
       // If this item has subitems and matches the base path
-      if (subItems && location.pathname.startsWith(href)) {
+      if (subItems && pathname.startsWith(href)) {
         // Check if we're on the exact base path
-        if (location.pathname === href) {
+        if (pathname === href) {
           return true;
         }
         // Check if any subitem paths match
         return subItems.some((subItem: { href: string }) =>
-          location.pathname.startsWith(subItem.href)
+          pathname.startsWith(subItem.href)
         );
       }
       // Regular path matching for items without subitems
       return (
-        location.pathname === href || location.pathname.startsWith(`${href}/`)
+        pathname === href || pathname.startsWith(`${href}/`)
       );
     },
-    [location]
+    [pathname]
   );
 
   return (
@@ -250,6 +253,7 @@ export const SideNavigation = ({ className }: { className?: string }) => {
                     isExpanded={expandedItems.includes(item.label)}
                     onExpand={() => toggleExpanded(item.label)}
                     onClick={handleNavigate}
+                    pathname={pathname}
                   />
                 ))}
               </div>
