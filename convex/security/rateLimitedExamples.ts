@@ -340,7 +340,7 @@ export const exportContractsWithRateLimit = action({
       
       return {
         exportId: `export_${Date.now()}`,
-        downloadUrl: `https://example.com/exports/export_${Date.now()}.${(args as any).format}`,
+        downloadUrl: ``, // TODO: Generate actual download URL
         expiresAt: new Date(Date.now() + 3600000).toISOString(), // 1 hour
       };
     },

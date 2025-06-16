@@ -67,7 +67,7 @@ const AccountTypeStep: React.FC<AccountTypeStepProps> = ({ userEmail, onStepComp
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-transparent p-4">
       <Card className="w-full max-w-lg shadow-xl">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-serif text-primary">Welcome to PactWise!</CardTitle>
+          <CardTitle className="text-2xl font-sans text-primary">Welcome to PactWise!</CardTitle>
           <CardDescription>How would you like to get started?</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

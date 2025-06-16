@@ -205,7 +205,7 @@ const UserProfilePage = () => {
           <div className="flex items-center space-x-4">
             <User className="h-10 w-10 text-gold" />
             <div>
-              <CardTitle className="text-3xl font-serif text-primary">
+              <CardTitle className="text-3xl font-sans text-primary">
                 User Profile
               </CardTitle>
               <CardDescription className="text-muted-foreground">
@@ -251,7 +251,7 @@ const UserProfilePage = () => {
             <TabsContent value="details" className="space-y-6">
               <Card className="border-border/20">
                 <CardHeader>
-                  <CardTitle className="text-xl text-primary font-serif">
+                  <CardTitle className="text-xl text-primary font-sans">
                     Personal Information
                   </CardTitle>
                 </CardHeader>
@@ -307,7 +307,7 @@ const UserProfilePage = () => {
 
               <Card className="border-border/20">
                 <CardHeader>
-                  <CardTitle className="text-xl text-primary font-serif">
+                  <CardTitle className="text-xl text-primary font-sans">
                     Work Information
                   </CardTitle>
                 </CardHeader>
@@ -378,7 +378,7 @@ const UserProfilePage = () => {
             <TabsContent value="notifications" className="space-y-6">
               <Card className="border-border/20">
                 <CardHeader>
-                  <CardTitle className="text-xl text-primary font-serif">
+                  <CardTitle className="text-xl text-primary font-sans">
                     Notification Settings
                   </CardTitle>
                   <CardDescription>
@@ -456,7 +456,7 @@ const UserProfilePage = () => {
             <TabsContent value="security" className="space-y-6">
              <Card className="border-border/20">
                 <CardHeader>
-                    <CardTitle className="text-xl text-primary font-serif">Account Security</CardTitle>
+                    <CardTitle className="text-xl text-primary font-sans">Account Security</CardTitle>
                     <CardDescription>
                         Manage your account security settings through Clerk.
                     </CardDescription>
@@ -487,7 +487,7 @@ const UserProfilePage = () => {
               {/* Placeholder for future application-specific security settings */}
               {/* <Card className="border-border/20">
                 <CardHeader>
-                  <CardTitle className="text-xl text-primary font-serif">
+                  <CardTitle className="text-xl text-primary font-sans">
                     Application Security
                   </CardTitle>
                 </CardHeader>

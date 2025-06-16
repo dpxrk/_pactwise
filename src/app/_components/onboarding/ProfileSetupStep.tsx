@@ -63,7 +63,7 @@ const ProfileSetupStep: React.FC<ProfileSetupStepProps> = ({ onStepComplete }) =
       <Card className="w-full max-w-lg shadow-xl">
         <CardHeader className="text-center">
           <User className="mx-auto h-12 w-12 text-gold mb-4" />
-          <CardTitle className="text-2xl font-serif text-primary">Complete Your Profile</CardTitle>
+          <CardTitle className="text-2xl font-sans text-primary">Complete Your Profile</CardTitle>
           <CardDescription>Tell us a bit more about yourself.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>

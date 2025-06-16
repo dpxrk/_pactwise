@@ -1,6 +1,4 @@
-"use client";
-
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 type LogoSize = "sm" | "md" | "lg" | "xl";
 
@@ -16,19 +14,14 @@ const sizeClasses: Record<LogoSize, { text: string; dot: string }> = {
 };
 
 export const Logo = ({ size = "md" }: LogoProps) => {
-  const router = useRouter();
   const sizeClass = sizeClasses[size];
 
-  const handleOnClick = () => {
-    router.push("/");
-  };
-
   return (
-    <div
+    <Link
+      href="/"
       className="inline-flex items-center gap-1 cursor-pointer"
-      onClick={handleOnClick}
     >
-      <span className={`font-serif font-bold ${sizeClass.text}`}>
+      <span className={`font-sans font-bold ${sizeClass.text}`}>
         <span style={{ 
           backgroundImage: "linear-gradient(to right, #0A192F, #B8A369, #0A192F)", 
           WebkitBackgroundClip: "text",
@@ -56,7 +49,7 @@ export const Logo = ({ size = "md" }: LogoProps) => {
           animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" 
         }} 
       />
-    </div>
+    </Link>
   );
 };
 

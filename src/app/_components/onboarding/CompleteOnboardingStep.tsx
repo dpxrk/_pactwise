@@ -26,7 +26,7 @@ const CompleteOnboardingStep: React.FC = () => {
       <Card className="w-full max-w-md shadow-xl text-center">
         <CardHeader>
           <CheckCircle className="mx-auto h-16 w-16 text-green-500 mb-4" />
-          <CardTitle className="text-3xl font-serif text-primary">Setup Complete!</CardTitle>
+          <CardTitle className="text-3xl font-sans text-primary">Setup Complete!</CardTitle>
           <CardDescription className="text-lg text-muted-foreground mt-2">
             You're all set to manage your contracts with PactWise.
           </CardDescription>

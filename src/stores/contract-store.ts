@@ -143,18 +143,17 @@ const useContractStore = create<ContractStoreState>()(
       vendorSearchPerformed: false,
       setVendorName: (name) => set({ vendorName: name }),
       
-      // Check if vendor exists (simulated API call)
+      // Check if vendor exists - placeholder for real implementation
       checkVendorExists: () => {
         const vendorName = get().vendorName;
         if (!vendorName.trim()) return;
         
         set({ vendorSearchPerformed: true });
         
-        // In a real app, this would be an API call to check the vendor
+        // TODO: Replace with real API call to check vendor existence
         setTimeout(() => {
-          // Simulate vendor check - in this case we'll say a vendor named "Acme" exists
-          const exists = vendorName.toLowerCase() === "acme";
-          set({ vendorExists: exists });
+          // Placeholder - always returns false for now
+          set({ vendorExists: false });
         }, 600);
       },
       
@@ -253,12 +252,12 @@ const useContractStore = create<ContractStoreState>()(
             awaiting_counterparty: true,
             pending_signers: [], // Default empty array since pendingSigners doesn't exist in formData
             vendor: {
-              id: 1, // This would come from your vendor selection/lookup
+              id: 1, // TODO: Get from actual vendor selection/lookup
               name: state.vendorName,
-              location: "Unknown", // This would come from vendor data
-              email: "vendor@example.com", // This would come from vendor data
-              rating: 0, // Default value
-              tier: "Standard" // Default value
+              location: "", // TODO: Get from vendor data
+              email: "", // TODO: Get from vendor data
+              rating: 0,
+              tier: "Standard"
             },
             owner: state.formData.contractOwner
           };

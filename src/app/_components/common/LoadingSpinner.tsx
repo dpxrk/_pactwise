@@ -90,7 +90,7 @@ export const LoadingSpinner = ({
       {text && (
         <p
           className={cn(
-            "text-muted-foreground font-serif",
+            "text-muted-foreground font-sans",
             textSizeClasses[size]
           )}
         >

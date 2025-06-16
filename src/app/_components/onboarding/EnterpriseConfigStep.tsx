@@ -55,7 +55,7 @@ const EnterpriseConfigStep: React.FC<EnterpriseConfigStepProps> = ({ onStepCompl
       <Card className="w-full max-w-lg shadow-xl">
         <CardHeader className="text-center">
           <Briefcase className="mx-auto h-12 w-12 text-gold mb-4" />
-          <CardTitle className="text-2xl font-serif text-primary">Configure Your Enterprise</CardTitle>
+          <CardTitle className="text-2xl font-sans text-primary">Configure Your Enterprise</CardTitle>
           <CardDescription>Help us tailor PactWise to your company's needs.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>

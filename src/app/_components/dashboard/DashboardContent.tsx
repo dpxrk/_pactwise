@@ -321,7 +321,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card className="border border-gold/10 shadow-luxury">
                 <CardHeader>
-                  <CardTitle className="text-primary font-serif">Contract Status Distribution</CardTitle>
+                  <CardTitle className="text-primary font-sans">Contract Status Distribution</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="h-[300px] w-full">
@@ -330,7 +330,6 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
                       data={getStatusDistributionData()} 
                       series={[{ dataKey: "value" }]} 
                       height={300} 
-                      useCustomTooltip={true} 
                       showLegend={false} 
                       colors={getStatusDistributionData().map(item => item.color)}
                       pieConfig={{ 
@@ -355,7 +354,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
 
               <Card className="border border-gold/10 shadow-luxury">
                 <CardHeader>
-                  <CardTitle className="text-primary font-serif">Risk Distribution</CardTitle>
+                  <CardTitle className="text-primary font-sans">Risk Distribution</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="h-[300px] w-full">
@@ -364,7 +363,6 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
                       data={getRiskDistributionData()} 
                       series={[{ dataKey: "value" }]} 
                       height={300} 
-                      useCustomTooltip={true} 
                       showLegend={false} 
                       colors={getRiskDistributionData().map(item => item.color)}
                       pieConfig={{ 
@@ -432,7 +430,6 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
                       height={320} 
                       showGrid={true} 
                       showLegend={false} 
-                      useCustomTooltip={true}
                     />
                   </div>
                 </CardContent>
@@ -456,7 +453,6 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
                       series={[{ dataKey: "value" }]} 
                       height={320} 
                       showLegend={true} 
-                      useCustomTooltip={true}
                       pieConfig={{ 
                         dataKey: "value", 
                         nameKey: "name", 
@@ -507,7 +503,6 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
                       height={320} 
                       showGrid={true} 
                       showLegend={false} 
-                      useCustomTooltip={true}
                     />
                   </div>
                 </CardContent>
@@ -534,7 +529,6 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
                       height={320} 
                       showGrid={true} 
                       showLegend={false} 
-                      useCustomTooltip={true}
                     />
                   </div>
                 </CardContent>

@@ -21,7 +21,7 @@ export default function SignUpPage() {
             <span className="h-px w-8 bg-gold mx-3"></span>
           </div>
           
-          <h1 className="text-3xl font-bold tracking-tight text-primary font-serif sm:text-4xl">
+          <h1 className="text-3xl font-bold tracking-tight text-primary font-sans sm:text-4xl">
             Sign 
             <span className="text-gold relative inline-block ml-2">
               Up

@@ -335,7 +335,17 @@ class ErrorTracker {
 
     // Log in development
     if (process.env.NODE_ENV === 'development') {
-      console.error('Error captured:', errorReport);
+      console.error('Error captured:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        timestamp: errorReport.timestamp,
+        url: errorReport.url,
+        userId: errorReport.userId,
+        sessionId: errorReport.sessionId,
+        userAgent: errorReport.userAgent,
+        context: errorReport.context,
+      });
     }
 
     // Send to error tracking service

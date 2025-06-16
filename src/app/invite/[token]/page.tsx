@@ -162,7 +162,7 @@ const InvitationHandlerPage = () => {
       <Card className="w-full max-w-lg shadow-xl">
         <CardHeader className="text-center">
           <Mail className="mx-auto h-12 w-12 text-gold mb-4" />
-          <CardTitle className="text-2xl font-serif text-primary">You're Invited!</CardTitle>
+          <CardTitle className="text-2xl font-sans text-primary">You're Invited!</CardTitle>
           {inviter && enterprise && (
             <CardDescription>
               {inviter.name || 'Someone'} has invited you to join{' '}

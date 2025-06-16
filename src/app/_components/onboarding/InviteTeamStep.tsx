@@ -94,7 +94,7 @@ const InviteTeamStep: React.FC<InviteTeamStepProps> = ({ onStepComplete, onSkip 
       <Card className="w-full max-w-lg shadow-xl">
         <CardHeader className="text-center">
           <UserPlus className="mx-auto h-12 w-12 text-gold mb-4" />
-          <CardTitle className="text-2xl font-serif text-primary">Invite Your Team</CardTitle>
+          <CardTitle className="text-2xl font-sans text-primary">Invite Your Team</CardTitle>
           <CardDescription>Add team members to collaborate in PactWise. You can always do this later.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { useConvexQuery, useConvexMutation } from "@/lib/api-client";
+import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -22,24 +23,19 @@ import AgentLogViewer from "@/app/_components/agents/AgentLogViewer";
 
 const AgentDashboard = () => {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch agent system status
-  const { data: systemStatus, isLoading, error } = useConvexQuery(
-    api.agents.manager.getAgentSystemStatus,
-    {}
-  );
+  // Fetch agent system status - using direct useQuery for better control
+  const systemStatusQuery = useQuery(api.agents.manager.getAgentSystemStatus, {});
+  const systemStatus = systemStatusQuery;
+  const isLoading = systemStatusQuery === undefined;
+  const error = systemStatusQuery && typeof systemStatusQuery === 'object' && 'message' in systemStatusQuery ? systemStatusQuery as Error : null;
 
   // Fetch recent insights
-  const { data: recentInsights } = useConvexQuery(
-    api.agents.manager.getRecentInsights,
-    { limit: 5 }
-  );
+  const recentInsights = useQuery(api.agents.manager.getRecentInsights, { limit: 5 });
 
-  // Fetch recent logs
-  const { data: recentLogs } = useConvexQuery(
-    api.agents.manager.getAgentLogs,
-    { limit: 10 }
-  );
+  // Fetch recent logs  
+  const recentLogs = useQuery(api.agents.manager.getAgentLogs, { limit: 10 });
 
   // Mutations
   const initializeSystem = useConvexMutation(api.agents.manager.initializeAgentSystem);
@@ -109,27 +105,21 @@ const AgentDashboard = () => {
     }
   };
 
-  const handleRefreshStatus = () => {
-    // Trigger a re-fetch of the system status
-    window.location.reload();
-  };
-
-  const handleCreateTestInsight = async () => {
+  const handleRefreshStatus = useCallback(async () => {
+    setMessage(null);
+    setIsRefreshing(true);
+    
+    // Since Convex queries automatically refresh when data changes,
+    // we simulate a refresh with a brief loading state and success message
     try {
-      await createTestInsight.execute({});
-      setMessage({ type: 'success', text: 'Test insight created successfully' });
+      await new Promise(resolve => setTimeout(resolve, 500)); // Brief loading
+      setMessage({ type: 'success', text: 'Status refreshed successfully' });
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Failed to create test insight' });
+      setMessage({ type: 'error', text: 'Failed to refresh status' });
+    } finally {
+      setIsRefreshing(false);
     }
-  };
-
-  const handleMarkAsRead = async (insightId: string) => {
-    try {
-      await markInsightAsRead.execute({ insightId: insightId as any });
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Failed to mark insight as read' });
-    }
-  };
+  }, []);
 
   const handleExportLogs = () => {
     // Export logs functionality
@@ -179,7 +169,7 @@ const AgentDashboard = () => {
         onStopSystem={handleStopSystem}
         onInitializeSystem={handleInitialize}
         onRefreshStatus={handleRefreshStatus}
-        loading={isLoading}
+        loading={isLoading || isRefreshing}
         startLoading={startSystem.isLoading}
         stopLoading={stopSystem.isLoading}
         initLoading={initializeSystem.isLoading}

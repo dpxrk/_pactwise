@@ -1,5 +1,3 @@
-"use client";
-
 import { CheckCircle, TrendingUp, LineChart } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -18,7 +16,7 @@ export const Benefits = () => {
     <div id="benefits" className="py-24 sm:py-32 bg-muted/50">
       <Container>
         <div className="mb-16 flex flex-col items-center">
-          <h2 className="text-3xl font-bold tracking-tight text-primary font-serif sm:text-4xl">
+          <h2 className="text-3xl font-bold tracking-tight text-primary font-sans sm:text-4xl">
             Why Choose PactWise?
           </h2>
           <p className="mt-4 max-w-xl text-center text-muted-foreground">
@@ -30,7 +28,7 @@ export const Benefits = () => {
         <div className="grid gap-8 md:grid-cols-2">
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
-              <CardTitle className="font-serif">Key Benefits</CardTitle>
+              <CardTitle className="font-sans">Key Benefits</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {benefits.map((benefit, index) => (
@@ -44,7 +42,7 @@ export const Benefits = () => {
 
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
-              <CardTitle className="font-serif">Analytics & Insights</CardTitle>
+              <CardTitle className="font-sans">Analytics & Insights</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center space-x-4">

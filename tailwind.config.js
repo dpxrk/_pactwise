@@ -155,6 +155,58 @@ module.exports = {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.5" },
         },
+        // Modern slide animations
+        "slide-in-from-bottom": {
+          "0%": { transform: "translateY(100%)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+        "slide-in-from-top": {
+          "0%": { transform: "translateY(-100%)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+        "slide-in-from-left": {
+          "0%": { transform: "translateX(-100%)", opacity: "0" },
+          "100%": { transform: "translateX(0)", opacity: "1" },
+        },
+        "slide-in-from-right": {
+          "0%": { transform: "translateX(100%)", opacity: "0" },
+          "100%": { transform: "translateX(0)", opacity: "1" },
+        },
+        // Scale animations
+        "zoom-in": {
+          "0%": { transform: "scale(0.8)", opacity: "0" },
+          "100%": { transform: "scale(1)", opacity: "1" },
+        },
+        "zoom-out": {
+          "0%": { transform: "scale(1)", opacity: "1" },
+          "100%": { transform: "scale(0.8)", opacity: "0" },
+        },
+        // Rotation animations
+        "rotate-in": {
+          "0%": { transform: "rotate(-180deg) scale(0.8)", opacity: "0" },
+          "100%": { transform: "rotate(0deg) scale(1)", opacity: "1" },
+        },
+        // Glow effect
+        "glow": {
+          "0%, 100%": { boxShadow: "0 0 20px rgba(59, 130, 246, 0.3)" },
+          "50%": { boxShadow: "0 0 30px rgba(59, 130, 246, 0.6)" },
+        },
+        // Bounce in
+        "bounce-in": {
+          "0%": { transform: "scale(0.3)", opacity: "0" },
+          "50%": { transform: "scale(1.05)" },
+          "70%": { transform: "scale(0.9)" },
+          "100%": { transform: "scale(1)", opacity: "1" },
+        },
+        // Elastic scale
+        "elastic-scale": {
+          "0%": { transform: "scale(1)" },
+          "30%": { transform: "scale(1.25)" },
+          "40%": { transform: "scale(0.75)" },
+          "60%": { transform: "scale(1.15)" },
+          "80%": { transform: "scale(0.95)" },
+          "100%": { transform: "scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -168,10 +220,22 @@ module.exports = {
         gradient: "gradient 8s ease infinite",
         shimmer: "shimmer 8s ease-in-out infinite", 
         pulse: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        // Modern animations
+        "slide-in-bottom": "slide-in-from-bottom 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+        "slide-in-top": "slide-in-from-top 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+        "slide-in-left": "slide-in-from-left 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+        "slide-in-right": "slide-in-from-right 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+        "zoom-in": "zoom-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+        "zoom-out": "zoom-out 0.2s cubic-bezier(0.4, 0, 1, 1)",
+        "rotate-in": "rotate-in 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
+        "glow": "glow 2s ease-in-out infinite",
+        "bounce-in": "bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)",
+        "elastic-scale": "elastic-scale 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)",
       },
       fontFamily: {
-        serif: ["Playfair Display", "serif"],
-        sans: ["Inter", "sans-serif"],
+        sans: ["var(--font-montserrat)", "Montserrat", "sans-serif"],
+        serif: ["var(--font-montserrat)", "Montserrat", "sans-serif"],
+        mono: ["var(--font-montserrat)", "Montserrat", "monospace"],
       },
       backdropBlur: {
         xs: "2px",

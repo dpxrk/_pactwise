@@ -1,5 +1,3 @@
-"use client";
-
 import { ArrowRight, Bot, Zap, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/app/_components/common/Container";
@@ -23,7 +21,7 @@ export const Hero = () => {
             <span className="h-px w-8 bg-gold mx-3"></span>
           </div>
 
-          <h1 className="max-w-5xl text-4xl font-bold tracking-tight text-primary sm:text-6xl md:text-7xl font-serif">
+          <h1 className="max-w-5xl text-4xl font-bold tracking-tight text-primary sm:text-6xl md:text-7xl font-sans">
             Transform Your{" "}
             <span className="relative inline-block text-gold text-gradient-gold">
               Contract Management

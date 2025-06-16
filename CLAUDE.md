@@ -253,7 +253,7 @@ src/             → Frontend code
 - **Database**: Convex (NoSQL, real-time)
 - **Auth**: Clerk (user management)
 - **UI**: shadcn/ui (Radix + Tailwind)
-- **Charts**: Recharts, Chart.js
+- **Charts**: Three.JS
 - **Forms**: React Hook Form + Zod
 - **Dates**: date-fns
 - **AI**: Custom multi-agent system

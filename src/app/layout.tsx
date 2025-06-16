@@ -1,9 +1,17 @@
 import type { Metadata } from "next";
+import { Montserrat } from "next/font/google";
 import "./globals.css";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 import { ErrorBoundary } from './_components/common/ErrorBoundary';
 import { SessionWrapper } from './_components/auth/SessionWrapper';
 import { MonitoringProvider, HealthIndicator } from './_components/common/MonitoringProvider';
+
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  variable: "--font-montserrat",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Pactwise",
@@ -17,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body className={`${montserrat.variable} font-sans`}>
         <ErrorBoundary>
           <ConvexClientProvider>
             <MonitoringProvider>

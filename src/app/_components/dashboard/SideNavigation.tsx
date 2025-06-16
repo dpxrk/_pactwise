@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { useNavItemAnimation } from "@/hooks/useAnimations";
 import {
   Home,
   Files,
@@ -17,6 +18,18 @@ import {
   Clock,
   ChevronDown,
   Users,
+  Bot,
+  User,
+  Shield,
+  Bell,
+  CreditCard,
+  Database,
+  Code,
+  Webhook,
+  ClipboardList,
+  CheckCircle,
+  Archive,
+  AlertCircle,
 } from "lucide-react";
 import { useDashboardStore } from "@/stores/dashboard-store"
 import type { NavSection } from "@/types/homedashboard.types"
@@ -38,7 +51,7 @@ const NavItem = React.memo(
     pathname: string;
   }) => {
     const { setSelectedType } = useDashboardStore();
-    
+    const { hoverProps, className: navItemClassName } = useNavItemAnimation(isActive);
 
     const handleClick = useCallback(() => {
       if (item.subItems) {
@@ -53,39 +66,75 @@ const NavItem = React.memo(
       <div className="space-y-1">
         <Button
           variant={isActive ? "secondary" : "ghost"}
-          className={cn("w-full justify-start", isActive && "bg-muted", "cursor-pointer")}
+          className={cn(
+            "w-full justify-start group relative overflow-hidden cursor-pointer",
+            "hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-out",
+            isActive && "bg-gradient-to-r from-primary/10 to-primary/5 border-l-2 border-primary",
+            navItemClassName
+          )}
           onClick={handleClick}
+          {...hoverProps}
         >
-          <item.icon className="mr-2 h-4 w-4 text-gold" />
-          <span className="flex-1 text-left">{item.label}</span>
+          <item.icon className={cn(
+            "mr-3 h-4 w-4 transition-all duration-200 ease-out",
+            isActive ? "text-primary" : "text-gold",
+            "group-hover:scale-110 group-hover:text-primary"
+          )} />
+          <span className="flex-1 text-left font-medium">{item.label}</span>
           {item.subItems && (
             <ChevronDown
               className={cn(
-                "h-4 w-4 transition-transform",
-                isExpanded && "rotate-180"
+                "h-4 w-4 transition-all duration-300 ease-out",
+                isExpanded && "rotate-180",
+                "group-hover:text-primary"
               )}
             />
           )}
+          {/* Hover indicator */}
+          <div className={cn(
+            "absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent",
+            "opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out",
+            "-z-10"
+          )} />
         </Button>
 
-        {isExpanded && item.subItems && (
-          <div className="ml-6 space-y-1">
-            {item.subItems.map((subItem) => (
+        {/* Animated sub-items */}
+        <div className={cn(
+          "overflow-hidden transition-all duration-300 ease-out",
+          isExpanded ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+        )}>
+          <div className="ml-6 space-y-1 pt-1">
+            {item.subItems?.map((subItem, index) => (
               <Button
                 key={subItem.href}
                 variant="ghost"
                 className={cn(
-                  "w-full justify-start h-9 cursor-pointer",
-                  pathname === subItem.href && "bg-muted"
+                  "w-full justify-start h-9 cursor-pointer group relative",
+                  "hover:bg-accent/50 hover:translate-x-1 transition-all duration-200 ease-out",
+                  pathname === subItem.href && "bg-accent border-l-2 border-primary/50",
+                  // Staggered animation
+                  isExpanded && "animate-slide-in-left"
                 )}
+                style={{
+                  animationDelay: `${index * 50}ms`,
+                }}
                 onClick={() => onClick(subItem.href, subItem.label)}
               >
-                <subItem.icon className="mr-2 h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{subItem.label}</span>
+                <subItem.icon className={cn(
+                  "mr-2 h-4 w-4 transition-all duration-200 ease-out",
+                  pathname === subItem.href ? "text-primary" : "text-muted-foreground",
+                  "group-hover:text-primary group-hover:scale-110"
+                )} />
+                <span className="text-sm font-medium">{subItem.label}</span>
+                {/* Sub-item hover indicator */}
+                <div className={cn(
+                  "absolute left-0 top-0 w-1 h-full bg-primary/30 scale-y-0",
+                  "group-hover:scale-y-100 transition-transform duration-200 ease-out origin-center"
+                )} />
               </Button>
             ))}
           </div>
-        )}
+        </div>
       </div>
     );
   }
@@ -123,7 +172,12 @@ export const SideNavigation = ({ className }: { className?: string }) => {
               icon: FileText,
             },
             {
-              label: "Pending Signature",
+              label: "Active",
+              href: "/dashboard/contracts/active",
+              icon: CheckCircle,
+            },
+            {
+              label: "Pending Analysis",
               href: "/dashboard/contracts/pending",
               icon: FileSignature,
             },
@@ -135,12 +189,12 @@ export const SideNavigation = ({ className }: { className?: string }) => {
             {
               label: "Expired",
               href: "/dashboard/contracts/expired",
-              icon: Clock,
+              icon: AlertCircle,
             },
             {
               label: "Archived",
               href: "/dashboard/contracts/archived",
-              icon: Clock,
+              icon: Archive,
             },
           ],
         },
@@ -157,29 +211,96 @@ export const SideNavigation = ({ className }: { className?: string }) => {
             {
               label: "Active Vendors",
               href: "/dashboard/vendors/active",
-              icon: Users,
+              icon: CheckCircle,
             },
             {
               label: "Inactive Vendors",
               href: "/dashboard/vendors/inactive",
-              icon: Users,
+              icon: AlertCircle,
             },
           ],
         },
       ],
     },
     {
-      label: "Analytics & Settings",
+      label: "AI & Analytics",
       items: [
+        {
+          label: "AI Agents",
+          href: "/dashboard/agents",
+          icon: Bot,
+        },
         {
           label: "Analytics",
           href: "/dashboard/analytics",
           icon: BarChart3,
         },
+      ],
+    },
+    {
+      label: "Account & Settings",
+      items: [
+        {
+          label: "Profile",
+          href: "/dashboard/profile",
+          icon: User,
+        },
         {
           label: "Settings",
           href: "/dashboard/settings",
           icon: Settings,
+          subItems: [
+            {
+              label: "General",
+              href: "/dashboard/settings",
+              icon: Settings,
+            },
+            {
+              label: "Enterprise",
+              href: "/dashboard/settings/enterprise",
+              icon: Building2,
+            },
+            {
+              label: "Users",
+              href: "/dashboard/settings/users",
+              icon: Users,
+            },
+            {
+              label: "Security",
+              href: "/dashboard/settings/security",
+              icon: Shield,
+            },
+            {
+              label: "Notifications",
+              href: "/dashboard/settings/notifications",
+              icon: Bell,
+            },
+            {
+              label: "Billing",
+              href: "/dashboard/settings/billing",
+              icon: CreditCard,
+            },
+            {
+              label: "Data Management",
+              href: "/dashboard/settings/data",
+              icon: Database,
+            },
+            {
+              label: "API",
+              href: "/dashboard/settings/api",
+              icon: Code,
+            },
+            {
+              label: "Webhooks",
+              href: "/dashboard/settings/webhooks",
+              icon: Webhook,
+            },
+            {
+              label: "Audit Log",
+              href: "/dashboard/settings/audit",
+              icon: ClipboardList,
+            },
+          ],
         },
       ],
     },
@@ -226,41 +347,62 @@ export const SideNavigation = ({ className }: { className?: string }) => {
   );
 
   return (
-    <aside className={cn("flex flex-col border-r bg-card", className)}>
-      
-
+    <aside className={cn(
+      "flex flex-col border-r bg-card/50 backdrop-blur-sm",
+      "shadow-lg border-border/50",
+      className
+    )}>
       <ScrollArea className="flex-1">
-        <div className="space-y-6 p-4">
-          {navigationSections.map((section, idx) => (
-            <div key={idx}>
+        <div className="space-y-8 p-6">
+          {navigationSections.map((section, sectionIdx) => (
+            <div 
+              key={sectionIdx}
+              className="animate-slide-in-left"
+              style={{
+                animationDelay: `${sectionIdx * 100}ms`,
+              }}
+            >
               {section.label && (
                 <>
-                  <div className="flex items-center px-2">
-                    <span className="text-xs font-medium text-muted-foreground">
+                  <div className="flex items-center px-2 mb-3">
+                    <span className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-wider">
                       {section.label}
                     </span>
-                    <Separator className="ml-2 flex-1" />
+                    <Separator className="ml-3 flex-1 bg-gradient-to-r from-border/50 to-transparent" />
                   </div>
-                  <div className="mt-2" />
                 </>
               )}
-              <div className="space-y-1">
-                {section.items.map((item) => (
-                  <NavItem
+              <div className="space-y-2">
+                {section.items.map((item, itemIdx) => (
+                  <div
                     key={item.href}
-                    item={item}
-                    isActive={isItemActive(item.href, item.subItems)}
-                    isExpanded={expandedItems.includes(item.label)}
-                    onExpand={() => toggleExpanded(item.label)}
-                    onClick={handleNavigate}
-                    pathname={pathname}
-                  />
+                    className="animate-fade-in-up"
+                    style={{
+                      animationDelay: `${(sectionIdx * 100) + (itemIdx * 50)}ms`,
+                    }}
+                  >
+                    <NavItem
+                      item={item}
+                      isActive={isItemActive(item.href, item.subItems)}
+                      isExpanded={expandedItems.includes(item.label)}
+                      onExpand={() => toggleExpanded(item.label)}
+                      onClick={handleNavigate}
+                      pathname={pathname}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
           ))}
         </div>
       </ScrollArea>
+      
+      {/* Navigation footer with gradient */}
+      <div className="p-4 border-t border-border/50 bg-gradient-to-t from-card/80 to-transparent">
+        <div className="text-xs text-muted-foreground/60 text-center">
+          Pactwise Enterprise
+        </div>
+      </div>
     </aside>
   );
 };

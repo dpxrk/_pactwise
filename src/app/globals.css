@@ -98,16 +98,18 @@
     --background-light: 215 30% 10% / 0.8;
     --background-glass: 215 30% 10% / 0.5;
   }
-}
 
-/* Typography enhancements */
-@layer base {
+  /* Typography enhancements */
+  * {
+    font-family: var(--font-montserrat), 'Montserrat', sans-serif;
+  }
+  
   body {
-    @apply antialiased;
+    @apply antialiased font-sans;
   }
   
   h1, h2, h3, h4, h5, h6 {
-    @apply tracking-tight;
+    @apply tracking-tight font-sans;
   }
 }
 
@@ -136,16 +138,21 @@
   .cursor-pointer-important {
     cursor: pointer !important;
   }
-
   
-   .animate-fade-in-up {
+  .animate-fade-in-up {
     animation: fade-in-up 0.7s ease-out forwards;
   }
+  
   .animation-delay-200 { animation-delay: 200ms; }
   .animation-delay-400 { animation-delay: 400ms; }
   .animation-delay-600 { animation-delay: 600ms; }
+  .animation-delay-800 { animation-delay: 800ms; }
+  .animation-delay-1000 { animation-delay: 1000ms; }
+  
+  .animate-delicate-sweep-in {
+    animation: delicate-sweep-in 0.8s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
 }
-
 
 .text-gold {
   color: hsl(var(--elegant-gold));
@@ -153,11 +160,7 @@
 
 .bg-gold {
   background-color: hsl(var(--elegant-gold));
-
-  
 }
-
-
 
 .from-gold {
   --tw-gradient-from: hsl(var(--elegant-gold)) var(--tw-gradient-from-position);
@@ -189,8 +192,6 @@
   --tw-gradient-to: hsl(var(--navy)) var(--tw-gradient-to-position);
 }
 
-
-
 @keyframes gradient {
   0%, 100% {
     background-size: 200% 200%;
@@ -213,7 +214,6 @@
     transform: translateY(0);
   }
 }
-
 
 .animate-gradient {
   animation: gradient 8s ease infinite;
@@ -240,38 +240,4 @@ select,
 
 .stagger-children > * {
   opacity: 0; 
-}
-@layer utilities {
-  .gold-gradient {
-    background: linear-gradient(135deg, hsl(var(--gold)) 0%, hsl(var(--gold-dark)) 100%);
-  }
-  
-  .text-shadow-sm {
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  }
-  
-  .border-gold {
-    border-color: hsl(var(--gold) / 0.2);
-  }
-  
-  .backdrop-blur-xs {
-    backdrop-filter: blur(2px);
-  }
-  
-  .subtle-shadow {
-    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
-  }
-
-  .cursor-pointer-important {
-    cursor: pointer !important;
-  }
-  
-   .animate-delicate-sweep-in { /* Ensure this class is available if not using Tailwind's animate-* directly */
-    animation: delicate-sweep-in 0.8s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-  }
-  .animation-delay-200 { animation-delay: 200ms; }
-  .animation-delay-400 { animation-delay: 400ms; }
-  .animation-delay-600 { animation-delay: 600ms; }
-  .animation-delay-800 { animation-delay: 800ms; } /* Added more delays */
-  .animation-delay-1000 { animation-delay: 1000ms; }
 }

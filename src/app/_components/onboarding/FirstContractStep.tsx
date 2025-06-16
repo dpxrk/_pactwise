@@ -36,7 +36,7 @@ const FirstContractStep: React.FC<FirstContractStepProps> = ({ onStepComplete, o
       <Card className="w-full max-w-lg shadow-xl text-center">
         <CardHeader>
           <FilePlus2 className="mx-auto h-12 w-12 text-gold mb-4" />
-          <CardTitle className="text-2xl font-serif text-primary">Create Your First Contract</CardTitle>
+          <CardTitle className="text-2xl font-sans text-primary">Create Your First Contract</CardTitle>
           <CardDescription>
             Ready to dive in? Add your first contract to see PactWise in action.
             You can also skip this for now.

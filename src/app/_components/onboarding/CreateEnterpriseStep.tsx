@@ -46,7 +46,7 @@ const CreateEnterpriseStep: React.FC<CreateEnterpriseStepProps> = ({ onStepCompl
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <Building className="mx-auto h-12 w-12 text-gold mb-4" />
-          <CardTitle className="text-2xl font-serif text-primary">Create Your Enterprise</CardTitle>
+          <CardTitle className="text-2xl font-sans text-primary">Create Your Enterprise</CardTitle>
           <CardDescription>Let's set up your company's workspace in PactWise.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>

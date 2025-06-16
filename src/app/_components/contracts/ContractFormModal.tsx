@@ -32,7 +32,7 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl font-serif text-primary">
+          <DialogTitle className="text-xl font-sans text-primary">
             {contractId ? 'Edit Contract' : 'Create New Contract'}
           </DialogTitle>
           <DialogDescription>

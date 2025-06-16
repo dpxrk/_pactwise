@@ -1,23 +1,6 @@
 'use client'
 
 import React, { useState, useMemo } from "react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,23 +31,19 @@ import {
   EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { 
+  ThreeBarChart, 
+  ThreeLineChart, 
+  ThreePieChart, 
+  ThreeAreaChart,
+  ChartDataPoint,
+  ChartSeries 
+} from '../three-charts';
 
 export type ChartType = "area" | "bar" | "line" | "pie";
 
-export interface ChartDataPoint {
-  name: string;
-  value: number;
-  category?: string;
-  date?: string;
-  [key: string]: any;
-}
-
-export interface ChartSeries {
-  key: string;
-  name: string;
-  color: string;
-  visible: boolean;
-}
+// Use types from three-charts
+export type { ChartDataPoint, ChartSeries };
 
 interface InteractiveChartProps {
   title: string;
@@ -197,149 +176,73 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
       );
     }
 
+    // Convert color arrays to theme
+    const threeJsTheme = {
+      accentColors: CHART_COLORS,
+    };
+
+    // Filter visible series
+    const visibleSeriesData = series.filter(s => visibleSeries.has(s.key));
+
     const commonProps = {
       data: processedData,
+      width: 600,
       height,
       onClick: handleDataPointClick,
+      onHover: (dataPoint: ChartDataPoint | null) => {
+        // Handle hover events if needed
+      },
+      theme: threeJsTheme,
+      series: visibleSeriesData.length > 0 ? visibleSeriesData : undefined,
+      className: "w-full",
     };
 
     switch (chartType) {
       case "area":
         return (
-          <ResponsiveContainer width="100%" height={height}>
-            <AreaChart {...commonProps}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis 
-                dataKey="name" 
-                tick={{ fontSize: 12 }}
-                tickLine={{ stroke: '#e0e0e0' }}
-              />
-              <YAxis 
-                tick={{ fontSize: 12 }}
-                tickLine={{ stroke: '#e0e0e0' }}
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'white',
-                  border: '1px solid #e0e0e0',
-                  borderRadius: '6px',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                }}
-              />
-              {showSeriesToggle && <Legend />}
-              {series.length > 0 ? (
-                series.map((s, index) => (
-                  visibleSeries.has(s.key) && (
-                    <Area
-                      key={s.key}
-                      type="monotone"
-                      dataKey={s.key}
-                      stackId="1"
-                      stroke={s.color}
-                      fill={s.color}
-                      fillOpacity={0.6}
-                    />
-                  )
-                ))
-              ) : (
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  stroke={CHART_COLORS[0]}
-                  fill={CHART_COLORS[0]}
-                  fillOpacity={0.6}
-                />
-              )}
-            </AreaChart>
-          </ResponsiveContainer>
+          <ThreeAreaChart
+            {...commonProps}
+            opacity={0.7}
+            showPoints={false}
+            smoothCurve={true}
+            stackedAreas={series.length > 1}
+          />
         );
 
       case "bar":
         return (
-          <ResponsiveContainer width="100%" height={height}>
-            <BarChart {...commonProps}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
-              {showSeriesToggle && <Legend />}
-              {series.length > 0 ? (
-                series.map((s, index) => (
-                  visibleSeries.has(s.key) && (
-                    <Bar
-                      key={s.key}
-                      dataKey={s.key}
-                      fill={s.color}
-                      radius={[2, 2, 0, 0]}
-                    />
-                  )
-                ))
-              ) : (
-                <Bar
-                  dataKey="value"
-                  fill={CHART_COLORS[0]}
-                  radius={[2, 2, 0, 0]}
-                />
-              )}
-            </BarChart>
-          </ResponsiveContainer>
+          <ThreeBarChart
+            {...commonProps}
+            barWidth={0.6}
+            barDepth={0.6}
+            spacing={1.5}
+            showGrid={true}
+            showAxes={false}
+          />
         );
 
       case "line":
         return (
-          <ResponsiveContainer width="100%" height={height}>
-            <LineChart {...commonProps}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
-              {showSeriesToggle && <Legend />}
-              {series.length > 0 ? (
-                series.map((s) => (
-                  visibleSeries.has(s.key) && (
-                    <Line
-                      key={s.key}
-                      type="monotone"
-                      dataKey={s.key}
-                      stroke={s.color}
-                      strokeWidth={2}
-                      dot={{ r: 4 }}
-                    />
-                  )
-                ))
-              ) : (
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke={CHART_COLORS[0]}
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
-                />
-              )}
-            </LineChart>
-          </ResponsiveContainer>
+          <ThreeLineChart
+            {...commonProps}
+            lineWidth={0.05}
+            pointSize={0.08}
+            showPoints={true}
+            smoothCurve={true}
+            showArea={false}
+          />
         );
 
       case "pie":
         return (
-          <ResponsiveContainer width="100%" height={height}>
-            <PieChart>
-              <Pie
-                data={processedData}
-                cx="50%"
-                cy="50%"
-                outerRadius={Math.min(height * 0.35, 120)}
-                fill="#8884d8"
-                dataKey="value"
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-              >
-                {processedData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+          <ThreePieChart
+            {...commonProps}
+            innerRadius={series.length > 3 ? 1 : 0}
+            outerRadius={3}
+            thickness={0.4}
+            showLabels={true}
+            labelDistance={1.2}
+          />
         );
 
       default:

@@ -246,8 +246,10 @@ export const stopAgentSystem = mutation({
  * Get the overall status of the agent system, all agents, and basic statistics.
  */
 export const getAgentSystemStatus = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    refreshKey: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) { throw new Error("Authentication required."); }
 
@@ -291,6 +293,7 @@ export const getAgentSystemStatus = query({
 export const getRecentInsights = query({
   args: {
     limit: v.optional(v.number()),
+    refreshKey: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity(); // Added auth check for consistency
@@ -335,6 +338,7 @@ export const getAgentLogs = query({
       )
     ),
     limit: v.optional(v.number()),
+    refreshKey: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity(); // Added auth check

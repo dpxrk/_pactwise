@@ -189,7 +189,7 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
             <div className="flex-grow">
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <FileText className="h-7 w-7 text-primary mr-2 flex-shrink-0" />
-                <CardTitle className="text-2xl font-serif text-primary dark:text-primary-foreground break-all">
+                <CardTitle className="text-2xl font-sans text-primary dark:text-primary-foreground break-all">
                   {contract.title}
                 </CardTitle>
                 <Badge className={`${statusColor} font-medium`}>

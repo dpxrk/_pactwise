@@ -21,7 +21,7 @@ const errorReportSchema = v.object({
   timestamp: v.number(),
   url: v.string(),
   userId: v.optional(v.string()),
-  sessionId: v.string(),
+  sessionId: v.optional(v.string()),
   userAgent: v.string(),
   context: v.optional(v.any()),
 });
@@ -188,6 +188,7 @@ export const reportError = mutation({
     // Store error report
     const errorId = await ctx.db.insert("error_reports", {
       ...args,
+      sessionId: args.sessionId || `system_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       ...(user?._id && { authenticatedUserId: user._id }),
       ...(user?.enterpriseId && { enterpriseId: user.enterpriseId }),
       serverTimestamp: Date.now(),

@@ -1,5 +1,3 @@
-"use client";
-
 import { Shield, FileText, Users, BarChart2, Bot, Brain, Zap, Eye } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Container } from "@/app/_components/common/Container";
@@ -73,7 +71,7 @@ export const Features = () => {
             <span className="h-px w-8 bg-gold mx-4"></span>
           </div>
           
-          <h2 className="text-4xl font-bold tracking-tight text-primary font-serif sm:text-5xl md:text-6xl text-center max-w-3xl">
+          <h2 className="text-4xl font-bold tracking-tight text-primary font-sans sm:text-5xl md:text-6xl text-center max-w-3xl">
             Revolutionize Your Workflow with{" "}
             <span className="relative inline-block ml-2 text-gold text-gradient-gold">
               Intelligent Automation
@@ -123,7 +121,7 @@ export const Features = () => {
                 <div className="mb-4 p-3 bg-primary/5 rounded-lg inline-block group-hover:bg-gold/10 transition-colors duration-300 transform group-hover:scale-105">
                   {React.cloneElement(feature.icon, { className: "h-10 w-10 text-gradient-gold transition-transform duration-300 group-hover:scale-110" })}
                 </div>
-                <CardTitle className="text-xl font-serif text-primary group-hover:text-gradient-gold transition-colors duration-300">
+                <CardTitle className="text-xl font-sans text-primary group-hover:text-gradient-gold transition-colors duration-300">
                   {feature.title}
                 </CardTitle>
               </CardHeader>
