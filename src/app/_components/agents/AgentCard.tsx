@@ -82,7 +82,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 
   return (
     <Card className={cn(
-      "transition-all duration-200 hover:shadow-md",
+      "transition-all duration-300 ease-out hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1 cursor-pointer group",
       !agent.isEnabled && "opacity-75",
       agent.status === 'error' && "border-red-200 bg-red-50/50"
     )}>
@@ -91,7 +91,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
           <div className="flex items-center space-x-3">
             <div className="relative">
               <Bot className={cn(
-                "h-8 w-8",
+                "h-8 w-8 transition-transform duration-300 group-hover:scale-110",
                 agent.isEnabled ? "text-primary" : "text-gray-400"
               )} />
               <div className="absolute -bottom-1 -right-1">
@@ -99,7 +99,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
               </div>
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold">
+              <CardTitle className="text-lg font-semibold group-hover:text-primary transition-colors duration-300">
                 {agent.name}
               </CardTitle>
               <p className="text-sm text-muted-foreground">

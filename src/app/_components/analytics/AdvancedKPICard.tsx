@@ -159,7 +159,7 @@ export const AdvancedKPICard: React.FC<AdvancedKPICardProps> = ({
     return (
       <Card 
         className={cn(
-          "cursor-pointer transition-all duration-200 hover:shadow-md",
+          "cursor-pointer transition-all duration-300 ease-out hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1 group",
           getStatusColor(),
           className
         )}
@@ -206,7 +206,7 @@ export const AdvancedKPICard: React.FC<AdvancedKPICardProps> = ({
   return (
     <Card 
       className={cn(
-        "transition-all duration-200 hover:shadow-lg",
+        "transition-all duration-300 ease-out hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1 group",
         getStatusColor(),
         onDrillDown && "cursor-pointer",
         className
@@ -215,9 +215,11 @@ export const AdvancedKPICard: React.FC<AdvancedKPICardProps> = ({
     >
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-medium flex items-center space-x-2">
+          <CardTitle className="text-base font-medium flex items-center space-x-2 group-hover:text-primary transition-colors duration-300">
             <span>{data.title}</span>
-            {getStatusIcon()}
+            <span className="group-hover:scale-110 transition-transform duration-300">
+              {getStatusIcon()}
+            </span>
           </CardTitle>
           
           <DropdownMenu>

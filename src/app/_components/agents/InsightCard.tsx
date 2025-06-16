@@ -125,7 +125,7 @@ export const InsightCard: React.FC<InsightCardProps> = ({
 
   return (
     <Card className={cn(
-      "transition-all duration-200 hover:shadow-md",
+      "transition-all duration-300 ease-out hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1 cursor-pointer group",
       !insight.isRead && "border-l-4 border-l-blue-500 bg-blue-50/30",
       insight.priority === 'critical' && "border-l-4 border-l-red-500 bg-red-50/30"
     )}>
@@ -133,13 +133,13 @@ export const InsightCard: React.FC<InsightCardProps> = ({
         <div className="flex items-start justify-between">
           <div className="flex items-start space-x-3">
             <div className={cn(
-              "p-2 rounded-md",
+              "p-2 rounded-md transition-transform duration-300 group-hover:scale-110",
               getTypeColor(insight.type)
             )}>
               {getInsightIcon(insight.type)}
             </div>
             <div className="flex-1">
-              <CardTitle className="text-lg font-semibold line-clamp-2">
+              <CardTitle className="text-lg font-semibold line-clamp-2 group-hover:text-primary transition-colors duration-300">
                 {insight.title}
               </CardTitle>
               <div className="flex items-center space-x-2 mt-2">

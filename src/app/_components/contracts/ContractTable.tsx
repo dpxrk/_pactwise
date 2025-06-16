@@ -306,7 +306,7 @@ export const ContractTable = ({
                 <TableHeader>
                   <TableRow>
                     <TableHead 
-                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      className="cursor-pointer hover:bg-accent/60 hover:scale-[1.02] select-none transition-all duration-200 ease-out"
                       onClick={() => handleSort('title')}
                     >
                       <div className="flex items-center">
@@ -315,7 +315,7 @@ export const ContractTable = ({
                       </div>
                     </TableHead>
                     <TableHead 
-                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      className="cursor-pointer hover:bg-accent/60 hover:scale-[1.02] select-none transition-all duration-200 ease-out"
                       onClick={() => handleSort('vendorName')}
                     >
                       <div className="flex items-center">
@@ -324,7 +324,7 @@ export const ContractTable = ({
                       </div>
                     </TableHead>
                     <TableHead 
-                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      className="cursor-pointer hover:bg-accent/60 hover:scale-[1.02] select-none transition-all duration-200 ease-out"
                       onClick={() => handleSort('status')}
                     >
                       <div className="flex items-center">
@@ -333,7 +333,7 @@ export const ContractTable = ({
                       </div>
                     </TableHead>
                     <TableHead 
-                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      className="cursor-pointer hover:bg-accent/60 hover:scale-[1.02] select-none transition-all duration-200 ease-out"
                       onClick={() => handleSort('extractedEndDate')}
                     >
                       <div className="flex items-center">
@@ -342,7 +342,7 @@ export const ContractTable = ({
                       </div>
                     </TableHead>
                     <TableHead 
-                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      className="cursor-pointer hover:bg-accent/60 hover:scale-[1.02] select-none transition-all duration-200 ease-out"
                       onClick={() => handleSort('createdAt')}
                     >
                       <div className="flex items-center">
@@ -355,7 +355,7 @@ export const ContractTable = ({
                 </TableHeader>
                 <TableBody>
                   {paginatedContracts.map((contract) => (
-                    <TableRow key={contract._id} className="hover:bg-muted/30">
+                    <TableRow key={contract._id} className="hover:bg-accent/50 hover:shadow-md hover:scale-[1.005] transition-all duration-200 ease-out cursor-pointer group">
                       <TableCell className="font-medium">
                         <div className="flex flex-col">
                           <span className="font-medium text-foreground truncate max-w-xs">
@@ -399,7 +399,7 @@ export const ContractTable = ({
                             variant="ghost"
                             size="sm"
                             onClick={() => handleView(contract._id)}
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 p-0 hover:bg-primary/10 hover:scale-110 transition-all duration-200 ease-out"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -407,7 +407,7 @@ export const ContractTable = ({
                             variant="ghost"
                             size="sm"
                             onClick={() => handleEdit(contract._id)}
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 p-0 hover:bg-primary/10 hover:scale-110 transition-all duration-200 ease-out"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>

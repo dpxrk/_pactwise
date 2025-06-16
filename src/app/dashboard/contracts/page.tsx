@@ -20,6 +20,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { useStaggeredAnimation, useEntranceAnimation } from "@/hooks/useAnimations";
 import { LoadingSpinner, SkeletonStats, SkeletonTable } from "@/components/ui/loading-spinner";
+import { cn } from "@/lib/utils";
 
 // Import simplified hooks
 import { useConvexQuery } from "@/lib/api-client";
@@ -37,6 +38,40 @@ const AllContracts = () => {
   // Animation hooks
   const isVisible = useEntranceAnimation(100);
   const isStatsVisible = useStaggeredAnimation(4, 100);
+
+  // All useCallback hooks must be declared before any conditional returns
+  const viewContractDetails = useCallback((contractId: Id<"contracts">) => {
+    router.push(`/dashboard/contracts/${contractId}`);
+  }, [router]);
+
+  // Map status to badge style
+  const getStatusBadgeClass = useCallback((status: string): string => {
+    switch (status) {
+      case "active": return "bg-green-100 text-green-800";
+      case "pending_analysis": return "bg-yellow-100 text-yellow-800";
+      case "draft": return "bg-blue-100 text-blue-800";
+      case "expired": return "bg-red-100 text-red-800";
+      case "terminated": return "bg-orange-100 text-orange-800";
+      case "archived": return "bg-gray-100 text-gray-800";
+      default: return "bg-slate-100 text-slate-800";
+    }
+  }, []);
+
+  // Format date for display
+  const formatDate = useCallback((dateString?: string): string => {
+    if (!dateString) return "Not available";
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch (e) {
+      return "Invalid date";
+    }
+  }, []);
+
+  // Format status label
+  const formatStatusLabel = useCallback((status: string): string => {
+    if (!status) return "Unknown";
+    return status.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+  }, []);
 
   // Get current user context to obtain enterprise ID
   const { data: userContext, isLoading: isLoadingUser, error: userError } = useConvexQuery(
@@ -99,10 +134,6 @@ const AllContracts = () => {
     };
   }, [contracts]);
 
-  const viewContractDetails = useCallback((contractId: Id<"contracts">) => {
-    router.push(`/dashboard/contracts/${contractId}`);
-  }, [router]);
-
   // Render loading state
   if (isLoading) {
     return (
@@ -154,35 +185,6 @@ const AllContracts = () => {
       </Alert>
     );
   }
-
-  // Map status to badge style
-  const getStatusBadgeClass = useCallback((status: string): string => {
-    switch (status) {
-      case "active": return "bg-green-100 text-green-800";
-      case "pending_analysis": return "bg-yellow-100 text-yellow-800";
-      case "draft": return "bg-blue-100 text-blue-800";
-      case "expired": return "bg-red-100 text-red-800";
-      case "terminated": return "bg-orange-100 text-orange-800";
-      case "archived": return "bg-gray-100 text-gray-800";
-      default: return "bg-slate-100 text-slate-800";
-    }
-  }, []);
-
-  // Format date for display
-  const formatDate = useCallback((dateString?: string): string => {
-    if (!dateString) return "Not available";
-    try {
-      return new Date(dateString).toLocaleDateString();
-    } catch (e) {
-      return "Invalid date";
-    }
-  }, []);
-
-  // Format status label
-  const formatStatusLabel = useCallback((status: string): string => {
-    if (!status) return "Unknown";
-    return status.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
-  }, []);
 
   return (
     <div className={cn(

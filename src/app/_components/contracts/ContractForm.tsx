@@ -138,10 +138,84 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
   });
 
   const contractTypes = [
+    // Legal & Compliance
+    { value: "nda", label: "Non-Disclosure Agreement (NDA)" },
+    { value: "msa", label: "Master Service Agreement (MSA)" },
+    { value: "sow", label: "Statement of Work (SOW)" },
+    { value: "contract_amendment", label: "Contract Amendment" },
+    { value: "license", label: "License Agreement" },
+    { value: "terms_of_service", label: "Terms of Service" },
+    { value: "privacy_policy", label: "Privacy Policy Agreement" },
+    
+    // Sales & Procurement
     { value: "sales", label: "Sales Agreement" },
+    { value: "purchase", label: "Purchase Agreement" },
+    { value: "supply", label: "Supply Agreement" },
+    { value: "distribution", label: "Distribution Agreement" },
+    { value: "reseller", label: "Reseller Agreement" },
+    { value: "vendor", label: "Vendor Agreement" },
+    { value: "procurement", label: "Procurement Contract" },
+    
+    // Technology & Software
+    { value: "saas", label: "Software as a Service (SaaS)" },
+    { value: "software_license", label: "Software License Agreement" },
+    { value: "api", label: "API License Agreement" },
+    { value: "hosting", label: "Hosting Agreement" },
+    { value: "cloud_services", label: "Cloud Services Agreement" },
+    { value: "data_processing", label: "Data Processing Agreement (DPA)" },
+    { value: "it_services", label: "IT Services Agreement" },
+    { value: "maintenance", label: "Software Maintenance Agreement" },
+    
+    // Professional Services
     { value: "service", label: "Service Agreement" },
-    { value: "nda", label: "Non-Disclosure Agreement" },
-    // ... other types
+    { value: "consulting", label: "Consulting Agreement" },
+    { value: "professional_services", label: "Professional Services Agreement" },
+    { value: "marketing", label: "Marketing Services Agreement" },
+    { value: "advertising", label: "Advertising Agreement" },
+    { value: "development", label: "Development Agreement" },
+    { value: "design", label: "Design Services Agreement" },
+    
+    // Employment & HR
+    { value: "employment", label: "Employment Agreement" },
+    { value: "contractor", label: "Independent Contractor Agreement" },
+    { value: "non_compete", label: "Non-Compete Agreement" },
+    { value: "severance", label: "Severance Agreement" },
+    { value: "internship", label: "Internship Agreement" },
+    
+    // Real Estate & Facilities
+    { value: "lease", label: "Lease Agreement" },
+    { value: "rental", label: "Rental Agreement" },
+    { value: "facilities", label: "Facilities Management Agreement" },
+    { value: "construction", label: "Construction Agreement" },
+    
+    // Financial & Insurance
+    { value: "loan", label: "Loan Agreement" },
+    { value: "credit", label: "Credit Agreement" },
+    { value: "insurance", label: "Insurance Agreement" },
+    { value: "indemnity", label: "Indemnity Agreement" },
+    { value: "escrow", label: "Escrow Agreement" },
+    
+    // Partnership & Investment
+    { value: "partnership", label: "Partnership Agreement" },
+    { value: "joint_venture", label: "Joint Venture Agreement" },
+    { value: "investment", label: "Investment Agreement" },
+    { value: "shareholder", label: "Shareholder Agreement" },
+    { value: "merger", label: "Merger Agreement" },
+    
+    // Specialized
+    { value: "franchise", label: "Franchise Agreement" },
+    { value: "manufacturing", label: "Manufacturing Agreement" },
+    { value: "transportation", label: "Transportation Agreement" },
+    { value: "logistics", label: "Logistics Agreement" },
+    { value: "energy", label: "Energy Services Agreement" },
+    { value: "telecom", label: "Telecommunications Agreement" },
+    { value: "media", label: "Media License Agreement" },
+    { value: "research", label: "Research Agreement" },
+    { value: "clinical_trial", label: "Clinical Trial Agreement" },
+    
+    // Other
+    { value: "general", label: "General Contract" },
+    { value: "other", label: "Other" }
   ];
   const currencies = [ { value: "USD", label: "US Dollar (USD)" }, /* ... */];
 

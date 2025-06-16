@@ -67,9 +67,9 @@ const NavItem = React.memo(
         <Button
           variant={isActive ? "secondary" : "ghost"}
           className={cn(
-            "w-full justify-start group relative overflow-hidden cursor-pointer",
-            "hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-out",
-            isActive && "bg-gradient-to-r from-primary/10 to-primary/5 border-l-2 border-primary",
+            "w-full justify-start group relative overflow-visible cursor-pointer",
+            "hover:shadow-lg hover:-translate-y-0.5 hover:bg-accent/70 hover:scale-[1.02] transition-all duration-200 ease-out",
+            isActive && "bg-gradient-to-r from-primary/10 to-primary/5 border-l-2 border-primary shadow-md",
             navItemClassName
           )}
           onClick={handleClick}
@@ -100,8 +100,8 @@ const NavItem = React.memo(
 
         {/* Animated sub-items */}
         <div className={cn(
-          "overflow-hidden transition-all duration-300 ease-out",
-          isExpanded ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+          "transition-all duration-300 ease-out",
+          isExpanded ? "max-h-[800px] opacity-100 overflow-visible" : "max-h-0 opacity-0 overflow-hidden"
         )}>
           <div className="ml-6 space-y-1 pt-1">
             {item.subItems?.map((subItem, index) => (
@@ -109,9 +109,9 @@ const NavItem = React.memo(
                 key={subItem.href}
                 variant="ghost"
                 className={cn(
-                  "w-full justify-start h-9 cursor-pointer group relative",
-                  "hover:bg-accent/50 hover:translate-x-1 transition-all duration-200 ease-out",
-                  pathname === subItem.href && "bg-accent border-l-2 border-primary/50",
+                  "w-full justify-start h-9 cursor-pointer group relative overflow-visible",
+                  "hover:bg-accent/70 hover:translate-x-1 hover:shadow-md hover:scale-[1.01] transition-all duration-200 ease-out",
+                  pathname === subItem.href && "bg-accent border-l-2 border-primary/50 shadow-sm",
                   // Staggered animation
                   isExpanded && "animate-slide-in-left"
                 )}
@@ -348,12 +348,12 @@ export const SideNavigation = ({ className }: { className?: string }) => {
 
   return (
     <aside className={cn(
-      "flex flex-col border-r bg-card/50 backdrop-blur-sm",
+      "flex flex-col border-r bg-card/50 backdrop-blur-sm h-full",
       "shadow-lg border-border/50",
       className
     )}>
-      <ScrollArea className="flex-1">
-        <div className="space-y-8 p-6">
+      <ScrollArea className="flex-1 h-full">
+        <div className="space-y-8 p-6 min-h-full">
           {navigationSections.map((section, sectionIdx) => (
             <div 
               key={sectionIdx}
@@ -398,11 +398,11 @@ export const SideNavigation = ({ className }: { className?: string }) => {
       </ScrollArea>
       
       {/* Navigation footer with gradient */}
-      <div className="p-4 border-t border-border/50 bg-gradient-to-t from-card/80 to-transparent">
+      {/* <div className="p-4 border-t border-border/50 bg-gradient-to-t from-card/80 to-transparent">
         <div className="text-xs text-muted-foreground/60 text-center">
           Pactwise Enterprise
         </div>
-      </div>
+      </div> */}
     </aside>
   );
 };

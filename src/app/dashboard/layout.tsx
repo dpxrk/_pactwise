@@ -40,7 +40,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
   return (
     <div className={`flex h-screen bg-gradient-to-br from-background via-background to-muted/20 ${isVisible ? 'animate-fade-in' : 'opacity-0'}`}>
-      <SideNavigation className="hidden md:flex w-64 relative z-10" />
+      <SideNavigation className="hidden md:flex w-72 relative z-10" />
       <div className="flex-1 flex flex-col relative">
         <Header
           isSearchOpen={isSearchOpen}

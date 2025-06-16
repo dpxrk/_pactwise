@@ -371,7 +371,7 @@ export const VendorTable = ({
                 <TableHeader>
                   <TableRow>
                     <TableHead 
-                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      className="cursor-pointer hover:bg-accent/60 hover:scale-[1.02] select-none transition-all duration-200 ease-out"
                       onClick={() => handleSort('name')}
                     >
                       <div className="flex items-center">
@@ -380,7 +380,7 @@ export const VendorTable = ({
                       </div>
                     </TableHead>
                     <TableHead 
-                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      className="cursor-pointer hover:bg-accent/60 hover:scale-[1.02] select-none transition-all duration-200 ease-out"
                       onClick={() => handleSort('category')}
                     >
                       <div className="flex items-center">
@@ -389,7 +389,7 @@ export const VendorTable = ({
                       </div>
                     </TableHead>
                     <TableHead 
-                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      className="cursor-pointer hover:bg-accent/60 hover:scale-[1.02] select-none transition-all duration-200 ease-out"
                       onClick={() => handleSort('status')}
                     >
                       <div className="flex items-center">
@@ -398,7 +398,7 @@ export const VendorTable = ({
                       </div>
                     </TableHead>
                     <TableHead 
-                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      className="cursor-pointer hover:bg-accent/60 hover:scale-[1.02] select-none transition-all duration-200 ease-out"
                       onClick={() => handleSort('total_spend')}
                     >
                       <div className="flex items-center">
@@ -407,7 +407,7 @@ export const VendorTable = ({
                       </div>
                     </TableHead>
                     <TableHead 
-                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      className="cursor-pointer hover:bg-accent/60 hover:scale-[1.02] select-none transition-all duration-200 ease-out"
                       onClick={() => handleSort('compliance_score')}
                     >
                       <div className="flex items-center">
@@ -416,7 +416,7 @@ export const VendorTable = ({
                       </div>
                     </TableHead>
                     <TableHead 
-                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      className="cursor-pointer hover:bg-accent/60 hover:scale-[1.02] select-none transition-all duration-200 ease-out"
                       onClick={() => handleSort('risk_level')}
                     >
                       <div className="flex items-center">
@@ -429,7 +429,7 @@ export const VendorTable = ({
                 </TableHeader>
                 <TableBody>
                   {paginatedVendors.map((vendor) => (
-                    <TableRow key={vendor._id} className="hover:bg-muted/30">
+                    <TableRow key={vendor._id} className="hover:bg-accent/50 hover:shadow-md hover:scale-[1.005] transition-all duration-200 ease-out cursor-pointer group">
                       <TableCell className="font-medium">
                         <div className="flex flex-col">
                           <span className="font-medium text-foreground truncate max-w-xs">

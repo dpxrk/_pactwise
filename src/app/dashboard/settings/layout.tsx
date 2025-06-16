@@ -130,11 +130,11 @@ const SettingsLayout = ({ children }: SettingsLayoutProps) => {
                       <Link
                         href={isDisabled ? '#' : item.href}
                         className={cn(
-                          "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                          "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all duration-200 ease-in-out",
                           isActive
-                            ? "bg-primary text-primary-foreground"
-                            : "hover:bg-muted text-muted-foreground hover:text-foreground",
-                          isDisabled && "opacity-50 cursor-not-allowed"
+                            ? "bg-primary text-primary-foreground shadow-md"
+                            : "text-muted-foreground hover:text-foreground hover:bg-accent/50 hover:shadow-sm hover:scale-[1.02] hover:border-accent-foreground/10 border border-transparent",
+                          isDisabled && "opacity-50 cursor-not-allowed hover:scale-100 hover:bg-transparent hover:shadow-none"
                         )}
                         onClick={isDisabled ? (e) => e.preventDefault() : undefined}
                       >

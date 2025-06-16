@@ -262,7 +262,7 @@ const ContractCard: React.FC<ContractCardProps> = (props) => {
 
   return (
     <Card className={cn(
-      'cursor-pointer transition-all hover:shadow-md active:scale-[0.98]',
+      'cursor-pointer transition-all duration-300 ease-out hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1 active:scale-[0.98] group',
       priority && 'border-l-4',
       priority === 'urgent' && 'border-l-red-500',
       priority === 'high' && 'border-l-orange-500',
@@ -275,8 +275,8 @@ const ContractCard: React.FC<ContractCardProps> = (props) => {
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-semibold text-base line-clamp-1">{title}</h3>
-              {isFavorite && <Star className="h-4 w-4 text-yellow-500 fill-current" />}
+              <h3 className="font-semibold text-base line-clamp-1 group-hover:text-primary transition-colors duration-300">{title}</h3>
+              {isFavorite && <Star className="h-4 w-4 text-yellow-500 fill-current group-hover:scale-110 transition-transform duration-300" />}
             </div>
             <p className="text-sm text-muted-foreground line-clamp-1">{vendor}</p>
           </div>
@@ -420,14 +420,14 @@ const VendorCard: React.FC<VendorCardProps> = (props) => {
 
   return (
     <Card className={cn(
-      'cursor-pointer transition-all hover:shadow-md active:scale-[0.98]',
+      'cursor-pointer transition-all duration-300 ease-out hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1 active:scale-[0.98] group',
       className
     )} onClick={onClick}>
       <CardContent className="p-4">
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-base line-clamp-1 mb-1">{name}</h3>
+            <h3 className="font-semibold text-base line-clamp-1 mb-1 group-hover:text-primary transition-colors duration-300">{name}</h3>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-xs">{category}</Badge>
               <Badge className={cn('text-xs', getRiskLevelColor(riskLevel))}>
@@ -537,7 +537,7 @@ const WorkflowCard: React.FC<WorkflowCardProps> = (props) => {
 
   return (
     <Card className={cn(
-      'cursor-pointer transition-all hover:shadow-md active:scale-[0.98]',
+      'cursor-pointer transition-all duration-300 ease-out hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1 active:scale-[0.98] group',
       isOverdue && 'border-red-200 bg-red-50/50',
       className
     )} onClick={onClick}>
@@ -545,7 +545,7 @@ const WorkflowCard: React.FC<WorkflowCardProps> = (props) => {
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-base line-clamp-1 mb-1">{name}</h3>
+            <h3 className="font-semibold text-base line-clamp-1 mb-1 group-hover:text-primary transition-colors duration-300">{name}</h3>
             <p className="text-sm text-muted-foreground line-clamp-2">{description}</p>
           </div>
           
@@ -654,7 +654,7 @@ const UserCard: React.FC<UserCardProps> = (props) => {
 
   return (
     <Card className={cn(
-      'cursor-pointer transition-all hover:shadow-md active:scale-[0.98]',
+      'cursor-pointer transition-all duration-300 ease-out hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1 active:scale-[0.98] group',
       className
     )} onClick={onClick}>
       <CardContent className="p-4">
@@ -666,7 +666,7 @@ const UserCard: React.FC<UserCardProps> = (props) => {
           </Avatar>
           
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-base line-clamp-1">{name}</h3>
+            <h3 className="font-semibold text-base line-clamp-1 group-hover:text-primary transition-colors duration-300">{name}</h3>
             <p className="text-sm text-muted-foreground line-clamp-1">{email}</p>
             <div className="flex items-center gap-2 mt-1">
               <Badge variant="outline" className="text-xs">{role}</Badge>
@@ -756,14 +756,14 @@ const DocumentCard: React.FC<DocumentCardProps> = (props) => {
 
   return (
     <Card className={cn(
-      'cursor-pointer transition-all hover:shadow-md active:scale-[0.98]',
+      'cursor-pointer transition-all duration-300 ease-out hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1 active:scale-[0.98] group',
       className
     )} onClick={onClick}>
       <CardContent className="p-4">
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-base line-clamp-1 mb-1">{title}</h3>
+            <h3 className="font-semibold text-base line-clamp-1 mb-1 group-hover:text-primary transition-colors duration-300">{title}</h3>
             {description && (
               <p className="text-sm text-muted-foreground line-clamp-2">{description}</p>
             )}

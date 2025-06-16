@@ -41,77 +41,18 @@ export default function DataSettingsPage() {
     encryptBackups: true
   });
 
-  // Storage usage data
+  // Storage usage data - TODO: Replace with actual API calls
   const storageData = {
-    total: 10, // GB
-    used: 2.4, // GB
-    breakdown: [
-      { type: 'Contracts', size: 1.2, percentage: 50 },
-      { type: 'Documents', size: 0.8, percentage: 33.3 },
-      { type: 'Analytics', size: 0.3, percentage: 12.5 },
-      { type: 'Other', size: 0.1, percentage: 4.2 }
-    ]
+    total: 0,
+    used: 0,
+    breakdown: []
   };
 
-  // Recent backups
-  const backupHistory = [
-    {
-      id: 1,
-      date: new Date('2024-01-15T02:00:00'),
-      type: 'Automatic',
-      size: '245 MB',
-      status: 'completed',
-      retention: new Date('2024-07-15T02:00:00')
-    },
-    {
-      id: 2,
-      date: new Date('2024-01-14T02:00:00'),
-      type: 'Automatic',
-      size: '243 MB',
-      status: 'completed',
-      retention: new Date('2024-07-14T02:00:00')
-    },
-    {
-      id: 3,
-      date: new Date('2024-01-13T14:30:00'),
-      type: 'Manual',
-      size: '244 MB',
-      status: 'completed',
-      retention: new Date('2024-07-13T14:30:00')
-    }
-  ];
+  // Recent backups - TODO: Replace with actual API calls
+  const backupHistory: any[] = [];
 
-  // Data categories for export/deletion
-  const dataCategories = [
-    {
-      name: 'Contracts',
-      description: 'All contract documents and metadata',
-      count: 847,
-      size: '1.2 GB',
-      lastUpdated: new Date('2024-01-15')
-    },
-    {
-      name: 'Vendors',
-      description: 'Vendor information and contact details',
-      count: 156,
-      size: '45 MB',
-      lastUpdated: new Date('2024-01-14')
-    },
-    {
-      name: 'Analytics Data',
-      description: 'Usage analytics and reports',
-      count: 1205,
-      size: '320 MB',
-      lastUpdated: new Date('2024-01-15')
-    },
-    {
-      name: 'User Activity',
-      description: 'Audit logs and user activity records',
-      count: 5432,
-      size: '89 MB',
-      lastUpdated: new Date('2024-01-15')
-    }
-  ];
+  // Data categories for export/deletion - TODO: Replace with actual API calls
+  const dataCategories: any[] = [];
 
   const handleSettingChange = (key: string, value: boolean | string) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -120,9 +61,11 @@ export default function DataSettingsPage() {
   const handleSaveSettings = async () => {
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // TODO: Implement actual API call to save settings
+      // await api.settings.updateDataSettings(settings);
       toast.success('Data settings updated successfully');
     } catch (error) {
+      console.error('Failed to update data settings:', error);
       toast.error('Failed to update data settings');
     } finally {
       setIsLoading(false);
@@ -131,8 +74,11 @@ export default function DataSettingsPage() {
 
   const handleCreateBackup = async () => {
     try {
+      // TODO: Implement actual API call to create backup
+      // await api.backups.create();
       toast.success('Manual backup initiated');
     } catch (error) {
+      console.error('Failed to create backup:', error);
       toast.error('Failed to create backup');
     }
   };
@@ -140,9 +86,12 @@ export default function DataSettingsPage() {
   const handleExportData = async (category?: string) => {
     setExportLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // TODO: Implement actual API call to export data
+      // const exportUrl = await api.exports.create({ category, format: settings.exportFormat });
+      // window.open(exportUrl, '_blank');
       toast.success(`${category || 'All data'} export completed`);
     } catch (error) {
+      console.error('Failed to export data:', error);
       toast.error('Failed to export data');
     } finally {
       setExportLoading(false);
@@ -151,8 +100,15 @@ export default function DataSettingsPage() {
 
   const handleDeleteData = async (category: string) => {
     try {
+      // TODO: Implement actual API call to delete data with confirmation
+      // const confirmed = await confirmDeletion(category);
+      // if (confirmed) {
+      //   await api.data.delete({ category });
+      //   toast.success(`${category} deletion completed`);
+      // }
       toast.success(`${category} deletion initiated`);
     } catch (error) {
+      console.error(`Failed to delete ${category}:`, error);
       toast.error(`Failed to delete ${category}`);
     }
   };
@@ -211,21 +167,28 @@ export default function DataSettingsPage() {
 
             <div className="space-y-3">
               <h4 className="font-medium">Storage Breakdown</h4>
-              {storageData.breakdown.map((item, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: `hsl(${index * 90}, 70%, 50%)` }}
-                    />
-                    <span className="text-sm">{item.type}</span>
+              {storageData.breakdown.length > 0 ? (
+                storageData.breakdown.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: `hsl(${index * 90}, 70%, 50%)` }}
+                      />
+                      <span className="text-sm">{item.type}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>{item.size}GB</span>
+                      <span>({item.percentage}%)</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>{item.size}GB</span>
-                    <span>({item.percentage}%)</span>
-                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Database className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No storage data available</p>
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
@@ -316,39 +279,47 @@ export default function DataSettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Size</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Retention Until</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {backupHistory.map((backup) => (
-                  <TableRow key={backup.id}>
-                    <TableCell>{backup.date.toLocaleString()}</TableCell>
-                    <TableCell>{backup.type}</TableCell>
-                    <TableCell>{backup.size}</TableCell>
-                    <TableCell>{getStatusBadge(backup.status)}</TableCell>
-                    <TableCell>{backup.retention.toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="sm">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+            {backupHistory.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Size</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Retention Until</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {backupHistory.map((backup) => (
+                    <TableRow key={backup.id}>
+                      <TableCell>{backup.date.toLocaleString()}</TableCell>
+                      <TableCell>{backup.type}</TableCell>
+                      <TableCell>{backup.size}</TableCell>
+                      <TableCell>{getStatusBadge(backup.status)}</TableCell>
+                      <TableCell>{backup.retention.toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm">
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No backup history available</p>
+                <p className="text-xs mt-1">Create your first backup to see it here</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -405,37 +376,45 @@ export default function DataSettingsPage() {
                 <h4 className="font-medium">Data Categories</h4>
                 <Button 
                   onClick={() => handleExportData()}
-                  disabled={exportLoading}
+                  disabled={exportLoading || dataCategories.length === 0}
                   className="ml-auto"
                 >
                   {exportLoading ? 'Exporting...' : 'Export All Data'}
                 </Button>
               </div>
 
-              {dataCategories.map((category, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{category.name}</span>
-                      <Badge variant="secondary">{category.count.toLocaleString()} items</Badge>
+              {dataCategories.length > 0 ? (
+                dataCategories.map((category, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{category.name}</span>
+                        <Badge variant="secondary">{category.count.toLocaleString()} items</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{category.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {category.size} • Last updated {category.lastUpdated.toLocaleDateString()}
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground">{category.description}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {category.size} • Last updated {category.lastUpdated.toLocaleDateString()}
-                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleExportData(category.name)}
+                      disabled={exportLoading}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Export
+                    </Button>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => handleExportData(category.name)}
-                    disabled={exportLoading}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
-                  </Button>
+                ))
+              ) : (
+                <div className="text-center py-12 text-muted-foreground border rounded-lg">
+                  <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No data categories available</p>
+                  <p className="text-xs mt-1">Start using the platform to see exportable data here</p>
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
@@ -490,26 +469,34 @@ export default function DataSettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {dataCategories.map((category, index) => (
-              <div key={index} className="p-4 border border-red-200 rounded-lg bg-red-50">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-red-800">Delete {category.name}</h4>
-                    <p className="text-sm text-red-700">
-                      Permanently delete all {category.name.toLowerCase()} ({category.count} items, {category.size})
-                    </p>
+            {dataCategories.length > 0 ? (
+              dataCategories.map((category, index) => (
+                <div key={index} className="p-4 border border-red-200 rounded-lg bg-red-50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-red-800">Delete {category.name}</h4>
+                      <p className="text-sm text-red-700">
+                        Permanently delete all {category.name.toLowerCase()} ({category.count} items, {category.size})
+                      </p>
+                    </div>
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => handleDeleteData(category.name)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </Button>
                   </div>
-                  <Button 
-                    variant="destructive" 
-                    size="sm"
-                    onClick={() => handleDeleteData(category.name)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </Button>
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground border border-red-200 rounded-lg bg-red-50">
+                <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50 text-red-400" />
+                <p className="text-sm text-red-700">No data categories to delete</p>
+                <p className="text-xs mt-1 text-red-600">Data deletion options will appear when you have data in the system</p>
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
 
