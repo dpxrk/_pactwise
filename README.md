@@ -259,16 +259,16 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 - Code must follow established patterns
 - Documentation updates required for new features
 
-## License
+<!-- ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. -->
 
-## Support
+<!-- ## Support
 
 - **Documentation**: [docs.pactwise.com](https://docs.pactwise.com)
 - **Issues**: [GitHub Issues](https://github.com/your-org/pactwise/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/your-org/pactwise/discussions)
-- **Email**: support@pactwise.com
+- **Email**: support@pactwise.com -->
 
 
 ---
