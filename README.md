@@ -270,25 +270,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Discussions**: [GitHub Discussions](https://github.com/your-org/pactwise/discussions)
 - **Email**: support@pactwise.com
 
-## Roadmap
-
-### Q1 2024
-- [ ] Advanced workflow automation
-- [ ] API webhooks and integrations
-- [ ] Enhanced mobile experience
-- [ ] Multi-language support
-
-### Q2 2024
-- [ ] Advanced AI insights
-- [ ] Custom reporting builder
-- [ ] SSO integrations
-- [ ] Advanced permissions system
-
-### Q3 2024
-- [ ] Marketplace integrations
-- [ ] Advanced analytics
-- [ ] White-label solutions
-- [ ] Enterprise SSO
 
 ---
 
