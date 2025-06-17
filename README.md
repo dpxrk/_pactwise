@@ -1102,8 +1102,8 @@ npm run dev
 
 **Ready to transform your contract management?**
 
-- **Start Free Trial**: [Sign up now](https://pactwise.com/signup) for 14-day free access to all Professional features
-- **Book a Demo**: [Schedule a personalized demo](https://pactwise.com/demo) with our team
-- **Enterprise Consultation**: [Contact sales](https://pactwise.com/contact) for custom enterprise solutions
+- **Start Free Trial**: [Sign up now](https://pactwise.io/) for 14-day free access to all Professional features
+- **Book a Demo**: [Schedule a personalized demo](https://pactwise.io/) with our team
+- **Enterprise Consultation**: [Contact sales](https://pactwise.io/contact) for custom enterprise solutions
 
-**Questions?** Reach out to our team at [hello@pactwise.com](mailto:hello@pactwise.com)
+**Questions?** Reach out to our team at [hello@pactwise.io](mailto:hello@pactwise.com)
