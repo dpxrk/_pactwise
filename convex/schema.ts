@@ -140,7 +140,10 @@ export default defineSchema({
       )
     ),
     status: v.optional(v.union(v.literal("active"), v.literal("inactive"))),
+    createdBy: v.optional(v.string()), // User ID or "system" for auto-created
+    metadata: v.optional(v.any()), // Additional data for vendor agent
     createdAt: v.string(),
+    updatedAt: v.optional(v.number()), // Track last update
   })
   // Basic indexes
   .index("by_name", ["name"])
@@ -154,7 +157,7 @@ export default defineSchema({
   // ===== CONTRACTS =====
   contracts: defineTable({
     enterpriseId: v.id("enterprises"),
-    vendorId: v.id("vendors"),
+    vendorId: v.optional(v.id("vendors")), // Made optional for vendor agent to assign
     title: v.string(),
     status: v.union(
         ...contractStatusOptions.map(option => v.literal(option))
@@ -173,6 +176,7 @@ export default defineSchema({
     endDate: v.optional(v.string()),
     // AI-extracted data
     extractedParties: v.optional(v.array(v.string())),
+    extractedAddress: v.optional(v.string()), // Added for vendor matching
     extractedStartDate: v.optional(v.string()),
     extractedEndDate: v.optional(v.string()),
     extractedPaymentSchedule: v.optional(v.string()),
@@ -184,6 +188,7 @@ export default defineSchema({
     analysisError: v.optional(v.string()),
     notes: v.optional(v.string()),
     createdAt: v.string(),
+    updatedAt: v.optional(v.number()), // Added for tracking updates
   })
   // Basic indexes
   .index("by_enterprise", ["enterpriseId"])

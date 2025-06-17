@@ -247,7 +247,7 @@ async function calculateKPIs(
   for (const contract of activeContracts) {
     const value = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
     if (value > 0) {
-      const vendorId = contract.vendorId.toString();
+      const vendorId = contract.vendorId ? contract.vendorId.toString() : 'unassigned';
       vendorSpend[vendorId] = (vendorSpend[vendorId] || 0) + value;
       totalSpend += value;
     }
@@ -2167,7 +2167,7 @@ function calculateVendorConcentration(contracts: any[]): any {
   contracts.forEach(contract => {
     const value = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
     if (value > 0) {
-      const vendorId = contract.vendorId.toString();
+      const vendorId = contract.vendorId ? contract.vendorId.toString() : 'unassigned';
       vendorSpend[vendorId] = (vendorSpend[vendorId] || 0) + value;
       totalSpend += value;
     }

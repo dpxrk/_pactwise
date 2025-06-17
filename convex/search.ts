@@ -706,7 +706,7 @@ async function applyContractFilters(ctx: QueryCtx, contracts: Doc<"contracts">[]
 
   // Vendor filter
   if (filters.vendorId && filters.vendorId.length > 0) {
-    filtered = filtered.filter(c => filters.vendorId!.includes(c.vendorId));
+    filtered = filtered.filter(c => c.vendorId && filters.vendorId!.includes(c.vendorId));
   }
 
   // Date range filter

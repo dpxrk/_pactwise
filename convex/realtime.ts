@@ -58,7 +58,7 @@ export const subscribeToContracts = query({
     // Enrich with vendor data
     const enrichedContracts = await Promise.all(
       contracts.map(async (contract) => {
-        const vendor = await ctx.db.get(contract.vendorId);
+        const vendor = contract.vendorId ? await ctx.db.get(contract.vendorId) : null;
         return {
           ...contract,
           vendor: vendor ? {
@@ -96,7 +96,7 @@ export const subscribeToContract = query({
     }
 
     // Enrich with vendor data
-    const vendor = await ctx.db.get(contract.vendorId);
+    const vendor = contract.vendorId ? await ctx.db.get(contract.vendorId) : null;
     
     return {
       ...contract,

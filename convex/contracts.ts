@@ -69,7 +69,7 @@ export const getContractFileUrl = query({
 export const createContract = mutation({
   args: {
     enterpriseId: v.id("enterprises"),
-    vendorId: v.id("vendors"),
+    vendorId: v.optional(v.id("vendors")), // Made optional for vendor agent
     title: v.string(),
     storageId: v.id("_storage"),
     fileName: v.string(),
@@ -93,13 +93,15 @@ export const createContract = mutation({
       throw new ConvexError("Validation Error: Contract title cannot be empty.");
     }
 
-    // Validate that vendor belongs to the enterprise
-    const vendor = await ctx.db.get(args.vendorId);
-    if (!vendor) {
-      throw new ConvexError("Vendor not found.");
-    }
-    if (vendor.enterpriseId !== args.enterpriseId) {
-      throw new ConvexError("Vendor does not belong to the specified enterprise.");
+    // If vendor is provided, validate that it belongs to the enterprise
+    if (args.vendorId) {
+      const vendor = await ctx.db.get(args.vendorId);
+      if (!vendor) {
+        throw new ConvexError("Vendor not found.");
+      }
+      if (vendor.enterpriseId !== args.enterpriseId) {
+        throw new ConvexError("Vendor does not belong to the specified enterprise.");
+      }
     }
 
     // Get current user for events
@@ -115,7 +117,6 @@ export const createContract = mutation({
     // Create the contract
     const contractData: any = {
       enterpriseId: args.enterpriseId,
-      vendorId: args.vendorId,
       title: args.title.trim(),
       status: "draft",
       storageId: args.storageId,
@@ -124,6 +125,11 @@ export const createContract = mutation({
       analysisStatus: "pending",
       createdAt: new Date().toISOString()
     };
+    
+    // Add vendorId if provided
+    if (args.vendorId) {
+      contractData.vendorId = args.vendorId;
+    }
     
     if (args.contractType) {
       contractData.contractType = args.contractType;
@@ -346,7 +352,7 @@ export const getContractById = query({
     }
 
     // Get vendor information
-    const vendor = await ctx.db.get(contract.vendorId);
+    const vendor = contract.vendorId ? await ctx.db.get(contract.vendorId) : null;
 
     return {
       ...contract,
@@ -373,6 +379,7 @@ export const updateContract = mutation({
     contractId: v.id("contracts"),
     enterpriseId: v.id("enterprises"),
     title: v.optional(v.string()),
+    vendorId: v.optional(v.id("vendors")), // Allow assigning vendor
     status: v.optional(
       v.union(...contractStatusOptions.map(option => v.literal(option)))
     ),
@@ -412,6 +419,17 @@ export const updateContract = mutation({
     }
     if (updates.title) {
       updates.title = updates.title.trim();
+    }
+
+    // Validate vendor if provided
+    if (updates.vendorId) {
+      const vendor = await ctx.db.get(updates.vendorId);
+      if (!vendor) {
+        throw new ConvexError("Vendor not found.");
+      }
+      if (vendor.enterpriseId !== args.enterpriseId) {
+        throw new ConvexError("Vendor does not belong to the specified enterprise.");
+      }
     }
 
     // Trim notes if provided
@@ -680,6 +698,30 @@ async function simulateContractAnalysis(fileUrl: string, contract: any): Promise
 // ============================================================================
 
 /**
+ * Get unassigned contracts (contracts without vendors)
+ */
+export const getUnassignedContracts = query({
+  args: {
+    enterpriseId: v.id("enterprises"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required to view contracts.");
+    }
+
+    const contracts = await ctx.db
+      .query("contracts")
+      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", args.enterpriseId))
+      .filter((q) => q.eq(q.field("vendorId"), undefined))
+      .order("desc")
+      .collect();
+
+    return contracts;
+  },
+});
+
+/**
  * Get contract statistics for an enterprise
  */
 export const getContractStats = query({
@@ -704,6 +746,7 @@ export const getContractStats = query({
       byStatus: {} as Record<string, number>,
       byType: {} as Record<string, number>,
       byAnalysisStatus: {} as Record<string, number>,
+      unassigned: 0,
       recentlyCreated: 0,
     };
 
@@ -714,12 +757,17 @@ export const getContractStats = query({
       stats.byStatus[contract.status] = (stats.byStatus[contract.status] || 0) + 1;
 
       // Count by type
-      const type = contract.contractType || "other";
+      const type = contract.contractType || "uncategorized";
       stats.byType[type] = (stats.byType[type] || 0) + 1;
 
       // Count by analysis status
       const analysisStatus = contract.analysisStatus || "pending";
       stats.byAnalysisStatus[analysisStatus] = (stats.byAnalysisStatus[analysisStatus] || 0) + 1;
+
+      // Count unassigned contracts
+      if (!contract.vendorId) {
+        stats.unassigned++;
+      }
 
       // Count recently created
       if (contract._creationTime && contract._creationTime > oneWeekAgo) {
@@ -728,6 +776,69 @@ export const getContractStats = query({
     });
 
     return stats;
+  },
+});
+
+/**
+ * Assign a vendor to a contract
+ */
+export const assignVendorToContract = mutation({
+  args: {
+    contractId: v.id("contracts"),
+    vendorId: v.id("vendors"),
+    enterpriseId: v.id("enterprises"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required");
+    }
+
+    // Verify contract exists and belongs to enterprise
+    const contract = await ctx.db.get(args.contractId);
+    if (!contract) {
+      throw new ConvexError("Contract not found");
+    }
+    if (contract.enterpriseId !== args.enterpriseId) {
+      throw new ConvexError("Access denied");
+    }
+
+    // Verify vendor exists and belongs to enterprise
+    const vendor = await ctx.db.get(args.vendorId);
+    if (!vendor) {
+      throw new ConvexError("Vendor not found");
+    }
+    if (vendor.enterpriseId !== args.enterpriseId) {
+      throw new ConvexError("Vendor does not belong to your enterprise");
+    }
+
+    // Update contract with vendor
+    await ctx.db.patch(args.contractId, {
+      vendorId: args.vendorId,
+      updatedAt: Date.now(),
+    });
+
+    // Get user for event tracking
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (user) {
+      // Trigger real-time event
+      await triggerContractEvents(
+        ctx,
+        "update",
+        args.contractId,
+        user._id,
+        args.enterpriseId,
+        {
+          vendorAssigned: vendor.name,
+        }
+      );
+    }
+
+    return { success: true };
   },
 });
 

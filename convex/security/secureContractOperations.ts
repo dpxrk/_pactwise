@@ -5,7 +5,7 @@ import { createSecureQuery, createSecureMutation, createSecureAction } from "./s
 import { SecureQuery } from "./rowLevelSecurity";
 import { logAuditEvent } from "./auditLogging";
 import { api } from "../_generated/api";
-import { ContractEntity, ContractCSVRow } from "../../src/types/core-entities";
+import { ContractCSVRow } from "../../src/types/core-entities";
 
 /**
  * Example implementation of secure contract operations
@@ -93,7 +93,7 @@ export const getSecureContracts = createSecureQuery(
     // Query with automatic enterprise filtering
     const contracts = await secureQuery.where((q: any) => {
       if (filters.length === 0) return true;
-      if (filters.length === 1) return filters[0](q);
+      if (filters.length === 1) return filters[0]!(q);
       return q.and(...filters.map((f: any) => f(q)));
     });
     
@@ -103,7 +103,7 @@ export const getSecureContracts = createSecureQuery(
     // Enrich with vendor data
     const enriched = await Promise.all(
       limited.map(async (contract) => {
-        const vendor = await ctx.db.get(contract.vendorId);
+        const vendor = contract.vendorId ? await ctx.db.get(contract.vendorId) : null;
         return {
           ...contract,
           vendor: vendor ? {
@@ -290,9 +290,11 @@ export const exportSecureContracts = createSecureMutation(
 );
 
 // Helper functions for export
-function generateCSV(contracts: ContractEntity[]): string {
+import { Doc } from "../_generated/dataModel";
+type ContractEntityLocal = Doc<"contracts">;
+function generateCSV(contracts: ContractEntityLocal[]): string {
   const headers = ["Title", "Status", "Type", "Vendor", "Value", "Start Date", "End Date"];
-  const rows = contracts.map((c: ContractEntity): string[] => [
+  const rows = contracts.map((c: ContractEntityLocal): string[] => [
     c.title,
     c.status,
     c.contractType || "",
@@ -305,7 +307,7 @@ function generateCSV(contracts: ContractEntity[]): string {
   return [headers, ...rows].map((row: string[]) => row.join(",")).join("\n");
 }
 
-function generateXLSX(contracts: ContractEntity[]): string {
+function generateXLSX(contracts: ContractEntityLocal[]): string {
   // Simplified - would use actual XLSX library
   return generateCSV(contracts);
 }

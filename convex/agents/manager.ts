@@ -510,3 +510,196 @@ export const markInsightAsRead = mutation({
     return { success: true, message: "Insight marked as read." };
   },
 });
+
+// ============================================================================
+// AGENT ORCHESTRATION
+// ============================================================================
+
+/**
+ * Run all enabled agents for an enterprise
+ * This is the main orchestration function called periodically
+ */
+export const orchestrateAgents = internalMutation({
+  args: {
+    enterpriseId: v.id("enterprises"),
+  },
+  handler: async (ctx, args) => {
+    const system = await ctx.db.query("agentSystem").first();
+    if (!system || !system.isRunning) {
+      return { success: false, message: "Agent system is not running" };
+    }
+
+    const manager = await ctx.db
+      .query("agents")
+      .withIndex("by_type", (q) => q.eq("type", "manager"))
+      .first();
+
+    if (!manager || !manager.isEnabled) {
+      return { success: false, message: "Manager agent is not enabled" };
+    }
+
+    try {
+      // Update manager status
+      await ctx.db.patch(manager._id, {
+        status: "active",
+        runCount: (manager.runCount || 0) + 1,
+        lastRun: new Date().toISOString(),
+      });
+
+      // Log orchestration start
+      await ctx.db.insert("agentLogs", {
+        agentId: manager._id,
+        level: "info",
+        message: `Starting agent orchestration for enterprise ${args.enterpriseId}`,
+        timestamp: new Date().toISOString(),
+        category: "orchestration",
+        data: { enterpriseId: args.enterpriseId },
+      });
+
+      // Get all enabled agents
+      const enabledAgents = await ctx.db
+        .query("agents")
+        .filter((q) => q.and(
+          q.eq(q.field("isEnabled"), true),
+          q.neq(q.field("type"), "manager")
+        ))
+        .collect();
+
+      const results: Array<{
+        agentId: Id<"agents">;
+        agentType: string;
+        success: boolean;
+        result?: any;
+        error?: string;
+      }> = [];
+
+      // Run each agent based on type
+      for (const agent of enabledAgents) {
+        try {
+          let result;
+          
+          switch (agent.type) {
+            case "secretary":
+              // Secretary agent monitors new contracts
+              const { run: runSecretary } = await import("./secretary");
+              result = await (runSecretary as any)(ctx, { agentId: agent._id });
+              break;
+              
+            case "vendor":
+              // Vendor agent processes unassigned contracts
+              const { runVendorAgent } = await import("./vendor");
+              result = await (runVendorAgent as any)(ctx, { enterpriseId: args.enterpriseId });
+              break;
+              
+            case "financial":
+              // Financial agent analyzes contract costs
+              // const { runFinancialAgent } = await import("./financial");
+              // result = await runFinancialAgent(ctx, { enterpriseId: args.enterpriseId });
+              result = { skipped: true, reason: "Financial agent not yet implemented" };
+              break;
+              
+            case "legal":
+              // Legal agent checks compliance
+              // const { runLegalAgent } = await import("./legal");
+              // result = await runLegalAgent(ctx, { enterpriseId: args.enterpriseId });
+              result = { skipped: true, reason: "Legal agent not yet implemented" };
+              break;
+              
+            case "analytics":
+              // Analytics agent generates insights
+              // const { runAnalyticsAgent } = await import("./analytics");
+              // result = await runAnalyticsAgent(ctx, { enterpriseId: args.enterpriseId });
+              result = { skipped: true, reason: "Analytics agent not yet implemented" };
+              break;
+              
+            case "notifications":
+              // Notification agent sends alerts
+              // const { runNotificationAgent } = await import("./notification");
+              // result = await runNotificationAgent(ctx, { enterpriseId: args.enterpriseId });
+              result = { skipped: true, reason: "Notification agent not yet implemented" };
+              break;
+              
+            default:
+              result = { skipped: true, reason: `Unknown agent type: ${agent.type}` };
+          }
+          
+          results.push({
+            agentId: agent._id,
+            agentType: agent.type,
+            success: true,
+            result,
+          });
+          
+        } catch (error) {
+          // Log agent error
+          await ctx.db.insert("agentLogs", {
+            agentId: agent._id,
+            level: "error",
+            message: `Error running ${agent.type} agent: ${error instanceof Error ? error.message : "Unknown error"}`,
+            timestamp: new Date().toISOString(),
+            category: "agent_error",
+            data: { error: error instanceof Error ? error.stack : String(error) },
+          });
+          
+          // Update agent error count
+          await ctx.db.patch(agent._id, {
+            errorCount: (agent.errorCount || 0) + 1,
+            lastError: error instanceof Error ? error.message : "Unknown error",
+            // lastErrorAt field doesn't exist in schema
+          });
+          
+          results.push({
+            agentId: agent._id,
+            agentType: agent.type,
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      }
+
+      // Update manager metrics
+      const successCount = results.filter(r => r.success).length;
+      const failureCount = results.filter(r => !r.success).length;
+      
+      await ctx.db.patch(manager._id, {
+        status: "inactive",
+        metrics: {
+          ...manager.metrics,
+          totalRuns: ((manager.metrics as any)?.totalRuns || 0) + 1,
+          successfulRuns: ((manager.metrics as any)?.successfulRuns || 0) + (failureCount === 0 ? 1 : 0),
+          failedRuns: ((manager.metrics as any)?.failedRuns || 0) + (failureCount > 0 ? 1 : 0),
+          averageRunTime: ((manager.metrics as any)?.averageRunTime || 0),
+          // agentsManaged: enabledAgents.length, // This field doesn't exist in the base metrics type
+          lastRunDuration: manager.lastRun ? Date.now() - new Date(manager.lastRun).getTime() : 0,
+        },
+      });
+
+      // Log orchestration completion
+      await ctx.db.insert("agentLogs", {
+        agentId: manager._id,
+        level: "info",
+        message: `Completed agent orchestration: ${successCount} succeeded, ${failureCount} failed`,
+        timestamp: new Date().toISOString(),
+        category: "orchestration",
+        data: { results, enterpriseId: args.enterpriseId },
+      });
+
+      return {
+        success: true,
+        message: "Agent orchestration completed",
+        results,
+      };
+      
+    } catch (error) {
+      // Update manager error state
+      await ctx.db.patch(manager._id, {
+        status: "error",
+        errorCount: (manager.errorCount || 0) + 1,
+        lastError: error instanceof Error ? error.message : "Unknown error",
+        // Remove lastErrorAt as it doesn't exist in schema
+      });
+      
+      throw error;
+    }
+  },
+});

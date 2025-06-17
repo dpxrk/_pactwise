@@ -75,12 +75,12 @@ export const createVendor = mutation({
     const vendorId = await ctx.db.insert("vendors", {
       enterpriseId: args.enterpriseId,
       name: args.name.trim(),
-      contactEmail: args.contactEmail?.toLowerCase() || undefined,
-      contactPhone: args.contactPhone || undefined,
-      address: args.address || undefined,
-      notes: args.notes || undefined,
-      website: args.website || undefined,
-      category: args.category || undefined,
+      contactEmail: args.contactEmail ? args.contactEmail.toLowerCase() : undefined,
+      contactPhone: args.contactPhone ? args.contactPhone : undefined,
+      address: args.address ? args.address : undefined,
+      notes: args.notes ? args.notes : undefined,  
+      website: args.website ? args.website : undefined,
+      category: args.category ? args.category : undefined,
       createdAt: args.createdAt,
     });
 
@@ -169,11 +169,13 @@ export const getVendors = query({
     // Group contracts by vendor ID for efficient lookup
     const contractsByVendor = new Map<string, typeof allContracts>();
     allContracts.forEach(contract => {
-      const vendorId = contract.vendorId;
-      if (!contractsByVendor.has(vendorId)) {
-        contractsByVendor.set(vendorId, []);
+      if (contract.vendorId) {
+        const vendorId = contract.vendorId;
+        if (!contractsByVendor.has(vendorId)) {
+          contractsByVendor.set(vendorId, []);
+        }
+        contractsByVendor.get(vendorId)!.push(contract);
       }
-      contractsByVendor.get(vendorId)!.push(contract);
     });
 
     // Enrich vendors with contract data and calculate metrics
@@ -570,17 +572,19 @@ export const getVendorAnalytics = query({
     // Group contracts by vendor
     const contractsByVendor = new Map<string, any[]>();
     filteredContracts.forEach(contract => {
-      const vendorId = contract.vendorId.toString();
-      if (!contractsByVendor.has(vendorId)) {
-        contractsByVendor.set(vendorId, []);
+      if (contract.vendorId) {
+        const vendorId = contract.vendorId.toString();
+        if (!contractsByVendor.has(vendorId)) {
+          contractsByVendor.set(vendorId, []);
+        }
+        contractsByVendor.get(vendorId)!.push(contract);
       }
-      contractsByVendor.get(vendorId)!.push(contract);
     });
 
     // Analyze each vendor
     vendors.forEach(vendor => {
-      // Category breakdown
-      const category = vendor.category || "other";
+      // Category breakdown - use "uncategorized" for vendors without category
+      const category = vendor.category || "uncategorized";
       analytics.vendorsByCategory[category] = (analytics.vendorsByCategory[category] || 0) + 1;
 
       // Get vendor contracts
@@ -667,10 +671,10 @@ export const getVendorCategories = query({
       return { category, count };
     });
 
-    // Add count for vendors without category
+    // Add count for vendors without category as "uncategorized"
     const uncategorizedCount = vendors.filter(v => !v.category).length;
     if (uncategorizedCount > 0) {
-      categories.push({ category: "other", count: uncategorizedCount });
+      categories.push({ category: "uncategorized" as any, count: uncategorizedCount });
     }
 
     return categories.filter(c => c.count > 0);

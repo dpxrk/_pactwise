@@ -21,7 +21,7 @@ const agentStatusOptions = [ // Renamed
 // Agent types - **MAKE THIS LIST COMPREHENSIVE based on agents.types.ts**
 const agentTypeOptions = [ // Renamed and ensure this matches your full list
   "manager", "secretary", "financial", "notifications", "legal",
-  "analytics", "workflow", "compliance", "risk", "audit",
+  "analytics", "vendor", "workflow", "compliance", "risk", "audit",
   "integration", "scheduler", "backup", "monitor" // Added missing types
 ] as const;
 
@@ -31,7 +31,8 @@ const insightTypeOptions = [ // Renamed and ensure this matches your full list
   "legal_review", "compliance_alert", "performance_metric",
   "cost_optimization", "vendor_risk", "renewal_opportunity", // Added examples
   "negotiation_insight", "audit_finding", "anomaly_detection",
-  "trend_analysis", "recommendation", "alert", "report"
+  "trend_analysis", "recommendation", "alert", "report",
+  "vendor_assignment", "duplicate_vendors" // Added vendor-specific insights
 ] as const;
 
 // Task status - **MAKE THIS LIST COMPREHENSIVE**
