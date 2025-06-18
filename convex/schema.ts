@@ -1,11 +1,12 @@
 // convex/schema.ts
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { agentTables } from "./agent_schema";
-import { notificationTables } from "./notification_schema";
+import { agentTables } from "./schemas/agent_schema";
+import { notificationTables } from "./schemas/notification_schema";
 import { rateLimitTables } from "./security/rateLimiting";
 import { auditTables } from "./security/auditLogging";
-import { memoryTables } from "./memory_schema";
+import { memoryTables } from "./schemas/memory_schema";
+import { collaborativeDocumentsSchema } from "./schemas/collaborative_documents_schema";
 import { 
   onboardingMetadataValidator,
   analyticsEventPropertiesValidator,
@@ -368,5 +369,6 @@ export default defineSchema({
   ...notificationTables,
   ...rateLimitTables,
   ...auditTables,
-  ...memoryTables
+  ...memoryTables,
+  ...collaborativeDocumentsSchema
 });

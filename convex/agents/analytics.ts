@@ -2,7 +2,7 @@
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import { Id, Doc } from "../_generated/dataModel";
-import { ContractAnalytics, VendorAnalytics, MonthlyTrend, VendorMetric, ContractStatus, VendorCategory } from "../types";
+import { ContractAnalytics, VendorAnalytics, MonthlyTrend, VendorMetric, ContractStatus, VendorCategory } from "../shared/types";
 
 /**
  * Analytics Agent

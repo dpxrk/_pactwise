@@ -1,8 +1,8 @@
-// convex/memory/memoryMaintenance.ts
+// convex/memoryMaintenance.ts
 import { v } from "convex/values";
-import { mutation, internalMutation } from "../_generated/server";
-import { api } from "../_generated/api";
-import { Doc, Id } from "../_generated/dataModel";
+import { mutation, internalMutation } from "./_generated/server";
+import { api } from "./_generated/api";
+import { Doc, Id } from "./_generated/dataModel";
 
 // ============================================================================
 // MEMORY MAINTENANCE AND OPTIMIZATION
@@ -18,14 +18,14 @@ export const scheduleMemoryMaintenance = mutation({
     // Schedule immediate cleanup
     await ctx.scheduler.runAfter(
       0,
-      api.memory.memoryMaintenance.performMaintenance,
+      api.memoryMaintenance.performMaintenance,
       {}
     );
 
     // Schedule daily maintenance (24 hours)
     await ctx.scheduler.runAfter(
       24 * 60 * 60 * 1000,
-      api.memory.memoryMaintenance.performMaintenance,
+      api.memoryMaintenance.performMaintenance,
       {}
     );
 
@@ -284,7 +284,7 @@ export const bulkMemoryOperations = mutation({
       case "consolidate_all":
         if (!args.dryRun) {
           const consolidationResult = await ctx.runMutation(
-            api.memory.consolidation.triggerConsolidation,
+            api.memoryConsolidation.triggerConsolidation,
             {}
           );
           results.affectedItems = consolidationResult.memoryCount || 0;

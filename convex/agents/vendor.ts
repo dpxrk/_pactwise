@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
-import { AgentTask } from "../agent_types";
+import { AgentTask } from "../shared/agent_types";
 
 // Vendor matching threshold for fuzzy matching
 const MATCH_THRESHOLD = 0.85;

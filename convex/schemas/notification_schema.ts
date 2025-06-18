@@ -1,7 +1,7 @@
 // convex/notification_schema.ts
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { notificationMetadataValidator } from "./types/schema_types";
+import { notificationMetadataValidator } from "../types/schema_types";
 
 // Notification types
 const notificationTypeOptions = [

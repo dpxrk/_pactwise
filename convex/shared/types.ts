@@ -1,5 +1,5 @@
 // convex/types.ts
-import { Id, Doc } from "./_generated/dataModel";
+import { Id, Doc } from "../_generated/dataModel";
 
 // ============================================================================
 // DOCUMENT TYPES (Convex table types)
@@ -14,6 +14,11 @@ export type UserOnboarding = Doc<"userOnboarding">;
 export type UserPresence = Doc<"userPresence">;
 export type RealtimeEvent = Doc<"realtimeEvents">;
 export type TypingIndicator = Doc<"typingIndicators">;
+
+// Entity aliases for search functionality
+export type ContractEntity = Contract;
+export type UserEntity = User;
+export type VendorEntity = Vendor;
 
 // ============================================================================
 // ENUM TYPES (from schema)
@@ -100,6 +105,8 @@ export interface ContractFilters {
   endDate?: string;
   minValue?: number;
   maxValue?: number;
+  dateRange?: DateRange;
+  valueRange?: NumericRange;
   limit?: number;
   offset?: number;
   sortBy?: "title" | "createdAt" | "value" | "endDate" | "status";
@@ -224,6 +231,37 @@ export interface SearchResultUser {
   role: UserRole;
   department?: string;
   highlightedContent?: string;
+}
+
+// SearchResult generic type for backward compatibility
+export type SearchResult<T = unknown> = {
+  item: T;
+  score: number;
+  highlights: string[];
+};
+
+// ============================================================================
+// FACETS TYPES
+// ============================================================================
+
+export interface ContractFacets {
+  status: Record<ContractStatus, number>;
+  contractType: Record<ContractType, number>;
+  analysisStatus: Record<AnalysisStatus, number>;
+  valueRanges: Record<string, number>;
+  dateRanges: Record<string, number>;
+}
+
+export interface VendorFacets {
+  category: Record<VendorCategory, number>;
+  status: Record<VendorStatus, number>;
+  contractCounts: Record<string, number>;
+}
+
+export interface UserFacets {
+  role: Record<UserRole, number>;
+  department: Record<string, number>;
+  status: Record<string, number>;
 }
 
 // ============================================================================

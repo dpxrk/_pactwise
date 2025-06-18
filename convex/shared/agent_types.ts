@@ -1,6 +1,6 @@
 // convex/agent-types.ts
-import { Id, Doc } from "./_generated/dataModel";
-import { MutationCtx, QueryCtx } from "./_generated/server";
+import { Id, Doc } from "../_generated/dataModel";
+import { MutationCtx, QueryCtx } from "../_generated/server";
 
 // ============================================================================
 // AGENT CONTEXT TYPES
@@ -15,6 +15,14 @@ export type AgentQueryCtx = QueryCtx;
 
 export interface AgentTask extends Doc<"agentTasks"> {
   
+}
+
+export interface AgentTaskResult {
+  success: boolean;
+  message?: string;
+  data?: unknown;
+  error?: string;
+  metrics?: AgentMetrics;
 }
 
 export interface AgentInsight extends Doc<"agentInsights"> {

@@ -14,12 +14,14 @@ import {
   Brain,
   Activity,
   FileText,
+  Settings,
 } from "lucide-react";
 import { Agent } from "@/types/agents.types";
 import AgentSystemStatus from "@/app/_components/agents/AgentSystemStatus";
 import AgentCard from "@/app/_components/agents/AgentCard";
 import InsightCard from "@/app/_components/agents/InsightCard";
 import AgentLogViewer from "@/app/_components/agents/AgentLogViewer";
+import AgentConfigurationPanel from "@/app/_components/agents/AgentConfigurationPanel";
 
 const AgentDashboard = () => {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -177,7 +179,7 @@ const AgentDashboard = () => {
 
       {/* Tabs for different views */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview" className="flex items-center space-x-2">
             <Activity className="h-4 w-4" />
             <span>Overview</span>
@@ -185,6 +187,10 @@ const AgentDashboard = () => {
           <TabsTrigger value="agents" className="flex items-center space-x-2">
             <Bot className="h-4 w-4" />
             <span>Agents</span>
+          </TabsTrigger>
+          <TabsTrigger value="configuration" className="flex items-center space-x-2">
+            <Settings className="h-4 w-4" />
+            <span>Configuration</span>
           </TabsTrigger>
           <TabsTrigger value="insights" className="flex items-center space-x-2">
             <Brain className="h-4 w-4" />
@@ -258,6 +264,11 @@ const AgentDashboard = () => {
               </div>
             )}
           </div>
+        </TabsContent>
+
+        {/* Configuration Tab */}
+        <TabsContent value="configuration">
+          <AgentConfigurationPanel />
         </TabsContent>
 
         {/* Insights Tab */}

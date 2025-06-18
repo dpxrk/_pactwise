@@ -110,12 +110,35 @@ Each agent operates independently with:
 
 ```
 pactwise/
-├── convex/                 # Backend logic & database schema
+├── convex/                 # Backend logic & database
+│   ├── core/              # Core business logic
+│   │   ├── contracts/     # Contract management
+│   │   ├── vendors/       # Vendor management
+│   │   ├── users/         # User management
+│   │   └── enterprises/   # Enterprise management
+│   ├── features/          # Feature-specific modules
+│   │   ├── collaborative/ # Real-time collaboration
+│   │   ├── analytics/     # Analytics & reporting
+│   │   ├── search/        # Advanced search
+│   │   └── onboarding/    # User onboarding
+│   ├── realtime/          # Real-time features
+│   │   ├── presence.ts    # User presence tracking
+│   │   ├── realtime.ts    # Real-time sync
+│   │   ├── events.ts      # Event management
+│   │   └── userEvents.ts  # User event tracking
+│   ├── schemas/           # Database schemas
+│   │   ├── agent_schema.ts
+│   │   ├── memory_schema.ts
+│   │   └── notification_schema.ts
+│   ├── shared/            # Shared utilities & types
+│   │   ├── types.ts       # Common types
+│   │   ├── notifications.ts
+│   │   └── monitoring.ts
 │   ├── agents/            # AI agent implementations
 │   ├── memory/            # Memory system for AI agents
 │   ├── security/          # Security middleware & utilities
 │   ├── types/             # TypeScript definitions
-│   └── schema.ts          # Database schema
+│   └── schema.ts          # Main database schema
 ├── src/
 │   ├── app/               # Next.js app router
 │   │   ├── _components/   # Shared components
@@ -149,17 +172,60 @@ npm run lint            # Run ESLint
 npm run type-check      # TypeScript type checking
 ```
 
-### Database Schema
+### Backend Architecture
 
-The application uses Convex with the following main entities:
+The Convex backend follows a modular architecture for better organization and scalability:
 
-- **Enterprises** - Multi-tenant organization management
+#### Core Modules (`convex/core/`)
+- **Contracts** - Contract lifecycle management operations
+- **Vendors** - Vendor management and matching logic
 - **Users** - User profiles and permissions
-- **Contracts** - Contract lifecycle management
-- **Vendors** - Vendor information and relationships
-- **Analytics** - Performance metrics and insights
-- **Agents** - AI agent states and memory
-- **Notifications** - Real-time alert system
+- **Enterprises** - Multi-tenant organization management
+
+#### Feature Modules (`convex/features/`)
+- **Collaborative** - Real-time document collaboration
+- **Analytics** - Performance metrics and insights generation
+- **Search** - Advanced search functionality across entities
+- **Onboarding** - User onboarding flows and workflows
+
+#### Real-time Features (`convex/realtime/`)
+- **Presence** - User presence tracking and status
+- **Events** - Event management and broadcasting
+- **User Events** - User activity tracking
+- **Real-time Sync** - Data synchronization utilities
+
+#### Supporting Systems
+- **Agents** - AI agent implementations with specialized domains
+- **Memory** - Contextual memory system for AI agents
+- **Security** - Row-level security, rate limiting, and audit logging
+- **Schemas** - Centralized database schema definitions
+
+### API Usage
+
+The backend maintains clean API paths through re-exports, allowing simple imports:
+
+```typescript
+// Core business logic
+api.contracts.getContractById
+api.vendors.listVendors
+api.users.getUserProfile
+api.enterprises.getEnterpriseById
+
+// Feature modules  
+api.analytics.getContractAnalytics
+api.search.searchContracts
+api.onboarding.getOnboardingStatus
+api.onboardingActions.completeOnboarding
+api.collaborativeDocuments.createDocument
+
+// Real-time features
+api.presence.updatePresence
+api.events.broadcastEvent
+api.realtime.subscribeToChanges
+api.userEvents.trackUserEvent
+```
+
+The organized directory structure (`core/`, `features/`, `realtime/`) is maintained internally while providing a clean API surface.
 
 ### Code Standards
 
@@ -241,9 +307,9 @@ Ensure all environment variables are configured for production:
 - External API keys
 - Monitoring services
 
-## Contributing
+<!-- ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details. -->
 
 ### Development Workflow
 1. Fork the repository

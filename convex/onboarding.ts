@@ -1,27 +1,8 @@
-import { query, mutation, action } from "./_generated/server";
+import { query, mutation, action, MutationCtx } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
-
-// ============================================================================
-// ONBOARDING STATE MANAGEMENT
-// ============================================================================
-
-/**
- * Onboarding steps that users go through
- */
-export const ONBOARDING_STEPS = {
-  ACCOUNT_TYPE: 'account_type',      // Choose between creating or joining
-  CREATE_ENTERPRISE: 'create_enterprise',
-  JOIN_ENTERPRISE: 'join_enterprise',
-  PROFILE_SETUP: 'profile_setup',
-  ENTERPRISE_CONFIG: 'enterprise_config', // Only for owners/admins
-  INVITE_TEAM: 'invite_team',        // Optional
-  FIRST_CONTRACT: 'first_contract',   // Optional tutorial
-  COMPLETE: 'complete'
-} as const;
-
-export type OnboardingStep = typeof ONBOARDING_STEPS[keyof typeof ONBOARDING_STEPS];
+import { ONBOARDING_STEPS, type OnboardingStep } from "./onboardingConstants";
 
 /**
  * Check user's onboarding status and determine next step
@@ -123,6 +104,67 @@ export const getOnboardingStatus = query({
 });
 
 /**
+ * Helper function to update onboarding step
+ * This is used internally to avoid circular references
+ */
+async function updateOnboardingStepHelper(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  enterpriseId: Id<"enterprises">,
+  step: string,
+  completed?: boolean,
+  metadata?: any
+) {
+  // Find or create onboarding record
+  let onboarding = await ctx.db
+    .query("userOnboarding")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .first();
+
+  if (!onboarding) {
+    // Create new onboarding record
+    const onboardingId = await ctx.db.insert("userOnboarding", {
+      userId,
+      enterpriseId,
+      currentStep: step as OnboardingStep,
+      completedSteps: completed ? [step] : [],
+      startedAt: new Date().toISOString(),
+      metadata: metadata || {},
+    });
+    return { onboardingId, isNew: true };
+  }
+
+  // Update existing record
+  const existingSteps = onboarding.completedSteps || [];
+  const completedSteps = completed && !existingSteps.includes(step)
+    ? [...existingSteps, step]
+    : existingSteps;
+
+  await ctx.db.patch(onboarding._id, {
+    currentStep: step as OnboardingStep,
+    completedSteps,
+    ...(metadata && { metadata: { ...onboarding.metadata, ...metadata } }),
+    updatedAt: new Date().toISOString(),
+  });
+
+  // Check if onboarding is complete
+  const requiredSteps = [
+    ONBOARDING_STEPS.PROFILE_SETUP,
+    // Enterprise config is only required for owners/admins
+  ];
+  
+  const isComplete = requiredSteps.every(s => completedSteps.includes(s));
+  
+  if (isComplete && !onboarding.completedAt) {
+    await ctx.db.patch(onboarding._id, {
+      completedAt: new Date().toISOString(),
+    });
+  }
+
+  return { onboardingId: onboarding._id, isNew: false };
+}
+
+/**
  * Start or update onboarding process
  */
 export const updateOnboardingStep = mutation({
@@ -142,64 +184,14 @@ export const updateOnboardingStep = mutation({
 
     if (!user) throw new ConvexError("User not found");
 
-    // Find or create onboarding record
-    let onboarding = await ctx.db
-      .query("userOnboarding")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .first();
-
-    if (!onboarding) {
-      // Create new onboarding record
-      const onboardingId = await ctx.db.insert("userOnboarding", {
-        userId: user._id,
-        enterpriseId: user.enterpriseId,
-        currentStep: args.step as OnboardingStep,
-        completedSteps: args.completed ? [args.step] : [],
-        startedAt: new Date().toISOString(),
-        metadata: args.metadata || {},
-      });
-      return { onboardingId, isNew: true };
-    }
-
-    // Update existing record
-    const completedSteps = [...(onboarding.completedSteps || [])];
-    if (args.completed && !completedSteps.includes(args.step)) {
-      completedSteps.push(args.step);
-    }
-
-    const updates: any = {
-      currentStep: args.step as OnboardingStep,
-      completedSteps,
-      updatedAt: new Date().toISOString(),
-    };
-
-    if (args.metadata) {
-      updates.metadata = { ...onboarding.metadata, ...args.metadata };
-    }
-
-    // Check if onboarding is complete
-    const requiredSteps = [
-      ONBOARDING_STEPS.PROFILE_SETUP,
-      user.role === 'owner' || user.role === 'admin' 
-        ? ONBOARDING_STEPS.ENTERPRISE_CONFIG 
-        : null,
-    ].filter(Boolean);
-
-    const isComplete = requiredSteps.every(step => 
-      completedSteps.includes(step as string)
+    return updateOnboardingStepHelper(
+      ctx,
+      user._id,
+      user.enterpriseId,
+      args.step,
+      args.completed,
+      args.metadata
     );
-
-    if (isComplete && !onboarding.completedAt) {
-      updates.completedAt = new Date().toISOString();
-    }
-
-    await ctx.db.patch(onboarding._id, updates);
-    
-    return { 
-      onboardingId: onboarding._id, 
-      isComplete,
-      completedSteps,
-    };
   },
 });
 
@@ -317,10 +309,13 @@ export const completeProfileSetup = mutation({
     });
 
     // Update onboarding step
-    await ctx.runMutation(api.onboarding.updateOnboardingStep, {
-      step: ONBOARDING_STEPS.PROFILE_SETUP,
-      completed: true,
-    });
+    await updateOnboardingStepHelper(
+      ctx,
+      user._id,
+      user.enterpriseId,
+      ONBOARDING_STEPS.PROFILE_SETUP,
+      true
+    );
 
     return { success: true };
   },
@@ -380,14 +375,17 @@ export const completeEnterpriseConfig = mutation({
     });
 
     // Update onboarding step
-    await ctx.runMutation(api.onboarding.updateOnboardingStep, {
-      step: ONBOARDING_STEPS.ENTERPRISE_CONFIG,
-      completed: true,
-      metadata: {
+    await updateOnboardingStepHelper(
+      ctx,
+      user._id,
+      user.enterpriseId,
+      ONBOARDING_STEPS.ENTERPRISE_CONFIG,
+      true,
+      {
         configuredBy: user._id,
         configuredAt: new Date().toISOString(),
-      },
-    });
+      }
+    );
 
     return { success: true };
   },
@@ -395,53 +393,6 @@ export const completeEnterpriseConfig = mutation({
 
 // ============================================================================
 // ONBOARDING COMPLETION
-// ============================================================================
-
-/**
- * Complete onboarding process
- */
-export const completeOnboarding = action({
-  args: {
-    skippedSteps: v.optional(v.array(v.string())),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Authentication required");
-
-    // Get current onboarding status
-    const status = await ctx.runQuery(api.onboarding.getOnboardingStatus);
-    
-    if (!status.user) {
-      throw new Error("User not found");
-    }
-
-    // Mark as complete
-    await ctx.runMutation(api.onboarding.updateOnboardingStep, {
-      step: ONBOARDING_STEPS.COMPLETE,
-      completed: true,
-      metadata: {
-        skippedSteps: args.skippedSteps || [],
-        completedAt: new Date().toISOString(),
-      },
-    });
-
-    // Optional: Create sample data for demo purposes
-    if (status.user.role === 'owner' && !status.progress.hasContracts) {
-      // You could create a sample contract here if desired
-    }
-
-    // Optional: Schedule welcome email
-    // await ctx.scheduler.runAfter(0, api.emails.sendWelcomeEmail, {
-    //   userId: status.user.id,
-    // });
-
-    return { 
-      success: true,
-      redirectTo: '/dashboard', // Or wherever you want to send them
-    };
-  },
-});
-
 // ============================================================================
 // UTILITIES
 // ============================================================================
@@ -472,7 +423,7 @@ export const skipOnboarding = mutation({
     if (onboarding) {
       await ctx.db.patch(onboarding._id, {
         skippedAt: new Date().toISOString(),
-        skipReason: args.reason,
+        ...(args.reason && { skipReason: args.reason }),
         completedAt: new Date().toISOString(),
       });
     } else {
@@ -484,7 +435,7 @@ export const skipOnboarding = mutation({
         startedAt: new Date().toISOString(),
         completedAt: new Date().toISOString(),
         skippedAt: new Date().toISOString(),
-        skipReason: args.reason,
+        ...(args.reason && { skipReason: args.reason }),
         metadata: {},
       });
     }

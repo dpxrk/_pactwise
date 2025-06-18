@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Added Tooltip
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Icons
 import {
@@ -37,14 +38,22 @@ import {
   Users,
   Clock,
   FileBadge, // Using FileBadge for contract type
-  Briefcase // Using Briefcase for vendor category
+  Briefcase, // Using Briefcase for vendor category
+  History,
+  PenTool
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import ContractVersionHistory from './ContractVersionHistory';
+import { ContractCollaborativeEditor } from '@/app/_components/collaborative-editor/CollaborativeDocumentEditor';
 
 interface ContractDetailsProps {
   contractId: Id<"contracts">;
   onEdit?: () => void;
   // enterpriseId should ideally be fetched within the component or passed if readily available higher up
+}
+
+interface ContractDetailsState {
+  showCollaborativeEditor: boolean;
 }
 
 // Contract status color mapper
@@ -76,6 +85,7 @@ const contractTypeColors: Record<string, string> = {
 export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) => {
   const router = useRouter();
   const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
+  const [showCollaborativeEditor, setShowCollaborativeEditor] = React.useState(false);
 
   // --- Get enterpriseId from Clerk user's public metadata ---
   // Ensure this is correctly set in your Clerk dashboard for users.
@@ -223,6 +233,25 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
           </CardHeader>
         </Card>
 
+        {/* Main Content Tabs */}
+        <Tabs defaultValue="details" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="details" className="flex items-center gap-2">
+              <Info className="h-4 w-4" />
+              Contract Details
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Version History
+            </TabsTrigger>
+            <TabsTrigger value="collaborative" className="flex items-center gap-2">
+              <PenTool className="h-4 w-4" />
+              Collaborative Editor
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="details" className="space-y-6 mt-6">
+
         {/* Contract Details Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Contract Information (Spans 2 cols on lg) */}
@@ -339,23 +368,83 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
           </div>
         </div>
 
-        {/* Contract Actions - simplified, can be expanded */}
-        <Card className="border-border dark:border-border/50 bg-card shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg font-medium text-primary dark:text-primary-foreground">Contract Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-3">
-              {/* Add other actions like archive, terminate, delete etc. based on backend capabilities */}
-               <Button variant="outline" size="sm" disabled>
-                <Archive className="h-4 w-4 mr-2" /> Archive (Coming Soon)
-              </Button>
-              <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive-foreground" disabled>
-                <Trash2 className="h-4 w-4 mr-2" /> Delete (Coming Soon)
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            {/* Contract Actions - simplified, can be expanded */}
+            <Card className="border-border dark:border-border/50 bg-card shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg font-medium text-primary dark:text-primary-foreground">Contract Actions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-3">
+                  {/* Add other actions like archive, terminate, delete etc. based on backend capabilities */}
+                   <Button variant="outline" size="sm" disabled>
+                    <Archive className="h-4 w-4 mr-2" /> Archive (Coming Soon)
+                  </Button>
+                  <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive-foreground" disabled>
+                    <Trash2 className="h-4 w-4 mr-2" /> Delete (Coming Soon)
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-6">
+            <ContractVersionHistory contractId={contractId} currentContract={contract} />
+          </TabsContent>
+
+          <TabsContent value="collaborative" className="mt-6">
+            {showCollaborativeEditor ? (
+              <ContractCollaborativeEditor
+                contractId={contractId}
+                onClose={() => setShowCollaborativeEditor(false)}
+              />
+            ) : (
+              <Card className="border-border dark:border-border/50 bg-card shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg font-medium text-primary dark:text-primary-foreground">
+                    <PenTool className="inline h-5 w-5 mr-2" />
+                    Collaborative Document Editor
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Launch the collaborative editor to work on this contract with real-time collaboration features including:
+                  </p>
+                  <ul className="text-sm text-muted-foreground space-y-2 ml-4">
+                    <li className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+                      Real-time collaborative editing with operational transformation
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+                      Live cursor tracking and user presence
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+                      Comments and suggestions system
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+                      Version history and conflict resolution
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+                      Document locking and permissions
+                    </li>
+                  </ul>
+                  <div className="pt-4">
+                    <Button 
+                      onClick={() => setShowCollaborativeEditor(true)}
+                      className="w-full sm:w-auto"
+                    >
+                      <PenTool className="h-4 w-4 mr-2" />
+                      Launch Collaborative Editor
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </TooltipProvider>
   );

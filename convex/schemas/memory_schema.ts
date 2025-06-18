@@ -1,7 +1,7 @@
 // convex/memory_schema.ts
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { memoryStructuredDataValidator } from "./types/schema_types";
+import { memoryStructuredDataValidator } from "../types/schema_types";
 
 // ============================================================================
 // MEMORY SYSTEM SCHEMA

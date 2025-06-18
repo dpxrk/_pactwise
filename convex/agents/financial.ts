@@ -10,7 +10,7 @@ import {
   FinancialOpportunity, 
   AgentMetrics,
   isFinancialTask 
-} from "../agent_types";
+} from "../shared/agent_types";
 
 /**
  * Financial Agent

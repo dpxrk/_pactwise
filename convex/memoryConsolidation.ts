@@ -1,8 +1,8 @@
-// convex/memory/consolidation.ts
+// convex/memoryConsolidation.ts
 import { v } from "convex/values";
-import { mutation, internalMutation } from "../_generated/server";
-import { Doc, Id } from "../_generated/dataModel";
-import { internal } from "../_generated/api";
+import { mutation, internalMutation } from "./_generated/server";
+import { Doc, Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 
 // ============================================================================
 // MEMORY CONSOLIDATION SYSTEM
@@ -57,8 +57,8 @@ export const triggerConsolidation = mutation({
       patternsFound: 0,
     });
 
-    // Schedule the consolidation
-    await ctx.scheduler.runAfter(0, internal.memory.consolidation.processConsolidationJob, {
+    // Schedule the consolidation directly since processConsolidationJob is in the same file
+    await ctx.scheduler.runAfter(0, internal.memoryConsolidation.processConsolidationJob, {
       jobId,
     });
 

@@ -15,7 +15,6 @@ import {
   Eye,
   EyeOff,
   Settings,
-  Play,
   Pause,
   BarChart3,
 } from "lucide-react";

@@ -25,6 +25,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { VendorType } from "@/types/vendor.types";
+import VendorPerformanceDashboard from './VendorPerformanceDashboard';
 
 interface VendorDetailsProps {
   vendor: VendorType;
@@ -352,74 +353,7 @@ export const VendorDetails: React.FC<VendorDetailsProps> = ({
         </TabsContent>
 
         <TabsContent value="performance" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Performance Metrics</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Delivery Score</span>
-                    <span className={`font-bold ${getScoreColor(performanceMetrics.deliveryScore)}`}>
-                      {performanceMetrics.deliveryScore}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full" 
-                      style={{width: `${performanceMetrics.deliveryScore}%`}}
-                    ></div>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Quality Score</span>
-                    <span className={`font-bold ${getScoreColor(performanceMetrics.qualityScore)}`}>
-                      {performanceMetrics.qualityScore}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-green-600 h-2 rounded-full" 
-                      style={{width: `${performanceMetrics.qualityScore}%`}}
-                    ></div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Communication</span>
-                    <span className={`font-bold ${getScoreColor(performanceMetrics.communicationScore)}`}>
-                      {performanceMetrics.communicationScore}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-purple-600 h-2 rounded-full" 
-                      style={{width: `${performanceMetrics.communicationScore}%`}}
-                    ></div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Timeliness</span>
-                    <span className={`font-bold ${getScoreColor(performanceMetrics.timelinessScore)}`}>
-                      {performanceMetrics.timelinessScore}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-yellow-600 h-2 rounded-full" 
-                      style={{width: `${performanceMetrics.timelinessScore}%`}}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <VendorPerformanceDashboard vendor={vendor} vendorId={vendor._id} />
         </TabsContent>
 
         <TabsContent value="activity" className="space-y-4">

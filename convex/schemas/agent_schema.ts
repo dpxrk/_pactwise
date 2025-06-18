@@ -6,7 +6,7 @@ import {
   agentTaskDataValidator,
   agentTaskResultValidator,
   agentLogDataValidator
-} from "./types/schema_types";
+} from "../types/schema_types";
 
 // Agent system status
 const agentSystemStatusOptions = [ // Renamed for clarity with other options arrays

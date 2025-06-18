@@ -1,5 +1,5 @@
-import { MutationCtx } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
+import { MutationCtx } from "../_generated/server";
+import { Id } from "../_generated/dataModel";
 
 /**
  * Helper functions to automatically broadcast real-time events
