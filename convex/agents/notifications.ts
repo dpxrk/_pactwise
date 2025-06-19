@@ -485,21 +485,38 @@ async function createNotificationFromTask(ctx: any, task: any): Promise<any> {
     // Find contract owner or assigned user
     const contract = await ctx.db.get(task.contractId);
     if (contract) {
-      // For now, we'll need to implement logic to find the appropriate user
-      // This is a placeholder - you'd need to add contract ownership tracking
-      const contractManagers = await ctx.db
-        .query("users")
-        .withIndex("by_enterprise", (q: any) => q.eq("enterpriseId", contract.enterpriseId))
-        .filter((q: any) => 
-          q.or(
-            q.eq(q.field("role"), "owner"),
-            q.eq(q.field("role"), "admin"),
-            q.eq(q.field("role"), "manager")
+      // First check if contract has an owner
+      if (contract.ownerId) {
+        recipientId = contract.ownerId;
+      } else {
+        // Check for active assignments
+        const activeAssignment = await ctx.db
+          .query("contractAssignments")
+          .withIndex("by_contract_active", (q: any) => 
+            q.eq("contractId", task.contractId)
+              .eq("isActive", true)
           )
-        )
-        .first();
-      
-      recipientId = contractManagers?._id || null;
+          .filter((q: any) => q.eq(q.field("assignmentType"), "owner"))
+          .first();
+        
+        if (activeAssignment) {
+          recipientId = activeAssignment.userId;
+        } else {
+          // Fallback to enterprise admins
+          const admin = await ctx.db
+            .query("users")
+            .withIndex("by_enterprise", (q: any) => q.eq("enterpriseId", contract.enterpriseId))
+            .filter((q: any) => 
+              q.or(
+                q.eq(q.field("role"), "owner"),
+                q.eq(q.field("role"), "admin")
+              )
+            )
+            .first();
+          
+          recipientId = admin?._id || null;
+        }
+      }
     }
   }
 
@@ -570,25 +587,203 @@ async function sendNotification(ctx: any, notification: any): Promise<void> {
 }
 
 async function sendEmailNotification(ctx: any, notification: any): Promise<void> {
-  // This is a placeholder for actual email sending
-  // In a real implementation, you would:
-  // 1. Get user's email from the users table
-  // 2. Use an email service (SendGrid, AWS SES, etc.)
-  // 3. Apply the appropriate template
-  // 4. Send the email
-  
-  await ctx.db.insert("agentLogs", {
-    agentId: notification.agentId || "system",
-    level: "info",
-    message: "Email notification would be sent here",
-    data: {
-      notificationId: notification._id,
-      recipientId: notification.recipientId,
-      type: notification.type,
-    },
-    timestamp: new Date().toISOString(),
-    category: "email_delivery",
+  // Get user's email from the users table
+  const user = await ctx.db.get(notification.recipientId);
+  if (!user || !user.email) {
+    throw new Error("User email not found");
+  }
+
+  // Get email template based on notification type
+  const template = getEmailTemplate(notification.type);
+  const emailContent = await renderEmailTemplate(template, {
+    userName: user.name || user.email,
+    notification: notification,
+    actionUrl: `${process.env.APP_URL || 'https://app.pactwise.com'}/notifications/${notification._id}`,
   });
+
+  // Send email using Resend API (modern email service)
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (!resendApiKey) {
+    console.error("RESEND_API_KEY not configured, email not sent");
+    await ctx.db.insert("agentLogs", {
+      agentId: notification.agentId || "system",
+      level: "error",
+      message: "Email service not configured",
+      data: { notificationId: notification._id },
+      timestamp: new Date().toISOString(),
+      category: "email_delivery",
+    });
+    return;
+  }
+
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${resendApiKey}`
+      },
+      body: JSON.stringify({
+        from: 'Pactwise Notifications <notifications@pactwise.com>',
+        to: [user.email],
+        subject: emailContent.subject,
+        html: emailContent.html,
+        text: emailContent.text,
+        headers: {
+          'X-Notification-Type': notification.type,
+          'X-Notification-ID': notification._id,
+        },
+        tags: [
+          { name: 'notification_type', value: notification.type },
+          { name: 'priority', value: notification.priority },
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`Email API error: ${error.message || response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    await ctx.db.insert("agentLogs", {
+      agentId: notification.agentId || "system",
+      level: "info",
+      message: "Email notification sent successfully",
+      data: {
+        notificationId: notification._id,
+        recipientId: notification.recipientId,
+        type: notification.type,
+        emailId: result.id,
+      },
+      timestamp: new Date().toISOString(),
+      category: "email_delivery",
+    });
+  } catch (error) {
+    await ctx.db.insert("agentLogs", {
+      agentId: notification.agentId || "system",
+      level: "error",
+      message: "Failed to send email notification",
+      data: {
+        notificationId: notification._id,
+        error: error.message,
+      },
+      timestamp: new Date().toISOString(),
+      category: "email_delivery",
+    });
+    throw error;
+  }
+}
+
+// Email template system
+function getEmailTemplate(notificationType: string) {
+  const templates: Record<string, any> = {
+    contract_expiry: {
+      subject: "Contract Expiring Soon - Action Required",
+      priority: "high",
+    },
+    contract_renewal: {
+      subject: "Contract Renewal Reminder",
+      priority: "medium",
+    },
+    vendor_compliance: {
+      subject: "Vendor Compliance Alert",
+      priority: "high",
+    },
+    cost_optimization: {
+      subject: "Cost Savings Opportunity Identified",
+      priority: "medium",
+    },
+    task_assigned: {
+      subject: "New Task Assigned to You",
+      priority: "medium",
+    },
+    analysis_complete: {
+      subject: "Contract Analysis Complete",
+      priority: "low",
+    },
+    digest: {
+      subject: "Your Pactwise Notification Summary",
+      priority: "low",
+    },
+    default: {
+      subject: "New Pactwise Notification",
+      priority: "medium",
+    }
+  };
+
+  return templates[notificationType] || templates.default;
+}
+
+// Render email template with data
+async function renderEmailTemplate(template: any, data: any) {
+  const { userName, notification, actionUrl } = data;
+  
+  // Create both HTML and plain text versions
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>${template.subject}</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #4F46E5; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background-color: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+        .button { display: inline-block; background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; }
+        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; }
+        .priority-high { border-left: 4px solid #ef4444; }
+        .priority-medium { border-left: 4px solid #f59e0b; }
+        .priority-low { border-left: 4px solid #10b981; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Pactwise</h1>
+          <p style="margin: 0; opacity: 0.9;">${template.subject}</p>
+        </div>
+        <div class="content priority-${notification.priority}">
+          <p>Hi ${userName},</p>
+          <h2 style="color: #1f2937; margin-top: 0;">${notification.title}</h2>
+          <p>${notification.message}</p>
+          ${notification.metadata?.details ? `<p style="background-color: #e5e7eb; padding: 15px; border-radius: 6px;">${notification.metadata.details}</p>` : ''}
+          <a href="${actionUrl}" class="button">View in Pactwise</a>
+        </div>
+        <div class="footer">
+          <p>This is an automated notification from Pactwise.</p>
+          <p>To manage your notification preferences, visit your account settings.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const text = `
+${template.subject}
+
+Hi ${userName},
+
+${notification.title}
+
+${notification.message}
+
+${notification.metadata?.details || ''}
+
+View in Pactwise: ${actionUrl}
+
+---
+This is an automated notification from Pactwise.
+To manage your notification preferences, visit your account settings.
+  `.trim();
+
+  return {
+    subject: template.subject,
+    html,
+    text,
+  };
 }
 
 async function sendBatchedNotifications(ctx: any, batch: any): Promise<void> {

@@ -9,9 +9,9 @@ import { Doc, Id } from "./_generated/dataModel";
 
 // Configuration for embedding service
 const EMBEDDING_CONFIG = {
-  model: "text-embedding-ada-002", // OpenAI's embedding model
-  dimensions: 1536,
-  batchSize: 100,
+  model: "text-embedding-3-small", // OpenAI's latest embedding model
+  dimensions: 1536, // OpenAI embedding dimensions
+  batchSize: 100, // OpenAI batch size limit
   similarityThreshold: 0.7,
   maxRetries: 3,
   cacheExpiry: 24 * 60 * 60 * 1000, // 24 hours
@@ -34,30 +34,111 @@ export const cosineSimilarity = (vec1: number[], vec2: number[]): number => {
   return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
 };
 
-// Generate embedding for text (mock implementation - replace with actual API)
+// Generate embedding for text using OpenAI API
 export const generateEmbedding = async (text: string): Promise<number[]> => {
-  // In production, this would call an embedding API like OpenAI
-  // For now, we'll create a deterministic mock embedding
-  const hash = text.split('').reduce((acc, char) => {
-    return ((acc << 5) - acc) + char.charCodeAt(0);
-  }, 0);
+  const openaiApiKey = process.env.OPENAI_API_KEY;
   
-  const embedding = new Array(EMBEDDING_CONFIG.dimensions).fill(0);
-  for (let i = 0; i < EMBEDDING_CONFIG.dimensions; i++) {
-    embedding[i] = Math.sin(hash * (i + 1)) * Math.cos(hash / (i + 1));
+  if (!openaiApiKey) {
+    throw new Error("OPENAI_API_KEY environment variable is not set");
   }
   
-  // Normalize the vector
-  const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
-  return embedding.map(val => val / magnitude);
+  try {
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openaiApiKey}`
+      },
+      body: JSON.stringify({
+        model: EMBEDDING_CONFIG.model,
+        input: text.slice(0, 8191), // OpenAI token limit
+        encoding_format: "float"
+      })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data.data[0].embedding;
+  } catch (error) {
+    console.error("Error generating embedding:", error);
+    // Fallback to deterministic embedding for development/testing
+    if (process.env.NODE_ENV === 'development' || !openaiApiKey) {
+      const hash = text.split('').reduce((acc, char) => {
+        return ((acc << 5) - acc) + char.charCodeAt(0);
+      }, 0);
+      
+      const embedding = new Array(EMBEDDING_CONFIG.dimensions).fill(0);
+      for (let i = 0; i < EMBEDDING_CONFIG.dimensions; i++) {
+        embedding[i] = Math.sin(hash * (i + 1)) * Math.cos(hash / (i + 1));
+      }
+      
+      const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
+      return embedding.map(val => val / magnitude);
+    }
+    throw error;
+  }
 };
 
 // Generate embeddings for a batch of texts
 export const generateBatchEmbeddings = async (
   texts: string[]
 ): Promise<number[][]> => {
-  // In production, batch process with API
-  return Promise.all(texts.map(text => generateEmbedding(text)));
+  const openaiApiKey = process.env.OPENAI_API_KEY;
+  
+  if (!openaiApiKey) {
+    throw new Error("OPENAI_API_KEY environment variable is not set");
+  }
+  
+  // OpenAI supports batch processing
+  const results: number[][] = [];
+  const chunkSize = EMBEDDING_CONFIG.batchSize;
+  
+  try {
+    for (let i = 0; i < texts.length; i += chunkSize) {
+      const chunk = texts.slice(i, i + chunkSize);
+      const truncatedChunk = chunk.map(text => text.slice(0, 8191)); // Token limit
+      
+      const response = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiApiKey}`
+        },
+        body: JSON.stringify({
+          model: EMBEDDING_CONFIG.model,
+          input: truncatedChunk,
+          encoding_format: "float"
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
+      }
+      
+      const data = await response.json();
+      const embeddings = data.data.map((item: any) => item.embedding);
+      results.push(...embeddings);
+      
+      // Rate limiting: wait 100ms between batches
+      if (i + chunkSize < texts.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    return results;
+  } catch (error) {
+    console.error("Error generating batch embeddings:", error);
+    // Fallback to individual processing
+    if (process.env.NODE_ENV === 'development' || !openaiApiKey) {
+      return Promise.all(texts.map(text => generateEmbedding(text)));
+    }
+    throw error;
+  }
 };
 
 // Update memory with embedding

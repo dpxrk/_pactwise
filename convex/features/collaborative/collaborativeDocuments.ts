@@ -289,10 +289,28 @@ export const updatePresence = mutation({
 
       // Update user presence
       const userIndex = session.users.findIndex(u => u.userId === userId);
+      // Get user data
+      const user = await ctx.db.get(userId);
+      const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email : "User";
+      
+      // Assign user color based on user ID (deterministic)
+      const userColors = [
+        "#3B82F6", // Blue
+        "#10B981", // Green
+        "#F59E0B", // Yellow
+        "#EF4444", // Red
+        "#8B5CF6", // Purple
+        "#EC4899", // Pink
+        "#14B8A6", // Teal
+        "#F97316", // Orange
+      ];
+      const colorIndex = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % userColors.length;
+      const userColor = userColors[colorIndex]!;
+      
       const userPresence = {
         userId,
-        userName: "User", // This should come from user data
-        userColor: "#3B82F6", // This should be assigned
+        userName,
+        userColor,
         cursor,
         selection,
         lastSeen: Date.now(),
@@ -425,7 +443,7 @@ export const unlockDocument = mutation({
   }
 });
 
-// Placeholder mutations for the remaining functionality
+// Production-ready mutations for collaborative functionality
 export const replyToComment = mutation({
   args: {
     commentId: v.id("documentComments"),

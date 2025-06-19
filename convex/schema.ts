@@ -190,6 +190,11 @@ export default defineSchema({
     )),
     analysisError: v.optional(v.string()),
     notes: v.optional(v.string()),
+    // Ownership and tracking fields
+    ownerId: v.optional(v.id("users")), // User responsible for the contract
+    departmentId: v.optional(v.string()), // Department managing the contract
+    createdBy: v.optional(v.id("users")), // User who created the contract
+    lastModifiedBy: v.optional(v.id("users")), // User who last modified
     createdAt: v.string(),
     updatedAt: v.optional(v.number()), // Added for tracking updates
   })
@@ -197,6 +202,9 @@ export default defineSchema({
   .index("by_enterprise", ["enterpriseId"])
   .index("by_vendorId_and_enterpriseId", ["enterpriseId", "vendorId"])
   .index("by_status_and_enterpriseId", ["enterpriseId", "status"])
+  .index("by_owner", ["ownerId"])
+  .index("by_enterprise_owner", ["enterpriseId", "ownerId"])
+  .index("by_department", ["enterpriseId", "departmentId"])
   .index("by_analysisStatus_and_enterpriseId", ["enterpriseId", "analysisStatus"])
   .index("by_contractType_and_enterpriseId", ["enterpriseId", "contractType"])
   // Performance-critical indexes for analytics and time-based queries
@@ -206,6 +214,169 @@ export default defineSchema({
   // Search optimization indexes
   .index("by_enterprise_fileName", ["enterpriseId", "fileName"])
   .index("by_enterprise_contractType_status", ["enterpriseId", "contractType", "status"]),
+
+  // ===== CONTRACT ASSIGNMENTS =====
+  contractAssignments: defineTable({
+    contractId: v.id("contracts"),
+    userId: v.id("users"),
+    assignedBy: v.id("users"),
+    assignmentType: v.union(
+      v.literal("owner"), // Primary owner
+      v.literal("reviewer"), // Can review and comment
+      v.literal("approver"), // Can approve changes
+      v.literal("watcher") // Gets notifications
+    ),
+    assignedAt: v.string(),
+    unassignedAt: v.optional(v.string()),
+    isActive: v.boolean(),
+    notes: v.optional(v.string()),
+  })
+  .index("by_contract", ["contractId"])
+  .index("by_user", ["userId"])
+  .index("by_contract_active", ["contractId", "isActive"])
+  .index("by_user_active", ["userId", "isActive"]),
+
+  // ===== CONTRACT STATUS HISTORY =====
+  contractStatusHistory: defineTable({
+    contractId: v.id("contracts"),
+    previousStatus: v.union(
+      ...contractStatusOptions.map(option => v.literal(option))
+    ),
+    newStatus: v.union(
+      ...contractStatusOptions.map(option => v.literal(option))
+    ),
+    changedBy: v.id("users"),
+    changedAt: v.string(),
+    reason: v.optional(v.string()),
+    metadata: v.optional(v.object({
+      approvedBy: v.optional(v.id("users")),
+      rejectionReason: v.optional(v.string()),
+      comments: v.optional(v.string()),
+    })),
+  })
+  .index("by_contract", ["contractId"])
+  .index("by_contract_time", ["contractId", "changedAt"])
+  .index("by_user", ["changedBy"]),
+
+  // ===== CONTRACT APPROVALS =====
+  contractApprovals: defineTable({
+    contractId: v.id("contracts"),
+    approvalType: v.union(
+      v.literal("new_contract"),
+      v.literal("renewal"),
+      v.literal("amendment"),
+      v.literal("termination"),
+      v.literal("budget_exceed")
+    ),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("rejected"),
+      v.literal("escalated")
+    ),
+    requestedBy: v.id("users"),
+    requestedAt: v.string(),
+    requiredRole: v.union(...userRoleOptions.map(option => v.literal(option))),
+    approvedBy: v.optional(v.id("users")),
+    approvedAt: v.optional(v.string()),
+    comments: v.optional(v.string()),
+    metadata: v.optional(v.object({
+      previousValue: v.optional(v.number()),
+      newValue: v.optional(v.number()),
+      reason: v.optional(v.string()),
+    })),
+  })
+  .index("by_contract", ["contractId"])
+  .index("by_status", ["status"])
+  .index("by_contract_status", ["contractId", "status"]),
+
+  // ===== COMPLIANCE TRACKING =====
+  complianceChecks: defineTable({
+    contractId: v.id("contracts"),
+    checkType: v.union(
+      v.literal("regulatory"),
+      v.literal("internal_policy"),
+      v.literal("security"),
+      v.literal("data_privacy"),
+      v.literal("financial"),
+      v.literal("operational")
+    ),
+    status: v.union(
+      v.literal("compliant"),
+      v.literal("non_compliant"),
+      v.literal("pending_review"),
+      v.literal("remediation_required")
+    ),
+    checkedAt: v.string(),
+    checkedBy: v.optional(v.id("users")),
+    nextCheckDue: v.optional(v.string()),
+    issues: v.optional(v.array(v.object({
+      description: v.string(),
+      severity: v.union(v.literal("critical"), v.literal("high"), v.literal("medium"), v.literal("low")),
+      remediationRequired: v.boolean(),
+      resolvedAt: v.optional(v.string()),
+    }))),
+    notes: v.optional(v.string()),
+  })
+  .index("by_contract", ["contractId"])
+  .index("by_status", ["status"])
+  .index("by_next_check", ["nextCheckDue"]),
+
+  // ===== BUDGET TRACKING =====
+  budgets: defineTable({
+    enterpriseId: v.id("enterprises"),
+    name: v.string(),
+    budgetType: v.union(
+      v.literal("annual"),
+      v.literal("quarterly"),
+      v.literal("monthly"),
+      v.literal("project"),
+      v.literal("department")
+    ),
+    departmentId: v.optional(v.string()),
+    totalBudget: v.number(),
+    allocatedAmount: v.number(),
+    spentAmount: v.number(),
+    committedAmount: v.number(), // Future committed spend from contracts
+    startDate: v.string(),
+    endDate: v.string(),
+    status: v.union(
+      v.literal("active"),
+      v.literal("exceeded"),
+      v.literal("at_risk"), // >80% spent
+      v.literal("healthy"),
+      v.literal("closed")
+    ),
+    ownerId: v.id("users"),
+    createdAt: v.string(),
+    updatedAt: v.optional(v.string()),
+    alerts: v.optional(v.array(v.object({
+      type: v.union(v.literal("threshold_reached"), v.literal("exceeded"), v.literal("forecast_exceed")),
+      threshold: v.number(),
+      triggeredAt: v.string(),
+      acknowledged: v.boolean(),
+    }))),
+  })
+  .index("by_enterprise", ["enterpriseId"])
+  .index("by_status", ["status"])
+  .index("by_department", ["enterpriseId", "departmentId"]),
+
+  // ===== CONTRACT-BUDGET ALLOCATIONS =====
+  contractBudgetAllocations: defineTable({
+    contractId: v.id("contracts"),
+    budgetId: v.id("budgets"),
+    allocatedAmount: v.number(),
+    allocationType: v.union(
+      v.literal("full"), // Full contract value
+      v.literal("prorated"), // Prorated for budget period
+      v.literal("custom") // Custom allocation
+    ),
+    startDate: v.string(),
+    endDate: v.string(),
+    createdAt: v.string(),
+  })
+  .index("by_contract", ["contractId"])
+  .index("by_budget", ["budgetId"]),
 
   invitations: defineTable({
     enterpriseId: v.id("enterprises"),

@@ -70,6 +70,10 @@ export interface FinancialMetrics {
   benchmarkComparison?: string;
   costAnalysis?: Record<string, number>;
   budgetVariance?: number;
+  annualizedValue?: number;
+  costPerUnit?: number;
+  paybackPeriod?: number;
+  totalCostOfOwnership?: number;
 }
 
 export interface FinancialAnalysis {

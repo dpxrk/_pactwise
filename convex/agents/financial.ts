@@ -350,12 +350,13 @@ async function analyzeContract(
 
   // Calculate key metrics
   analysis.financialSummary.annualizedValue = calculateAnnualizedValue(contract);
-  // analysis.metrics = {
-  //   annualizedValue: calculateAnnualizedValue(contract),
-  //   costPerUnit: calculateCostPerUnit(contract),
-  //   paybackPeriod: calculatePaybackPeriod(contract),
-  //   totalCostOfOwnership: calculateTCO(contract),
-  // }; // TODO: Add these properties to FinancialMetrics interface
+  analysis.metrics = {
+    ...analysis.metrics,
+    annualizedValue: calculateAnnualizedValue(contract),
+    costPerUnit: calculateCostPerUnit(contract),
+    paybackPeriod: calculatePaybackPeriod(contract),
+    totalCostOfOwnership: calculateTCO(contract),
+  };
 
   // Create insights based on analysis
   if (analysis.risks.length > 0) {
@@ -1167,17 +1168,63 @@ function calculateAnnualizedValue(contract: any): number {
 function calculateCostPerUnit(contract: any): number {
   const totalValue = parseContractValue(contract.extractedPricing || "0");
   
-  // Extract potential unit information from scope or pricing
-  const scope = contract.extractedScope || "";
-  const pricing = contract.extractedPricing || "";
+  // Extract potential unit information from scope, pricing, and payment schedule
+  const searchText = [
+    contract.extractedScope || "",
+    contract.extractedPricing || "",
+    contract.extractedPaymentSchedule || "",
+    contract.title || ""
+  ].join(" ").toLowerCase();
   
-  // Simple heuristics to find units
-  const unitMatches = [...scope.matchAll(/(\d+)\s*(users?|licenses?|seats?|months?)/gi)];
+  // Comprehensive unit patterns
+  const unitPatterns = [
+    /(\d+)\s*(users?|licenses?|seats?|accounts?)/gi,
+    /(\d+)\s*(gb|tb|mb)\s*(storage|data|bandwidth)/gi,
+    /(\d+)\s*(hours?|days?|months?|years?)\s*(of\s+)?(service|support|consulting)/gi,
+    /(\d+)\s*(units?|items?|devices?|machines?)/gi,
+    /per\s+(user|seat|license|unit|device)\s*[:\s]*\$?([\d,]+)/gi,
+    /\$?([\d,]+)\s*\/\s*(user|seat|license|unit|month)/gi
+  ];
   
-  if (unitMatches.length > 0) {
-    const units = parseInt(unitMatches[0][1]);
-    if (units > 0) {
-      return totalValue / units;
+  let units = 0;
+  let costPerUnit = 0;
+  
+  // Try to find unit count
+  for (const pattern of unitPatterns) {
+    const matches = Array.from(searchText.matchAll(pattern));
+    if (matches.length > 0) {
+      const match = matches[0];
+      // Check for direct per-unit pricing
+      if (pattern.source.includes('per\\s+')) {
+        if (match[2]) {
+          costPerUnit = parseFloat(match[2].replace(/,/g, ''));
+          if (costPerUnit > 0) {
+            return costPerUnit;
+          }
+        }
+      } else if (match[1]) {
+        // Extract unit count
+        const potentialUnits = parseInt(match[1]);
+        if (potentialUnits > 0 && potentialUnits < 100000) { // Sanity check
+          units = potentialUnits;
+          break;
+        }
+      }
+    }
+  }
+  
+  // Calculate cost per unit if we found units
+  if (units > 0) {
+    return totalValue / units;
+  }
+  
+  // For time-based contracts, calculate monthly cost
+  if (contract.extractedStartDate && contract.extractedEndDate) {
+    const start = new Date(contract.extractedStartDate);
+    const end = new Date(contract.extractedEndDate);
+    const months = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+    if (months > 0) {
+      return totalValue / months; // Cost per month
     }
   }
   
@@ -1185,23 +1232,184 @@ function calculateCostPerUnit(contract: any): number {
 }
 
 function calculatePaybackPeriod(contract: any): number {
-  // Simple payback calculation - would need more business logic
-  const value = parseContractValue(contract.extractedPricing || "0");
-  const estimatedMonthlySavings = value * 0.1; // Assume 10% monthly benefit
+  const investmentCost = parseContractValue(contract.extractedPricing || "0");
   
-  if (estimatedMonthlySavings <= 0) return Infinity;
+  // Extract savings or benefit information from contract
+  const searchText = [
+    contract.extractedScope || "",
+    contract.notes || "",
+    contract.title || ""
+  ].join(" ").toLowerCase();
   
-  return value / estimatedMonthlySavings; // Months to payback
+  // Look for savings or ROI mentions
+  const savingsPatterns = [
+    /sav(?:e|ing|ings)\s*(?:of\s*)?\$?([\d,]+)\s*(?:per\s*)?(month|year|annually)?/gi,
+    /roi\s*(?:of\s*)?([\d.]+)\s*%/gi,
+    /reduce.*cost.*by\s*\$?([\d,]+)/gi,
+    /([\d.]+)\s*%\s*(?:cost\s*)?reduction/gi,
+    /benefit(?:s)?\s*(?:of\s*)?\$?([\d,]+)/gi
+  ];
+  
+  let monthlySavings = 0;
+  
+  for (const pattern of savingsPatterns) {
+    const matches = Array.from(searchText.matchAll(pattern));
+    if (matches.length > 0) {
+      const match = matches[0];
+      if (pattern.source.includes('roi') || pattern.source.includes('%')) {
+        // ROI or percentage savings
+        const percentage = parseFloat(match[1]);
+        if (percentage > 0 && percentage <= 100) {
+          monthlySavings = (investmentCost * (percentage / 100)) / 12; // Monthly ROI
+          break;
+        }
+      } else {
+        // Direct savings amount
+        const savingsAmount = parseFloat(match[1].replace(/,/g, ''));
+        const period = match[2]?.toLowerCase();
+        
+        if (savingsAmount > 0) {
+          if (period === 'year' || period === 'annually') {
+            monthlySavings = savingsAmount / 12;
+          } else {
+            monthlySavings = savingsAmount; // Assume monthly if not specified
+          }
+          break;
+        }
+      }
+    }
+  }
+  
+  // If no explicit savings found, estimate based on contract type
+  if (monthlySavings === 0) {
+    const contractType = contract.contractType?.toLowerCase() || '';
+    const estimatedROI = {
+      'saas': 0.15,           // 15% annual ROI
+      'software': 0.20,       // 20% annual ROI
+      'consulting': 0.25,     // 25% annual ROI
+      'technology': 0.18,     // 18% annual ROI
+      'service': 0.12,        // 12% annual ROI
+      'maintenance': 0.10,    // 10% annual ROI (cost avoidance)
+      'insurance': 0.08,      // 8% annual ROI (risk mitigation)
+    };
+    
+    const roi = estimatedROI[contractType] || 0.10; // Default 10%
+    monthlySavings = (investmentCost * roi) / 12;
+  }
+  
+  if (monthlySavings <= 0) return Infinity;
+  
+  return investmentCost / monthlySavings; // Months to payback
 }
 
 function calculateTCO(contract: any): number {
   const baseValue = parseContractValue(contract.extractedPricing || "0");
   
-  // Add estimated additional costs (implementation, training, maintenance)
-  const implementationCost = baseValue * 0.15; // 15% for setup
-  const maintenanceCost = baseValue * 0.1; // 10% annual maintenance
+  // Calculate contract duration in years
+  let contractYears = 1; // Default to 1 year
+  if (contract.extractedStartDate && contract.extractedEndDate) {
+    const start = new Date(contract.extractedStartDate);
+    const end = new Date(contract.extractedEndDate);
+    contractYears = Math.max(1, (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 365));
+  }
   
-  return baseValue + implementationCost + maintenanceCost;
+  // Extract additional cost information from contract
+  const searchText = [
+    contract.extractedScope || "",
+    contract.extractedPaymentSchedule || "",
+    contract.notes || ""
+  ].join(" ").toLowerCase();
+  
+  // Look for specific cost mentions
+  const costPatterns = [
+    /implementation\s*(?:fee|cost)?\s*:?\s*\$?([\d,]+)/gi,
+    /setup\s*(?:fee|cost)?\s*:?\s*\$?([\d,]+)/gi,
+    /training\s*(?:fee|cost)?\s*:?\s*\$?([\d,]+)/gi,
+    /maintenance\s*(?:fee|cost)?\s*:?\s*\$?([\d,]+)\s*(?:per\s*)?(year|month)?/gi,
+    /support\s*(?:fee|cost)?\s*:?\s*\$?([\d,]+)\s*(?:per\s*)?(year|month)?/gi,
+    /additional\s*(?:fees?|costs?)\s*:?\s*\$?([\d,]+)/gi
+  ];
+  
+  let implementationCost = 0;
+  let annualMaintenanceCost = 0;
+  let trainingCost = 0;
+  let foundExplicitCosts = false;
+  
+  for (const pattern of costPatterns) {
+    const matches = Array.from(searchText.matchAll(pattern));
+    if (matches.length > 0) {
+      foundExplicitCosts = true;
+      const match = matches[0];
+      const amount = parseFloat(match[1].replace(/,/g, ''));
+      
+      if (pattern.source.includes('implementation') || pattern.source.includes('setup')) {
+        implementationCost += amount;
+      } else if (pattern.source.includes('training')) {
+        trainingCost += amount;
+      } else if (pattern.source.includes('maintenance') || pattern.source.includes('support')) {
+        const period = match[2]?.toLowerCase();
+        if (period === 'month') {
+          annualMaintenanceCost += amount * 12;
+        } else {
+          annualMaintenanceCost += amount;
+        }
+      }
+    }
+  }
+  
+  // If no explicit costs found, estimate based on contract type and value
+  if (!foundExplicitCosts) {
+    const contractType = contract.contractType?.toLowerCase() || '';
+    
+    // TCO multipliers by contract type
+    const tcoMultipliers = {
+      'saas': {
+        implementation: 0.10,      // 10% one-time
+        training: 0.05,           // 5% one-time
+        maintenance: 0.15,        // 15% annual (support, updates)
+        infrastructure: 0.05      // 5% annual (integration, monitoring)
+      },
+      'software': {
+        implementation: 0.20,      // 20% one-time
+        training: 0.10,           // 10% one-time
+        maintenance: 0.20,        // 20% annual
+        infrastructure: 0.10      // 10% annual
+      },
+      'consulting': {
+        implementation: 0.05,      // 5% one-time
+        training: 0.00,           // Usually included
+        maintenance: 0.00,        // Project-based
+        infrastructure: 0.02      // 2% annual (tools, communication)
+      },
+      'service': {
+        implementation: 0.08,      // 8% one-time
+        training: 0.03,           // 3% one-time
+        maintenance: 0.10,        // 10% annual
+        infrastructure: 0.05      // 5% annual
+      },
+      'default': {
+        implementation: 0.15,      // 15% one-time
+        training: 0.05,           // 5% one-time
+        maintenance: 0.15,        // 15% annual
+        infrastructure: 0.05      // 5% annual
+      }
+    };
+    
+    const multipliers = tcoMultipliers[contractType] || tcoMultipliers.default;
+    
+    implementationCost = baseValue * multipliers.implementation;
+    trainingCost = baseValue * multipliers.training;
+    annualMaintenanceCost = baseValue * (multipliers.maintenance + multipliers.infrastructure);
+  }
+  
+  // Calculate total TCO
+  const oneTimeCosts = implementationCost + trainingCost;
+  const recurringCosts = annualMaintenanceCost * contractYears;
+  
+  // Add hidden costs (estimated at 10-20% for unforeseen expenses)
+  const hiddenCosts = (baseValue + oneTimeCosts + recurringCosts) * 0.10;
+  
+  return baseValue + oneTimeCosts + recurringCosts + hiddenCosts;
 }
 
 function calculateStatistics(values: number[]): { mean: number; stdDev: number; median: number } {
@@ -1239,37 +1447,146 @@ function calculateGrowthRate(values: number[]): number {
 function parsePaymentSchedule(scheduleText: string): Array<{ amount: number; dueDate: Date }> {
   const payments: Array<{ amount: number; dueDate: Date }> = [];
   
-  // Simple parsing - in reality, this would be much more sophisticated
-  const lines = scheduleText.split('\n');
+  // Comprehensive payment schedule parsing with multiple patterns
+  const lines = scheduleText.split(/[\n;,]/);
+  
+  // Common payment patterns to match
+  const patterns = [
+    // Pattern 1: "$1,000 due on 2024-01-15" or "1000 USD by Jan 15, 2024"
+    /\$?([\d,]+(?:\.\d{2})?)\s*(?:USD)?\s*(?:due|by|on)?\s*(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4}|[A-Za-z]+\s+\d{1,2},?\s+\d{4})/i,
+    // Pattern 2: "Payment of $5,000 on January 15th, 2024"
+    /payment\s+of\s+\$?([\d,]+(?:\.\d{2})?)\s*(?:on|by)?\s*(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4}|[A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4})/i,
+    // Pattern 3: "15/01/2024: $1,000" or "2024-01-15 - 1000"
+    /(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})[:\s-]+\$?([\d,]+(?:\.\d{2})?)/i,
+    // Pattern 4: "Monthly payment: $1,000" (for recurring)
+    /(monthly|quarterly|annual|yearly)\s+payment[:\s]+\$?([\d,]+(?:\.\d{2})?)/i,
+    // Pattern 5: Milestone payments "Upon completion: $10,000"
+    /(?:upon|after|on)\s+([\w\s]+):\s*\$?([\d,]+(?:\.\d{2})?)/i,
+  ];
   
   for (const line of lines) {
-    // Look for patterns like "$1,000 due on 2024-01-15"
-    const match = line.match(/\$?([\d,]+)\s*(?:due\s*(?:on|by))?\s*(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})/i);
+    const trimmedLine = line.trim();
+    if (!trimmedLine) continue;
     
-    if (match && match[1] && match[2]) {
-      const amount = parseFloat(match[1]!.replace(/,/g, ''));
-      let dateStr = match[2]!;
+    // Try each pattern
+    for (const pattern of patterns) {
+      const match = trimmedLine.match(pattern);
       
-      // Convert MM/DD/YYYY to YYYY-MM-DD
-      if (dateStr && dateStr.includes('/')) {
-        const parts = dateStr.split('/');
-        if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
-          dateStr = `${parts[2]!}-${parts[0]!.padStart(2, '0')}-${parts[1]!.padStart(2, '0')}`;
+      if (match) {
+        let amount: number = 0;
+        let dateStr: string = '';
+        let isRecurring = false;
+        
+        // Handle different capture group positions based on pattern
+        if (pattern.source.includes('monthly|quarterly')) {
+          // Recurring payment pattern
+          const frequency = match[1]!.toLowerCase();
+          amount = parseFloat(match[2]!.replace(/[,$]/g, ''));
+          
+          // Generate dates based on frequency
+          const now = new Date();
+          const dates = generateRecurringDates(frequency, now, 12); // Next 12 occurrences
+          
+          dates.forEach(date => {
+            payments.push({ amount, dueDate: date });
+          });
+          isRecurring = true;
+        } else if (match[1] && match[1].match(/\d/)) {
+          // Date comes first
+          dateStr = match[1]!;
+          amount = parseFloat(match[2]!.replace(/[,$]/g, ''));
+        } else {
+          // Amount comes first
+          amount = parseFloat(match[1]!.replace(/[,$]/g, ''));
+          dateStr = match[2]!;
         }
-      }
-      
-      try {
-        const dueDate = new Date(dateStr!);
-        if (!isNaN(dueDate.getTime())) {
-          payments.push({ amount, dueDate });
+        
+        if (!isRecurring && dateStr) {
+          const parsedDate = parseDate(dateStr);
+          if (parsedDate && !isNaN(parsedDate.getTime()) && amount > 0) {
+            payments.push({ amount, dueDate: parsedDate });
+          }
         }
-      } catch (error) {
-        console.warn('Failed to parse payment date:', dateStr);
+        
+        break; // Move to next line after successful match
       }
     }
   }
   
-  return payments;
+  // Sort payments by due date
+  return payments.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+}
+
+// Helper function to parse various date formats
+function parseDate(dateStr: string): Date | null {
+  // Try standard formats first
+  let date = new Date(dateStr);
+  if (!isNaN(date.getTime())) return date;
+  
+  // Convert MM/DD/YYYY to YYYY-MM-DD
+  if (dateStr.includes('/')) {
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const [month, day, year] = parts;
+      date = new Date(`${year}-${month!.padStart(2, '0')}-${day!.padStart(2, '0')}`);
+      if (!isNaN(date.getTime())) return date;
+    }
+  }
+  
+  // Try parsing month names "January 15, 2024" or "15 Jan 2024"
+  const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  const monthMatch = dateStr.toLowerCase().match(new RegExp(`(\\d{1,2})\\s*(${monthNames.join('|')})[a-z]*\\s*(\\d{4})|` +
+    `(${monthNames.join('|')})[a-z]*\\s*(\\d{1,2}),?\\s*(\\d{4})`, 'i'));
+  
+  if (monthMatch) {
+    let day: string, month: string, year: string;
+    if (monthMatch[1]) {
+      // Format: "15 Jan 2024"
+      day = monthMatch[1];
+      month = monthMatch[2]!;
+      year = monthMatch[3]!;
+    } else {
+      // Format: "Jan 15, 2024"
+      month = monthMatch[4]!;
+      day = monthMatch[5]!;
+      year = monthMatch[6]!;
+    }
+    
+    const monthIndex = monthNames.indexOf(month.toLowerCase().slice(0, 3)) + 1;
+    date = new Date(`${year}-${monthIndex.toString().padStart(2, '0')}-${day.padStart(2, '0')}`);
+    if (!isNaN(date.getTime())) return date;
+  }
+  
+  return null;
+}
+
+// Generate recurring payment dates based on frequency
+function generateRecurringDates(frequency: string, startDate: Date, count: number): Date[] {
+  const dates: Date[] = [];
+  const date = new Date(startDate);
+  
+  for (let i = 0; i < count; i++) {
+    switch (frequency.toLowerCase()) {
+      case 'monthly':
+        date.setMonth(date.getMonth() + 1);
+        break;
+      case 'quarterly':
+        date.setMonth(date.getMonth() + 3);
+        break;
+      case 'annual':
+      case 'yearly':
+        date.setFullYear(date.getFullYear() + 1);
+        break;
+      case 'weekly':
+        date.setDate(date.getDate() + 7);
+        break;
+      default:
+        date.setMonth(date.getMonth() + 1); // Default to monthly
+    }
+    dates.push(new Date(date));
+  }
+  
+  return dates;
 }
 
 function generateRiskRecommendations(riskFactors: string[], riskLevel: string): string[] {

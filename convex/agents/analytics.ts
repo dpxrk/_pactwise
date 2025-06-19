@@ -229,16 +229,42 @@ async function calculateKPIs(
   let totalCycleTime = 0;
   let cycleTimeCount = 0;
   
+  // Calculate actual cycle times from status history
   for (const contract of recentActiveContracts) {
-    if (contract._creationTime && contract.analysisStatus === "completed") {
-      // Estimate cycle time (in practice, you'd track actual status changes)
-      const cycleTime = 7; // Placeholder - would calculate from status change logs
-      totalCycleTime += cycleTime;
-      cycleTimeCount++;
+    if (contract.status === "active" || contract.status === "expired") {
+      // Get status history for this contract
+      const statusHistory = await ctx.db
+        .query("contractStatusHistory")
+        .withIndex("by_contract_time", (q) => q.eq("contractId", contract._id))
+        .collect();
+      
+      // Find when contract moved from draft to active
+      const activationEntry = statusHistory.find(entry => 
+        entry.previousStatus === "draft" && entry.newStatus === "active"
+      );
+      
+      if (activationEntry) {
+        const createdTime = new Date(contract.createdAt).getTime();
+        const activatedTime = new Date(activationEntry.changedAt).getTime();
+        const cycleTimeDays = (activatedTime - createdTime) / (1000 * 60 * 60 * 24);
+        
+        totalCycleTime += cycleTimeDays;
+        cycleTimeCount++;
+      } else if (contract._creationTime && contract.status === "active") {
+        // Fallback: if no history, estimate based on creation time
+        const createdTime = contract._creationTime;
+        const now = Date.now();
+        const ageInDays = (now - createdTime) / (1000 * 60 * 60 * 24);
+        
+        // Assume contracts typically activate within 7 days if no history
+        const estimatedCycleTime = Math.min(ageInDays, 7);
+        totalCycleTime += estimatedCycleTime;
+        cycleTimeCount++;
+      }
     }
   }
   
-  kpis.contractCycleTime = cycleTimeCount > 0 ? totalCycleTime / cycleTimeCount : 0;
+  kpis.contractCycleTime = cycleTimeCount > 0 ? Math.round(totalCycleTime / cycleTimeCount * 10) / 10 : 0;
 
   // 3. Vendor Concentration
   const vendorSpend: Record<string, number> = {};
@@ -783,10 +809,29 @@ async function createExecutiveDashboard(
     .query("vendors")
     .collect();
 
+  // Calculate active contract value and financial metrics
+  const activeContracts = contracts.filter((c: any) => c.status === "active");
+  const { activeContractValue, monthlyBurn, annualProjection } = calculateActiveContractFinancials(activeContracts);
+  
+  // Calculate upcoming renewals
+  const upcomingRenewals = calculateUpcomingRenewals(contracts, 30);
+  
+  // Calculate contracts at risk
+  const contractsAtRisk = await calculateContractsAtRisk(ctx, contracts);
+  
+  // Calculate savings opportunities
+  const savingsOpportunities = calculateSavingsOpportunities(contracts, vendors);
+  
+  // Get latest KPIs
+  const latestKPIs = await getLatestKPIs(ctx);
+  
+  // Calculate month-over-month trends
+  const trends = calculateMonthOverMonthTrends(contracts, vendors);
+
   const dashboard = {
     overview: {
       totalContracts: contracts.length,
-      activeContracts: contracts.filter((c: any) => c.status === "active").length,
+      activeContracts: activeContracts.length,
       totalVendors: vendors.length,
       activeVendors: vendors.filter((v: any) => 
         contracts.some((c: any) => c.vendorId === v._id && c.status === "active")
@@ -796,14 +841,16 @@ async function createExecutiveDashboard(
       totalContractValue: contracts.reduce((sum: number, c: any) => 
         sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0
       ),
-      monthlyBurn: 0, // Would calculate from payment schedules
-      annualProjection: 0, // Would calculate from active contracts
+      activeContractValue,
+      monthlyBurn,
+      annualProjection,
+      savingsOpportunities: savingsOpportunities.totalPotentialSavings,
     },
     kpis: {
-      contractRenewalRate: 0, // Would fetch from latest KPI calculation
-      vendorSatisfaction: 0,
-      complianceRate: 0,
-      avgContractCycleTime: 0,
+      contractRenewalRate: latestKPIs.contractRenewalRate,
+      vendorSatisfaction: latestKPIs.vendorSatisfaction,
+      complianceRate: latestKPIs.complianceRate,
+      avgContractCycleTime: latestKPIs.avgContractCycleTime,
     },
     alerts: {
       expiringContracts: contracts.filter((c: any) => {
@@ -813,14 +860,24 @@ async function createExecutiveDashboard(
         );
         return daysUntil <= 90 && daysUntil > 0;
       }).length,
-      pendingApprovals: 0, // Would need approval tracking
-      complianceIssues: 0, // Would need compliance tracking
-      budgetAlerts: 0, // Would need budget tracking
+      upcomingRenewals: upcomingRenewals.length,
+      contractsAtRisk: contractsAtRisk.length,
+      savingsOpportunities: savingsOpportunities.opportunities.length,
+      pendingApprovals: await countPendingApprovals(ctx, contracts),
+      complianceIssues: await countComplianceIssues(ctx, contracts),
+      budgetAlerts: await countBudgetAlerts(ctx, contracts[0]?.enterpriseId)
     },
     trends: {
-      contractVolumeChange: 0, // Month-over-month
-      spendingChange: 0, // Month-over-month
-      vendorCountChange: 0, // Month-over-month
+      contractVolumeChange: trends.contractVolumeChange,
+      spendingChange: trends.spendingChange,
+      vendorCountChange: trends.vendorCountChange,
+    },
+    insights: {
+      topSpendCategories: savingsOpportunities.topSpendCategories,
+      vendorConcentrationRisk: savingsOpportunities.vendorConcentrationRisk,
+      upcomingRenewalsValue: upcomingRenewals.reduce((sum: number, c: any) => 
+        sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0
+      ),
     },
     lastUpdated: new Date().toISOString(),
   };
@@ -866,6 +923,368 @@ async function generateAutomatedReports(
   }
   
   return reportsGenerated;
+}
+
+// ============================================================================
+// FINANCIAL CALCULATION FUNCTIONS
+// ============================================================================
+
+function calculateActiveContractFinancials(activeContracts: any[]): {
+  activeContractValue: number;
+  monthlyBurn: number;
+  annualProjection: number;
+} {
+  let activeContractValue = 0;
+  let monthlyBurn = 0;
+  let annualProjection = 0;
+  
+  activeContracts.forEach(contract => {
+    const value = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
+    if (value > 0) {
+      activeContractValue += value;
+      
+      // Calculate monthly burn based on contract duration
+      if (contract.extractedStartDate && contract.extractedEndDate) {
+        const startDate = new Date(contract.extractedStartDate);
+        const endDate = new Date(contract.extractedEndDate);
+        const durationMonths = Math.max(1, 
+          (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
+        );
+        
+        const monthlyValue = value / durationMonths;
+        monthlyBurn += monthlyValue;
+        
+        // Only count contracts that will be active for next 12 months
+        const now = new Date();
+        const daysToExpiry = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysToExpiry > 0) {
+          const monthsRemaining = Math.min(12, daysToExpiry / 30);
+          annualProjection += monthlyValue * monthsRemaining;
+        }
+      } else {
+        // If no dates, assume annual contract
+        monthlyBurn += value / 12;
+        annualProjection += value;
+      }
+    }
+  });
+  
+  return {
+    activeContractValue,
+    monthlyBurn,
+    annualProjection
+  };
+}
+
+function calculateUpcomingRenewals(contracts: any[], daysAhead: number): any[] {
+  const now = new Date();
+  const futureDate = new Date(now.getTime() + (daysAhead * 24 * 60 * 60 * 1000));
+  
+  return contracts.filter(contract => {
+    if (contract.status !== 'active' || !contract.extractedEndDate) return false;
+    
+    const endDate = new Date(contract.extractedEndDate);
+    return endDate >= now && endDate <= futureDate;
+  }).sort((a, b) => {
+    const dateA = new Date(a.extractedEndDate).getTime();
+    const dateB = new Date(b.extractedEndDate).getTime();
+    return dateA - dateB;
+  });
+}
+
+async function calculateContractsAtRisk(ctx: any, contracts: any[]): Promise<any[]> {
+  const riskFactors: any[] = [];
+  
+  for (const contract of contracts) {
+    if (contract.status !== 'active') continue;
+    
+    let riskScore = 0;
+    const risks: string[] = [];
+    
+    // Check if contract is expiring soon without renewal
+    if (contract.extractedEndDate) {
+      const daysToExpiry = Math.ceil(
+        (new Date(contract.extractedEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+      );
+      if (daysToExpiry > 0 && daysToExpiry <= 30) {
+        riskScore += 3;
+        risks.push('Expiring within 30 days');
+      }
+    }
+    
+    // Check if vendor has issues
+    if (contract.vendorId) {
+      const vendor = await ctx.db.get(contract.vendorId);
+      if (vendor && vendor.status === 'inactive') {
+        riskScore += 2;
+        risks.push('Vendor marked as inactive');
+      }
+    }
+    
+    // Check if contract has no end date
+    if (!contract.extractedEndDate) {
+      riskScore += 1;
+      risks.push('No end date specified');
+    }
+    
+    // Check if contract value is unusually high
+    const value = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
+    if (value > 1000000) {
+      riskScore += 2;
+      risks.push('High value contract');
+    }
+    
+    if (riskScore >= 3) {
+      riskFactors.push({
+        contractId: contract._id,
+        title: contract.title,
+        vendorId: contract.vendorId,
+        value,
+        riskScore,
+        risks,
+        extractedEndDate: contract.extractedEndDate
+      });
+    }
+  }
+  
+  return riskFactors.sort((a, b) => b.riskScore - a.riskScore);
+}
+
+function calculateSavingsOpportunities(contracts: any[], vendors: any[]): {
+  opportunities: any[];
+  totalPotentialSavings: number;
+  topSpendCategories: any[];
+  vendorConcentrationRisk: any;
+} {
+  const opportunities: any[] = [];
+  let totalPotentialSavings = 0;
+  
+  // Analyze vendor spend concentration
+  const vendorSpend: Record<string, { vendor: any; totalSpend: number; contractCount: number }> = {};
+  const categorySpend: Record<string, number> = {};
+  
+  contracts.forEach(contract => {
+    if (contract.status !== 'active' || !contract.vendorId) return;
+    
+    const value = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
+    if (value <= 0) return;
+    
+    // Track vendor spend
+    if (!vendorSpend[contract.vendorId]) {
+      const vendor = vendors.find(v => v._id === contract.vendorId);
+      vendorSpend[contract.vendorId] = {
+        vendor: vendor || { name: 'Unknown Vendor' },
+        totalSpend: 0,
+        contractCount: 0
+      };
+    }
+    vendorSpend[contract.vendorId].totalSpend += value;
+    vendorSpend[contract.vendorId].contractCount++;
+    
+    // Track category spend
+    const vendor = vendors.find(v => v._id === contract.vendorId);
+    if (vendor && vendor.category) {
+      categorySpend[vendor.category] = (categorySpend[vendor.category] || 0) + value;
+    }
+  });
+  
+  // Find consolidation opportunities
+  const vendorsByCategory: Record<string, any[]> = {};
+  Object.entries(vendorSpend).forEach(([vendorId, data]) => {
+    if (data.vendor.category) {
+      if (!vendorsByCategory[data.vendor.category]) {
+        vendorsByCategory[data.vendor.category] = [];
+      }
+      vendorsByCategory[data.vendor.category].push({
+        vendorId,
+        ...data
+      });
+    }
+  });
+  
+  // Identify consolidation opportunities
+  Object.entries(vendorsByCategory).forEach(([category, vendorsInCategory]) => {
+    if (vendorsInCategory.length > 3) {
+      const totalCategorySpend = vendorsInCategory.reduce((sum, v) => sum + v.totalSpend, 0);
+      const potentialSaving = totalCategorySpend * 0.15; // Assume 15% savings from consolidation
+      
+      opportunities.push({
+        type: 'vendor_consolidation',
+        category,
+        vendorCount: vendorsInCategory.length,
+        totalSpend: totalCategorySpend,
+        potentialSaving,
+        description: `Consolidate ${vendorsInCategory.length} vendors in ${category}`
+      });
+      
+      totalPotentialSavings += potentialSaving;
+    }
+  });
+  
+  // Identify duplicate services
+  const similarVendors = vendors.filter(v => v.status === 'active');
+  const vendorNameGroups: Record<string, any[]> = {};
+  
+  similarVendors.forEach(vendor => {
+    const normalizedName = vendor.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const baseKey = normalizedName.substring(0, 5);
+    if (!vendorNameGroups[baseKey]) {
+      vendorNameGroups[baseKey] = [];
+    }
+    vendorNameGroups[baseKey].push(vendor);
+  });
+  
+  Object.entries(vendorNameGroups).forEach(([key, group]) => {
+    if (group.length > 1) {
+      const groupSpend = group.reduce((sum, vendor) => {
+        const spend = vendorSpend[vendor._id]?.totalSpend || 0;
+        return sum + spend;
+      }, 0);
+      
+      if (groupSpend > 50000) {
+        const potentialSaving = groupSpend * 0.10;
+        opportunities.push({
+          type: 'duplicate_vendors',
+          vendors: group.map(v => v.name),
+          totalSpend: groupSpend,
+          potentialSaving,
+          description: `Potential duplicate vendors: ${group.map(v => v.name).join(', ')}`
+        });
+        
+        totalPotentialSavings += potentialSaving;
+      }
+    }
+  });
+  
+  // Calculate top spend categories
+  const topSpendCategories = Object.entries(categorySpend)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5)
+    .map(([category, spend]) => ({ category, spend }));
+  
+  // Calculate vendor concentration risk
+  const totalSpend = Object.values(vendorSpend).reduce((sum, v) => sum + v.totalSpend, 0);
+  const topVendors = Object.entries(vendorSpend)
+    .sort(([, a], [, b]) => b.totalSpend - a.totalSpend)
+    .slice(0, 5);
+  
+  const top5Spend = topVendors.reduce((sum, [, v]) => sum + v.totalSpend, 0);
+  const concentrationRatio = totalSpend > 0 ? (top5Spend / totalSpend) * 100 : 0;
+  
+  return {
+    opportunities: opportunities.sort((a, b) => b.potentialSaving - a.potentialSaving),
+    totalPotentialSavings,
+    topSpendCategories,
+    vendorConcentrationRisk: {
+      ratio: concentrationRatio,
+      isHighRisk: concentrationRatio > 60,
+      topVendors: topVendors.map(([vendorId, data]) => ({
+        name: data.vendor.name,
+        spend: data.totalSpend,
+        percentage: totalSpend > 0 ? (data.totalSpend / totalSpend) * 100 : 0
+      }))
+    }
+  };
+}
+
+async function getLatestKPIs(ctx: any): Promise<{
+  contractRenewalRate: number;
+  vendorSatisfaction: number;
+  complianceRate: number;
+  avgContractCycleTime: number;
+}> {
+  // Get the most recent KPI calculation
+  const latestKPI = await ctx.db
+    .query("agentInsights")
+    .filter((q: any) => q.eq(q.field("type"), "kpi_report"))
+    .order("desc")
+    .first();
+  
+  if (latestKPI && latestKPI.data) {
+    return {
+      contractRenewalRate: latestKPI.data.contractRenewalRate || 0,
+      vendorSatisfaction: latestKPI.data.vendorSatisfaction || 0,
+      complianceRate: latestKPI.data.complianceRate || 0,
+      avgContractCycleTime: latestKPI.data.avgContractCycleTime || 0,
+    };
+  }
+  
+  // Return defaults if no KPIs found
+  return {
+    contractRenewalRate: 0,
+    vendorSatisfaction: 0,
+    complianceRate: 0,
+    avgContractCycleTime: 0,
+  };
+}
+
+function calculateMonthOverMonthTrends(contracts: any[], vendors: any[]): {
+  contractVolumeChange: number;
+  spendingChange: number;
+  vendorCountChange: number;
+} {
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  
+  // Calculate last month's date
+  const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+  const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+  
+  // Contract volume change
+  const currentMonthContracts = contracts.filter(c => {
+    const createdDate = new Date(c.createdAt);
+    return createdDate.getMonth() === currentMonth && createdDate.getFullYear() === currentYear;
+  }).length;
+  
+  const lastMonthContracts = contracts.filter(c => {
+    const createdDate = new Date(c.createdAt);
+    return createdDate.getMonth() === lastMonth && createdDate.getFullYear() === lastMonthYear;
+  }).length;
+  
+  const contractVolumeChange = lastMonthContracts > 0 
+    ? ((currentMonthContracts - lastMonthContracts) / lastMonthContracts) * 100 
+    : 0;
+  
+  // Spending change
+  const currentMonthSpend = contracts
+    .filter(c => {
+      const createdDate = new Date(c.createdAt);
+      return createdDate.getMonth() === currentMonth && createdDate.getFullYear() === currentYear;
+    })
+    .reduce((sum, c) => sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0);
+  
+  const lastMonthSpend = contracts
+    .filter(c => {
+      const createdDate = new Date(c.createdAt);
+      return createdDate.getMonth() === lastMonth && createdDate.getFullYear() === lastMonthYear;
+    })
+    .reduce((sum, c) => sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0);
+  
+  const spendingChange = lastMonthSpend > 0 
+    ? ((currentMonthSpend - lastMonthSpend) / lastMonthSpend) * 100 
+    : 0;
+  
+  // Vendor count change
+  const currentMonthVendors = vendors.filter(v => {
+    const createdDate = new Date(v.createdAt);
+    return createdDate.getMonth() === currentMonth && createdDate.getFullYear() === currentYear;
+  }).length;
+  
+  const lastMonthVendors = vendors.filter(v => {
+    const createdDate = new Date(v.createdAt);
+    return createdDate.getMonth() === lastMonth && createdDate.getFullYear() === lastMonthYear;
+  }).length;
+  
+  const vendorCountChange = lastMonthVendors > 0 
+    ? ((currentMonthVendors - lastMonthVendors) / lastMonthVendors) * 100 
+    : 0;
+  
+  return {
+    contractVolumeChange,
+    spendingChange,
+    vendorCountChange
+  };
 }
 
 // ============================================================================
@@ -1550,13 +1969,30 @@ async function gatherMonthlyMetrics(ctx: any, since: Date): Promise<any> {
     v._creationTime && v._creationTime >= since.getTime()
   ).length;
 
-  // Contract cycle time (simplified - would track actual status changes in production)
-  const completedContracts = periodContracts.filter((c: any) => 
-    c.analysisStatus === "completed" && c._creationTime
-  );
-  const avgCycleTime = completedContracts.length > 0
-    ? completedContracts.reduce((sum: number, c: any) => sum + 7, 0) / completedContracts.length // Placeholder
-    : 0;
+  // Contract cycle time from actual status history
+  let totalCycleTime = 0;
+  let cycleTimeCount = 0;
+  
+  for (const contract of periodContracts.filter((c: any) => c.status === "active" || c.status === "expired")) {
+    const statusHistory = await ctx.db
+      .query("contractStatusHistory")
+      .withIndex("by_contract_time", (q) => q.eq("contractId", contract._id))
+      .collect();
+    
+    const activationEntry = statusHistory.find(entry => 
+      entry.previousStatus === "draft" && entry.newStatus === "active"
+    );
+    
+    if (activationEntry) {
+      const createdTime = new Date(contract.createdAt).getTime();
+      const activatedTime = new Date(activationEntry.changedAt).getTime();
+      const cycleTimeDays = (activatedTime - createdTime) / (1000 * 60 * 60 * 24);
+      totalCycleTime += cycleTimeDays;
+      cycleTimeCount++;
+    }
+  }
+  
+  const avgCycleTime = cycleTimeCount > 0 ? Math.round(totalCycleTime / cycleTimeCount * 10) / 10 : 0;
 
   // Risk metrics
   const highRiskInsights = insights.filter((i: any) => 
@@ -1762,8 +2198,8 @@ async function gatherQuarterlyMetrics(ctx: any, since: Date): Promise<any> {
   const complianceAnalysis = performQuarterlyComplianceAnalysis(contracts, insights);
 
   // Operational efficiency
-  const operationalMetrics = calculateOperationalEfficiency(
-    contracts, tasks, agentLogs, users, quarterStart
+  const operationalMetrics = await calculateOperationalEfficiency(
+    ctx, contracts, tasks, agentLogs, users, quarterStart
   );
 
   // Strategic recommendations
@@ -2031,13 +2467,14 @@ function performQuarterlyComplianceAnalysis(contracts: any[], insights: any[]): 
   };
 }
 
-function calculateOperationalEfficiency(
+async function calculateOperationalEfficiency(
+  ctx: any,
   contracts: any[], 
   tasks: any[], 
   logs: any[], 
   users: any[],
   since: Date
-): any {
+): Promise<any> {
   const periodTasks = tasks.filter((t: any) => 
     t.createdAt && new Date(t.createdAt) >= since
   );
@@ -2046,7 +2483,7 @@ function calculateOperationalEfficiency(
   const avgTaskCompletionTime = calculateAverageTaskCompletionTime(completedTasks);
   
   return {
-    contractProcessingTime: calculateAverageContractProcessingTime(contracts),
+    contractProcessingTime: await calculateAverageContractProcessingTime(ctx, contracts),
     taskCompletionRate: periodTasks.length > 0 
       ? (completedTasks.length / periodTasks.length) * 100 
       : 100,
@@ -2256,15 +2693,61 @@ function calculateUpcomingPayments(contracts: any[], days: number): any {
   
   contracts.forEach(contract => {
     if (contract.extractedPaymentSchedule) {
-      // Simple parsing - in production would be more sophisticated
-      const monthlyValue = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0') / 12;
+      // Parse payment schedule with comprehensive pattern matching
+      const schedule = contract.extractedPaymentSchedule.toLowerCase();
+      const totalValue = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
       
-      if (contract.extractedPaymentSchedule.toLowerCase().includes('monthly')) {
+      let frequency: string;
+      let amount: number;
+      let intervalDays: number;
+      
+      if (schedule.includes('monthly') || schedule.includes('per month')) {
+        frequency = 'monthly';
+        amount = totalValue / 12;
+        intervalDays = 30;
+      } else if (schedule.includes('quarterly') || schedule.includes('per quarter')) {
+        frequency = 'quarterly';
+        amount = totalValue / 4;
+        intervalDays = 90;
+      } else if (schedule.includes('annually') || schedule.includes('yearly') || schedule.includes('per year')) {
+        frequency = 'annually';
+        amount = totalValue;
+        intervalDays = 365;
+      } else if (schedule.includes('weekly') || schedule.includes('per week')) {
+        frequency = 'weekly';
+        amount = totalValue / 52;
+        intervalDays = 7;
+      } else if (schedule.includes('one-time') || schedule.includes('upfront')) {
+        frequency = 'one-time';
+        amount = totalValue;
+        intervalDays = 0;
+      } else {
+        // Default to monthly if unclear
+        frequency = 'monthly';
+        amount = totalValue / 12;
+        intervalDays = 30;
+      }
+      
+      // Calculate next payment date based on contract dates
+      let nextDue: Date;
+      if (contract.extractedStartDate) {
+        const startDate = new Date(contract.extractedStartDate);
+        const daysSinceStart = (Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+        const periodsPassed = Math.floor(daysSinceStart / intervalDays);
+        nextDue = new Date(startDate.getTime() + (periodsPassed + 1) * intervalDays * 24 * 60 * 60 * 1000);
+      } else {
+        nextDue = new Date(Date.now() + intervalDays * 24 * 60 * 60 * 1000);
+      }
+      
+      if (nextDue <= cutoffDate && amount > 0) {
         upcomingPayments.push({
           contractId: contract._id,
-          amount: monthlyValue,
-          frequency: 'monthly',
-          nextDue: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          contractTitle: contract.title,
+          vendorId: contract.vendorId,
+          amount,
+          frequency,
+          nextDue,
+          totalContractValue: totalValue,
         });
       }
     }
@@ -2600,17 +3083,37 @@ function groupSpendByCategory(contracts: any[]): Record<string, number> {
 }
 
 function groupSpendByDepartment(contracts: any[]): Record<string, number> {
-  // In production, would map contracts to departments
-  return {
-    "IT": contracts.filter(c => ["saas", "technology"].includes(c.contractType))
-      .reduce((sum, c) => sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0),
-    "Legal": contracts.filter(c => c.contractType === "legal")
-      .reduce((sum, c) => sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0),
-    "Operations": contracts.filter(c => ["lease", "facilities"].includes(c.contractType))
-      .reduce((sum, c) => sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0),
-    "Other": contracts.filter(c => !["saas", "technology", "legal", "lease", "facilities"].includes(c.contractType || ""))
-      .reduce((sum, c) => sum + parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0'), 0),
+  const departmentSpend: Record<string, number> = {};
+  
+  // Department mapping based on contract type and actual department field
+  const contractTypeToDepartment: Record<string, string> = {
+    "saas": "IT",
+    "technology": "IT",
+    "software": "IT",
+    "hardware": "IT",
+    "legal": "Legal",
+    "employment": "HR",
+    "consulting": "Operations",
+    "lease": "Facilities",
+    "facilities": "Facilities",
+    "marketing": "Marketing",
+    "sales": "Sales",
+    "finance": "Finance",
+    "insurance": "Risk Management",
+    "other": "Other"
   };
+  
+  for (const contract of contracts) {
+    // Use department field if available, otherwise map from contract type
+    const department = contract.departmentId || 
+                      contractTypeToDepartment[contract.contractType || "other"] || 
+                      "Other";
+    
+    const value = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
+    departmentSpend[department] = (departmentSpend[department] || 0) + value;
+  }
+  
+  return departmentSpend;
 }
 
 function analyzeSpendTrend(contracts: any[]): any {
@@ -2872,10 +3375,38 @@ function calculateAuditReadiness(contracts: any[], insights: any[]): number {
   return Math.max(readinessScore, 0);
 }
 
-function calculateAverageContractProcessingTime(contracts: any[]): number {
-  // In production, would track actual time from creation to active status
-  // For now, return a placeholder
-  return 7; // days
+async function calculateAverageContractProcessingTime(ctx: any, contracts: any[]): Promise<number> {
+  let totalProcessingTime = 0;
+  let processedCount = 0;
+  
+  for (const contract of contracts) {
+    if (contract.status === "active" || contract.status === "expired") {
+      // Get status history
+      const statusHistory = await ctx.db
+        .query("contractStatusHistory")
+        .withIndex("by_contract_time", (q) => q.eq("contractId", contract._id))
+        .collect();
+      
+      // Find activation time
+      const activationEntry = statusHistory.find(entry => 
+        entry.previousStatus === "draft" && entry.newStatus === "active"
+      );
+      
+      if (activationEntry) {
+        const createdTime = new Date(contract.createdAt).getTime();
+        const activatedTime = new Date(activationEntry.changedAt).getTime();
+        const processingTimeDays = (activatedTime - createdTime) / (1000 * 60 * 60 * 24);
+        
+        if (processingTimeDays > 0 && processingTimeDays < 365) { // Sanity check
+          totalProcessingTime += processingTimeDays;
+          processedCount++;
+        }
+      }
+    }
+  }
+  
+  // Return average processing time in days, default to 7 if no data
+  return processedCount > 0 ? Math.round(totalProcessingTime / processedCount * 10) / 10 : 7;
 }
 
 function calculateAverageTaskCompletionTime(tasks: any[]): number {
@@ -2910,8 +3441,36 @@ function calculateErrorRate(logs: any[]): number {
 }
 
 function calculateAverageResponseTime(logs: any[]): number {
-  // In production, would measure actual response times
-  return 250; // milliseconds placeholder
+  // Calculate actual response times from logs with performance data
+  const performanceLogs = logs.filter(log => 
+    log.data?.responseTime || 
+    (log.data?.startTime && log.data?.endTime)
+  );
+  
+  if (performanceLogs.length === 0) {
+    // Return a reasonable default if no performance data available
+    return 250;
+  }
+  
+  let totalResponseTime = 0;
+  let count = 0;
+  
+  performanceLogs.forEach(log => {
+    if (log.data?.responseTime) {
+      totalResponseTime += log.data.responseTime;
+      count++;
+    } else if (log.data?.startTime && log.data?.endTime) {
+      const startTime = new Date(log.data.startTime).getTime();
+      const endTime = new Date(log.data.endTime).getTime();
+      const responseTime = endTime - startTime;
+      if (responseTime > 0 && responseTime < 60000) { // Sanity check: less than 1 minute
+        totalResponseTime += responseTime;
+        count++;
+      }
+    }
+  });
+  
+  return count > 0 ? Math.round(totalResponseTime / count) : 250;
 }
 
 function calculateAgentPerformance(logs: any[]): any {
@@ -3253,3 +3812,82 @@ export const getFinancialMetrics = internalQuery({
     return metrics;
   },
 });
+
+// ============================================================================
+// TRACKING HELPER FUNCTIONS
+// ============================================================================
+
+// Count pending contract approvals
+async function countPendingApprovals(ctx: any, contracts: any[]): Promise<number> {
+  const contractIds = contracts.map(c => c._id);
+  
+  const pendingApprovals = await ctx.db
+    .query("contractApprovals")
+    .filter((q: any) => 
+      q.and(
+        q.eq(q.field("status"), "pending"),
+        q.or(...contractIds.map(id => q.eq(q.field("contractId"), id)))
+      )
+    )
+    .collect();
+  
+  return pendingApprovals.length;
+}
+
+// Count compliance issues across contracts
+async function countComplianceIssues(ctx: any, contracts: any[]): Promise<number> {
+  const contractIds = contracts.map(c => c._id);
+  let totalIssues = 0;
+  
+  // Get compliance checks for all contracts
+  const complianceChecks = await ctx.db
+    .query("complianceChecks")
+    .filter((q: any) => 
+      q.and(
+        q.or(
+          q.eq(q.field("status"), "non_compliant"),
+          q.eq(q.field("status"), "remediation_required")
+        ),
+        q.or(...contractIds.map(id => q.eq(q.field("contractId"), id)))
+      )
+    )
+    .collect();
+  
+  // Count total unresolved issues
+  complianceChecks.forEach(check => {
+    if (check.issues) {
+      totalIssues += check.issues.filter((issue: any) => 
+        !issue.resolvedAt && (issue.severity === "critical" || issue.severity === "high")
+      ).length;
+    }
+  });
+  
+  return totalIssues;
+}
+
+// Count budget alerts for the enterprise
+async function countBudgetAlerts(ctx: any, enterpriseId: Id<"enterprises"> | undefined): Promise<number> {
+  if (!enterpriseId) return 0;
+  
+  const budgets = await ctx.db
+    .query("budgets")
+    .withIndex("by_enterprise", (q: any) => q.eq("enterpriseId", enterpriseId))
+    .filter((q: any) => 
+      q.or(
+        q.eq(q.field("status"), "exceeded"),
+        q.eq(q.field("status"), "at_risk")
+      )
+    )
+    .collect();
+  
+  let totalAlerts = 0;
+  
+  // Count unacknowledged alerts
+  budgets.forEach(budget => {
+    if (budget.alerts) {
+      totalAlerts += budget.alerts.filter((alert: any) => !alert.acknowledged).length;
+    }
+  });
+  
+  return totalAlerts;
+}
