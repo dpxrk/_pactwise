@@ -1,8 +1,8 @@
 // convex/memory/conversationThread.ts
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
-import { api } from "../_generated/api";
-import { Doc, Id } from "../_generated/dataModel";
+import { mutation, query } from "./_generated/server";
+import { Doc, Id } from "./_generated/dataModel";
+import { storeShortTermMemory } from "./memoryHelpers";
 
 // ============================================================================
 // CONVERSATION THREAD MANAGEMENT
@@ -302,7 +302,7 @@ async function processUserMessage(
 
   // Store in short-term memory
   const sessionId = `thread-${thread._id}`;
-  const memoryId = await ctx.runMutation(api.memory.shortTermMemory.store, {
+  const memoryId = await storeShortTermMemory(ctx, {
     sessionId,
     memoryType: "conversation_context",
     content: content,
@@ -347,7 +347,7 @@ async function processAssistantMessage(
   
   if (userMessage) {
     // Store the interaction pattern
-    await ctx.runMutation(api.memory.shortTermMemory.store, {
+    await storeShortTermMemory(ctx, {
       sessionId,
       memoryType: "process_knowledge",
       content: `Response pattern: User asked "${userMessage.content.substring(0, 100)}..." and system responded with "${content.substring(0, 100)}..."`,

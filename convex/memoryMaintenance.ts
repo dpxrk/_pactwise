@@ -48,13 +48,13 @@ export const performMaintenance = internalMutation({
     try {
       // 1. Clean up expired short-term memories
       const expiredCount = await ctx.runMutation(
-        api.memory.shortTermMemory.cleanupExpiredMemories,
+        api.memoryShortTerm.cleanupExpiredMemories,
         {}
       );
       results.expiredMemoriesDeleted = expiredCount;
 
       // 2. Apply decay to long-term memories
-      await ctx.runMutation(api.memory.longTermMemory.applyDecay, {});
+      await ctx.runMutation(api.memoryLongTerm.applyDecay, {});
       results.weakMemoriesDecayed = await countWeakMemories(ctx);
 
       // 3. Remove duplicate memories
@@ -304,7 +304,7 @@ export const bulkMemoryOperations = mutation({
       case "archive_old":
         if (!args.dryRun) {
           const archived = await ctx.runMutation(
-            api.memory.conversationThread.archiveOldThreads,
+            api.memoryConversationThread.archiveOldThreads,
             { daysOld: 30 }
           );
           results.affectedItems = archived.archived;
@@ -349,11 +349,11 @@ export const bulkMemoryOperations = mutation({
       case "optimize_all":
         if (!args.dryRun) {
           const duplicates = await ctx.runMutation(
-            api.memory.memoryMaintenance.removeDuplicateMemoriesMutation,
+            api.memoryMaintenance.removeDuplicateMemoriesMutation,
             { userId: user._id }
           );
           const associations = await ctx.runMutation(
-            api.memory.memoryMaintenance.optimizeMemoryAssociationsMutation,
+            api.memoryMaintenance.optimizeMemoryAssociationsMutation,
             {}
           );
           results.affectedItems = duplicates + associations;

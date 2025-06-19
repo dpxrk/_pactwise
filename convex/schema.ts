@@ -4,8 +4,10 @@ import { v } from "convex/values";
 import { agentTables } from "./schemas/agent_schema";
 import { notificationTables } from "./schemas/notification_schema";
 import { rateLimitTables } from "./security/rateLimiting";
-import { auditTables } from "./security/auditLogging";
+import { auditTables } from "./auditLogging";
 import { memoryTables } from "./schemas/memory_schema";
+import { episodicMemoryTables } from "./schemas/episodic_memory_schema";
+import { memorySharingTables } from "./schemas/memory_sharing_schema";
 import { collaborativeDocumentsSchema } from "./schemas/collaborative_documents_schema";
 import { 
   onboardingMetadataValidator,
@@ -370,5 +372,7 @@ export default defineSchema({
   ...rateLimitTables,
   ...auditTables,
   ...memoryTables,
+  ...episodicMemoryTables,
+  ...memorySharingTables,
   ...collaborativeDocumentsSchema
 });

@@ -151,8 +151,35 @@ export const run = internalMutation({
       };
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorDetails = {
+        agentId: args.agentId,
+        agentType: 'financial',
+        operation: 'agent_run',
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString()
+      };
+      
       await handleAgentError(ctx, args.agentId, error);
-      throw error;
+      
+      // Log detailed error for debugging
+      await ctx.db.insert("agentLogs", {
+        agentId: args.agentId,
+        level: "error",
+        message: `Financial agent run failed: ${errorMessage}`,
+        data: errorDetails,
+        timestamp: new Date().toISOString(),
+        category: "agent_execution",
+      });
+      
+      // Return error result instead of throwing
+      return { 
+        success: false, 
+        error: errorMessage,
+        tasksProcessed: 0,
+        insightsGenerated: 0,
+      };
     }
   },
 });
@@ -211,20 +238,46 @@ async function processFinancialTasks(
       processed++;
 
     } catch (error) {
-      await ctx.db.patch(task._id, {
-        status: "failed",
-        errorMessage: error instanceof Error ? error.message : String(error),
-        completedAt: new Date().toISOString(),
-      });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const taskType = task.taskType || 'unknown';
+      
+      // Categorize error for better handling
+      const errorCategory = categorizeError(error);
+      const isRetryable = errorCategory === 'temporary' || errorCategory === 'rate_limit';
+      
+      const patchData: any = {
+        status: isRetryable && (task.retryCount || 0) < 3 ? "pending" : "failed",
+        errorMessage: errorMessage,
+        retryCount: (task.retryCount || 0) + 1,
+      };
+      
+      if (!isRetryable) {
+        patchData.completedAt = new Date().toISOString();
+      }
+      
+      await ctx.db.patch(task._id, patchData);
 
       await ctx.db.insert("agentLogs", {
         agentId,
         level: "error",
-        message: `Failed to process task ${task._id}`,
-        data: { taskId: task._id, error: error instanceof Error ? error.message : String(error) },
+        message: `Failed to process ${taskType} task ${task._id}`,
+        data: { 
+          taskId: task._id, 
+          taskType: taskType,
+          error: errorMessage,
+          errorCategory: errorCategory,
+          isRetryable: isRetryable,
+          retryCount: task.retryCount || 0,
+          contractId: task.contractId,
+        },
         timestamp: new Date().toISOString(),
         category: "task_processing",
       });
+      
+      // Don't count retryable errors as failures
+      if (!isRetryable) {
+        processed--; // Decrement since we incremented earlier
+      }
     }
   }
 
@@ -236,9 +289,13 @@ async function analyzeContract(
   agentId: Id<"agents">,
   task: Doc<"agentTasks">
 ): Promise<FinancialAnalysis> {
-  const contract = task.contractId ? await ctx.db.get(task.contractId!) : null;
+  if (!task.contractId) {
+    throw new Error("Validation Error: Task missing contractId");
+  }
+  
+  const contract = await ctx.db.get(task.contractId);
   if (!contract) {
-    throw new Error("Contract not found");
+    throw new Error("Not Found: Contract does not exist");
   }
 
   const analysis: FinancialAnalysis = {
@@ -302,20 +359,25 @@ async function analyzeContract(
 
   // Create insights based on analysis
   if (analysis.risks.length > 0) {
-    await ctx.db.insert("agentInsights", {
+    const insightData: any = {
       agentId,
       type: "financial_risk",
       title: `Financial Risks Identified: ${contract.title}`,
       description: `${analysis.risks.length} financial risk(s) identified requiring attention`,
       priority: analysis.risks.some(r => r.severity === "high") ? "high" : "medium",
       contractId: contract._id,
-      vendorId: contract.vendorId || undefined,
       actionRequired: true,
       actionTaken: false,
       isRead: false,
       createdAt: new Date().toISOString(),
       data: analysis,
-    });
+    };
+    
+    if (contract.vendorId) {
+      insightData.vendorId = contract.vendorId;
+    }
+    
+    await ctx.db.insert("agentInsights", insightData);
   }
 
   // Update contract with analysis results
@@ -740,6 +802,32 @@ async function generateFinancialForecast(
       confidence: 0.7, // Simple model, moderate confidence
     },
   });
+}
+
+// ============================================================================
+// ERROR HANDLING HELPERS
+// ============================================================================
+
+function categorizeError(error: any): 'validation' | 'permission' | 'not_found' | 'temporary' | 'rate_limit' | 'unknown' {
+  const errorMessage = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  
+  if (errorMessage.includes('not found') || errorMessage.includes('does not exist')) {
+    return 'not_found';
+  }
+  if (errorMessage.includes('permission') || errorMessage.includes('access denied') || errorMessage.includes('unauthorized')) {
+    return 'permission';
+  }
+  if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
+    return 'validation';
+  }
+  if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
+    return 'rate_limit';
+  }
+  if (errorMessage.includes('timeout') || errorMessage.includes('network') || errorMessage.includes('temporary')) {
+    return 'temporary';
+  }
+  
+  return 'unknown';
 }
 
 // ============================================================================

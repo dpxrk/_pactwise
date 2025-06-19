@@ -1,5 +1,5 @@
 // Core business logic exports
-export * from './contracts/contracts';
+export * from '../contracts';
 export * from './vendors/vendors';
-export * from './users/users';
+export * from '../coreUsers';
 export * from './enterprises/enterprises';

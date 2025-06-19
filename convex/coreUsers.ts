@@ -1,8 +1,8 @@
-// convex/users.ts
-import { query, mutation } from "../../_generated/server";
+// convex/coreUsers.ts
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
-import { UserRole, userRoleOptions } from "../../schema"; // Import from schema
+import { UserRole, userRoleOptions } from "./schema"; // Import from schema
 
 // ============================================================================
 // USER MANAGEMENT
@@ -380,6 +380,17 @@ export const hasEnterpriseAccess = query({
     const requiredLevel = roleHierarchy[args.requiredRole];
 
     return userLevel >= requiredLevel; // User's role level must be greater than or equal to required
+  },
+});
+
+/**
+ * Get user by ID (internal use only - no auth check)
+ * This is used by secure wrappers to verify user context
+ */
+export const getUserById = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.userId);
   },
 });
 

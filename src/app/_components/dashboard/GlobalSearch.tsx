@@ -47,14 +47,14 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
             className="fixed left-[50%] top-[20%] translate-x-[-50%] w-full max-w-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <Card>
-              <CardContent className="p-4">
-                <Command className="w-full">
+            <Card className="bg-background border border-border shadow-lg">
+              <CardContent className="p-4 bg-background">
+                <Command className="w-full bg-background">
                   <CommandInput
                     value=""
                     onValueChange={() => {}}
                     placeholder="Search contracts, vendors, documents..."
-                    className="h-12"
+                    className="h-12 bg-background"
                   />
                 </Command>
                 <div className="mt-4">

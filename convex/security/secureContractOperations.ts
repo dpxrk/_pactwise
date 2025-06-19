@@ -3,7 +3,7 @@ import { Id } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
 import { createSecureQuery, createSecureMutation, createSecureAction } from "./secureWrapper";
 import { SecureQuery } from "./rowLevelSecurity";
-import { logAuditEvent } from "./auditLogging";
+import { logAuditEvent } from "../auditLogging";
 import { api } from "../_generated/api";
 import { ContractCSVRow } from "../../src/types/core-entities";
 

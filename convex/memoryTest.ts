@@ -1,7 +1,7 @@
 // convex/memory/test.ts
-import { mutation, query } from "../_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { api } from "../_generated/api";
+import { api } from "./_generated/api";
 
 // Test function to verify memory system works
 export const testMemorySystem = mutation({
@@ -24,7 +24,7 @@ export const testMemorySystem = mutation({
 
     try {
       // Test storing a short-term memory
-      const memoryId = await ctx.runMutation(api.memory.shortTermMemory.store, {
+      const memoryId = await ctx.runMutation(api.memoryShortTerm.store, {
         sessionId,
         memoryType: "process_knowledge",
         content: testContent,
@@ -41,7 +41,7 @@ export const testMemorySystem = mutation({
       });
 
       // Test conversation thread
-      const threadResult = await ctx.runMutation(api.memory.conversationThread.createThread, {
+      const threadResult = await ctx.runMutation(api.memoryConversationThread.createThread, {
         title: "Test Conversation",
         initialMessage: "Hello, this is a test message for the memory system.",
       });

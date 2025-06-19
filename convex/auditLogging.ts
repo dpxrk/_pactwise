@@ -1,9 +1,9 @@
-import { QueryCtx, MutationCtx, ActionCtx, query, mutation, internalMutation } from "../_generated/server";
+import { QueryCtx, MutationCtx, ActionCtx, query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
 import { defineTable } from "convex/server";
-import { Id } from "../_generated/dataModel";
-import { getSecurityContext } from "./rowLevelSecurity";
+import { Id } from "./_generated/dataModel";
+import { getSecurityContext } from "./security/rowLevelSecurity";
 
 /**
  * Comprehensive Audit Logging System

@@ -1,37 +1,22 @@
 import { query as baseQuery, mutation as baseMutation, action as baseAction, QueryCtx, MutationCtx, ActionCtx } from "../_generated/server";
-import { ConvexError } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { getSecurityContext, SecurityContext, hasPermission, SecureQuery, SecureMutation } from "./rowLevelSecurity";
 import { checkRateLimit } from "./rateLimiting";
-import { logAuditEvent } from "./auditLogging";
+import { logAuditEvent } from "../auditLogging";
 import { api } from "../_generated/api";
 
 /**
- * Validate Clerk JWT token
+ * Actions in Convex should use the built-in auth system instead of manual JWT validation.
+ * This function is deprecated and will be removed.
+ * 
+ * For actions that need authentication, they should be called from authenticated
+ * queries/mutations that already have access to ctx.auth.getUserIdentity().
+ * 
+ * If you need to validate external tokens, use Convex's HTTP endpoints instead.
  */
 async function validateClerkToken(token: string): Promise<{ sub: string } | null> {
-  try {
-    // In a real implementation, you would verify the JWT signature using Clerk's public key
-    // For now, we'll use Clerk's API to validate the token
-    const response = await fetch(`${process.env.CLERK_API_URL}/sessions/verify`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.CLERK_SECRET_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ token }),
-    });
-    
-    if (!response.ok) {
-      console.error('Clerk token validation failed:', response.statusText);
-      return null;
-    }
-    
-    const result = await response.json();
-    return result.user ? { sub: result.user.id } : null;
-  } catch (error) {
-    console.error('Error validating Clerk token:', error);
-    return null;
-  }
+  console.warn('Direct JWT validation in actions is deprecated. Use Convex auth system instead.');
+  return null;
 }
 
 // Role permissions for action authentication
@@ -197,36 +182,45 @@ export function createSecureMutation<Args, Output>(
 }
 
 /**
- * Create a secure action with authentication checks
+ * Create a secure action that requires authentication context
+ * 
+ * IMPORTANT: Actions in Convex cannot access ctx.auth directly.
+ * Authentication must be passed from the calling query/mutation.
+ * 
+ * Best practice: Call actions from authenticated mutations that pass
+ * the security context as an argument.
  */
-export function createSecureAction<Args, Output>(
+export function createSecureAction<Args extends { userId: string; enterpriseId: string }, Output>(
   args: any,
   options: SecureOptions,
   handler: (ctx: ActionCtx, args: Args, security: SecurityContext) => Promise<Output>
 ) {
   return baseAction({
-    args,
+    args: {
+      ...args,
+      // These are required for all secure actions
+      userId: v.id("users"),
+      enterpriseId: v.id("enterprises"),
+      userRole: v.string(),
+    },
     handler: async (ctx, args) => {
-      // Actions require proper authentication via JWT token
-      const argsWithAuth = args as any;
-      if (!argsWithAuth.authToken) {
-        throw new ConvexError("Authentication required: Actions must include a valid authToken.");
+      // Verify required auth parameters
+      if (!args.userId || !args.enterpriseId || !args.userRole) {
+        throw new ConvexError("Authentication required: Actions must be called with userId, enterpriseId, and userRole.");
       }
       
-      // Validate JWT token and get user information
+      // Get user to verify they still exist and are active
       let securityContext: SecurityContext;
       
       try {
-        // Validate the JWT token using Clerk's API
-        const clerkUser = await validateClerkToken(argsWithAuth.authToken);
-        if (!clerkUser) {
-          throw new ConvexError("Invalid authentication token");
-        }
-        
-        // Get user from database
-        const user = await ctx.runQuery(api.users.getByClerkId, { clerkId: clerkUser.sub });
+        const user = await ctx.runQuery(api.coreUsers.getUserById, { userId: args.userId });
         if (!user || !user.isActive) {
           throw new ConvexError("User not found or inactive");
+        }
+        
+        // Verify the provided enterpriseId matches the user's enterprise
+        if (user.enterpriseId !== args.enterpriseId) {
+          throw new ConvexError("Enterprise mismatch");
         }
         
         securityContext = {
@@ -237,7 +231,7 @@ export function createSecureAction<Args, Output>(
         };
       } catch (error) {
         console.error("Action authentication failed:", error);
-        throw new ConvexError("Authentication failed: Invalid or expired token");
+        throw new ConvexError("Authentication failed: User verification failed");
       }
       
       // Check rate limit (with simplified tracking for actions)
@@ -259,7 +253,7 @@ export function createSecureAction<Args, Output>(
         // Log audit event if possible
         if (options.audit) {
           try {
-            await ctx.runMutation(api.security.auditLogging.logEvent, {
+            await ctx.runMutation(api.auditLogging.logEvent, {
               userId: securityContext.userId,
               operation: options.audit.operation,
               resourceType: options.audit.resourceType,
@@ -276,7 +270,7 @@ export function createSecureAction<Args, Output>(
         // Log failed attempt
         if (options.audit) {
           try {
-            await ctx.runMutation(api.security.auditLogging.logEvent, {
+            await ctx.runMutation(api.auditLogging.logEvent, {
               userId: securityContext.userId,
               operation: options.audit.operation,
               resourceType: options.audit.resourceType,

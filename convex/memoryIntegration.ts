@@ -1,8 +1,8 @@
 // convex/memory/memoryIntegration.ts
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
-import { api } from "../_generated/api";
-import { Doc, Id } from "../_generated/dataModel";
+import { mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
+import { Doc, Id } from "./_generated/dataModel";
 
 // ============================================================================
 // MEMORY INTEGRATION WITH MANAGER AGENT
@@ -59,7 +59,7 @@ export const storeTaskContext = mutation({
     }
 
     // Store in short-term memory
-    await ctx.runMutation(api.memory.shortTermMemory.store, {
+    await ctx.runMutation(api.memoryShortTerm.store, {
       sessionId: args.sessionId,
       memoryType: "task_history",
       content: memoryContent,
@@ -120,7 +120,7 @@ export const storeInsightMemory = mutation({
     const importance = importanceMap[insight.priority as keyof typeof importanceMap] || "medium";
 
     // Store in short-term memory
-    await ctx.runMutation(api.memory.shortTermMemory.store, {
+    await ctx.runMutation(api.memoryShortTerm.store, {
       sessionId: args.sessionId,
       memoryType: "domain_knowledge",
       content: memoryContent,
@@ -141,7 +141,7 @@ export const storeInsightMemory = mutation({
 
     // If critical or high priority, also store in long-term memory
     if (importance === "critical" || importance === "high") {
-      await ctx.runMutation(api.memory.longTermMemory.store, {
+      await ctx.runMutation(api.memoryLongTerm.store, {
         memoryType: "domain_knowledge",
         content: memoryContent,
         structuredData,
@@ -184,7 +184,7 @@ export const getRelevantMemoriesForAgent = query({
 
     // Get recent short-term memories
     const shortTermMemories = await ctx.runQuery(
-      api.memory.shortTermMemory.getRecentMemories,
+      api.memoryShortTerm.getRecentMemories,
       {
         memoryTypes: relevantMemoryTypes,
         limit: args.limit || 20,
@@ -194,7 +194,7 @@ export const getRelevantMemoriesForAgent = query({
 
     // Get relevant long-term memories
     const longTermMemories = await ctx.runQuery(
-      api.memory.longTermMemory.getMemories,
+      api.memoryLongTerm.getMemories,
       {
         memoryTypes: relevantMemoryTypes,
         minImportance: "medium",
@@ -253,7 +253,7 @@ export const storeInteractionPattern = mutation({
 
     const content = `User performed ${args.action} on ${args.entityType} (${args.entityId})`;
     
-    await ctx.runMutation(api.memory.shortTermMemory.store, {
+    await ctx.runMutation(api.memoryShortTerm.store, {
       sessionId: args.sessionId,
       memoryType: "interaction_pattern",
       content,
@@ -306,7 +306,7 @@ export const storeUserFeedback = mutation({
                       args.feedbackType === "preference" ? "high" : "medium";
 
     // Store in short-term memory
-    await ctx.runMutation(api.memory.shortTermMemory.store, {
+    await ctx.runMutation(api.memoryShortTerm.store, {
       sessionId: args.sessionId,
       memoryType: "feedback",
       content: args.content,
@@ -327,7 +327,7 @@ export const storeUserFeedback = mutation({
 
     // Store preferences and corrections in long-term memory
     if (args.feedbackType === "preference" || args.feedbackType === "correction") {
-      await ctx.runMutation(api.memory.longTermMemory.store, {
+      await ctx.runMutation(api.memoryLongTerm.store, {
         memoryType: args.feedbackType === "preference" ? "user_preference" : "feedback",
         content: args.content,
         summary: `User ${args.feedbackType}: ${args.content.substring(0, 100)}`,
@@ -360,7 +360,7 @@ export const makeInformedDecision = query({
 
     // Get relevant memories
     const memories = await ctx.runQuery(
-      api.memory.memoryIntegration.getRelevantMemoriesForAgent,
+      api.memoryIntegration.getRelevantMemoriesForAgent,
       {
         agentType: "manager",
         taskType: args.decisionContext.taskType,
@@ -371,7 +371,7 @@ export const makeInformedDecision = query({
 
     // Get user preferences
     const preferences = await ctx.runQuery(
-      api.memory.longTermMemory.getMemories,
+      api.memoryLongTerm.getMemories,
       {
         memoryTypes: ["user_preference"],
         minImportance: "medium",
