@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useConvexQuery, useConvexMutation } from '@/lib/api-client';
 import { api } from '@/../convex/_generated/api';
-import { ONBOARDING_STEPS, OnboardingStep } from '@/../convex/onboarding';
+import { ONBOARDING_STEPS, type OnboardingStep } from '@/../convex/onboardingConstants';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner } from '@/app/_components/common/LoadingSpinner';

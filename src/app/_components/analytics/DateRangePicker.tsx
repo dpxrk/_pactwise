@@ -122,7 +122,10 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
 
   const handleDateSelect: SelectRangeEventHandler = (range) => {
     if (range && onChange) {
-      onChange(range);
+      onChange({
+        from: range.from,
+        to: range.to
+      });
       setSelectedPreset(""); // Clear preset when custom date is selected
     }
   };
@@ -200,7 +203,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
             <Calendar
               initialFocus
               mode="range"
-              defaultMonth={value?.from}
+              defaultMonth={value?.from || new Date()}
               selected={value}
               onSelect={handleDateSelect}
               numberOfMonths={2}

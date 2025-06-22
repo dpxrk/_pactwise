@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 import { useConvexQuery } from '@/lib/api-client';
 import { api } from '../../../../convex/_generated/api';
 import { Id } from '../../../../convex/_generated/dataModel';
-import type { VendorType, VendorCategory } from '@/types/vendor.types';
+import type { VendorCategory } from '@/types/vendor.types';
 import { useUser } from '@clerk/nextjs';
 
 // UI Components
@@ -41,10 +41,7 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
-  TrendingUp,
   DollarSign,
-  FileText,
-  Star,
   AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -120,8 +117,10 @@ export const VendorTable = ({
   // Memoized filtered and sorted vendors
   const processedVendors = useMemo(() => {
     if (!vendors) return [];
+    
+    const vendorsList = Array.isArray(vendors) ? vendors : vendors.vendors || [];
 
-    let filtered = vendors.filter((vendor) => {
+    let filtered = vendorsList.filter((vendor: any) => {
       // Search filter
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();

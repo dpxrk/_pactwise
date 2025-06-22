@@ -209,7 +209,17 @@ export default function OnboardingPage() {
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                       onClick={() => {
-                        setSelectedCompany(company);
+                        const companyData: CompanySearchResult = {
+                          _id: company._id,
+                          name: company.name
+                        };
+                        if (company.domain !== undefined) {
+                          companyData.domain = company.domain;
+                        }
+                        if (company.isParentOrganization !== undefined) {
+                          companyData.isParentOrganization = company.isParentOrganization;
+                        }
+                        setSelectedCompany(companyData);
                         setStep('pin-entry');
                       }}
                     >

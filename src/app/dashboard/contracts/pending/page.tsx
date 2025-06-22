@@ -16,7 +16,7 @@ const PendingContracts = () => {
   // Filter pending signature contracts and apply search
   const pendingContracts = useMemo(() => {
     return contracts.filter((contract) => {
-      const isPending = contract.status === "pending_signature";
+      const isPending = contract.status === "pending_analysis";
       if (!searchQuery) return isPending;
 
       const searchLower = searchQuery.toLowerCase();
@@ -24,7 +24,7 @@ const PendingContracts = () => {
         isPending &&
         (contract.title.toLowerCase().includes(searchLower) ||
           contract.vendor?.name.toLowerCase().includes(searchLower) ||
-          contract.contract_number.toLowerCase().includes(searchLower))
+          contract._id.toLowerCase().includes(searchLower))
       );
     });
   }, [contracts, searchQuery]);
@@ -37,14 +37,14 @@ const PendingContracts = () => {
     return {
       total: pendingContracts.length,
       urgentSignatures: pendingContracts.filter((contract) => {
-        const dueDate = new Date(contract.signature_due_date);
+        const dueDate = contract._creationTime ? new Date(contract._creationTime) : new Date();
         return dueDate <= now;
       }).length,
       recentlySent: pendingContracts.filter(
-        (contract) => new Date(contract.sent_for_signature_at) > twoDaysAgo
+        (contract) => contract._creationTime ? new Date(contract._creationTime) > twoDaysAgo : false
       ).length,
       awaitingCounterparty: pendingContracts.filter(
-        (contract) => contract.awaiting_counterparty
+        (contract) => false
       ).length,
     };
   }, [pendingContracts]);
@@ -120,7 +120,7 @@ const PendingContracts = () => {
       {/* Pending Contracts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {pendingContracts.map((contract) => (
-          <Card key={contract.id} className="hover:shadow-lg transition-shadow">
+          <Card key={contract._id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex justify-between items-start">
                 <CardTitle className="text-lg font-medium">
@@ -138,7 +138,7 @@ const PendingContracts = () => {
               <div className="flex items-center text-sm text-muted-foreground">
                 <Clock className="h-4 w-4 mr-1" />
                 Due by:{" "}
-                {new Date(contract.signature_due_date).toLocaleDateString()}
+                {contract._creationTime ? new Date(contract._creationTime).toLocaleDateString() : 'Unknown'}
               </div>
             </CardHeader>
             <CardContent>
@@ -148,7 +148,7 @@ const PendingContracts = () => {
                     Contract #:
                   </span>
                   <span className="font-medium">
-                    {contract.contract_number}
+                    {contract._id}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -160,9 +160,9 @@ const PendingContracts = () => {
                     Sent on:
                   </span>
                   <span className="font-medium">
-                    {new Date(
-                      contract.sent_for_signature_at
-                    ).toLocaleDateString()}
+                    {contract._creationTime ? new Date(
+                      contract._creationTime
+                    ).toLocaleDateString() : 'Unknown'}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -170,7 +170,7 @@ const PendingContracts = () => {
                     Signers:
                   </span>
                   <span className="font-medium">
-                    {contract.pending_signers?.length || 0} remaining
+                    {[]?.length || 0} remaining
                   </span>
                 </div>
               </div>

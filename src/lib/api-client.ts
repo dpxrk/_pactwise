@@ -181,6 +181,8 @@ interface UseContractsArgs {
     contractType?: ContractTypeEnum | "all"; // Use imported ContractTypeEnum
     // Add other filters if your getContracts query supports them (e.g., status)
     status?: string; // Example
+    cursor?: string;
+    limit?: number;
 }
 
 /**
@@ -193,30 +195,18 @@ export const useContracts = (args: UseContractsArgs | null | undefined | typeof 
         api.contracts.getContracts,
         args === SKIP_TOKEN || !args || !args.enterpriseId
             ? SKIP_TOKEN
-            : {
-                  ...args,
-                  // Explicitly narrow status to allowed values if present
-                  status: args.status as
-                      | "draft"
-                      | "pending_analysis"
-                      | "active"
-                      | "expired"
-                      | "terminated"
-                      | "archived"
-                      | "all"
-                      | undefined,
-                  contractType: args.contractType as
-                      | "other"
-                      | "nda"
-                      | "msa"
-                      | "sow"
-                      | "saas"
-                      | "lease"
-                      | "employment"
-                      | "partnership"
-                      | "all"
-                      | undefined,
-              }
+            : (() => {
+                  const queryArgs: any = {
+                      enterpriseId: args.enterpriseId,
+                  };
+                  
+                  if (args.status) queryArgs.status = args.status;
+                  if (args.contractType) queryArgs.contractType = args.contractType;
+                  if (args.cursor) queryArgs.cursor = args.cursor;
+                  if (args.limit) queryArgs.limit = args.limit;
+                  
+                  return queryArgs;
+              })()
     );
   }
 

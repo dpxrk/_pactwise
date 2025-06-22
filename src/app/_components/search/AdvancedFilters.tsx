@@ -287,7 +287,7 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
     if (!acc[field.category]) {
       acc[field.category] = [];
     }
-    acc[field.category].push(field);
+    acc[field.category]!.push(field);
     return acc;
   }, {} as Record<string, FilterField[]>);
 
@@ -303,12 +303,17 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
     if (value !== undefined && value !== null && value !== '' && 
         !(Array.isArray(value) && value.length === 0)) {
       const field = fields.find(f => f.id === fieldId);
-      newFilters.push({
+      const newFilter: ActiveFilter = {
         fieldId,
         value,
         operator: operator as any,
-        label: field?.label
-      });
+      };
+      
+      if (field?.label) {
+        newFilter.label = field.label;
+      }
+      
+      newFilters.push(newFilter);
     }
 
     onFiltersChange(newFilters);
@@ -372,7 +377,7 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
         return (
           <Select
             value={(value as string) || ''}
-            onValueChange={(val) => updateFilter(field.id, val)}
+            onValueChange={(val: string) => updateFilter(field.id, val)}
           >
             <SelectTrigger>
               <SelectValue placeholder={field.placeholder || 'Select...'} />
@@ -402,7 +407,7 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
               <div key={option.value} className="flex items-center space-x-2">
                 <Checkbox
                   checked={selectedValues.includes(option.value)}
-                  onCheckedChange={(checked) => {
+                  onCheckedChange={(checked: boolean) => {
                     const newValues = checked
                       ? [...selectedValues, option.value]
                       : selectedValues.filter(v => v !== option.value);
@@ -426,7 +431,7 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
         return (
           <RadioGroup
             value={(value as string) || ''}
-            onValueChange={(val) => updateFilter(field.id, val)}
+            onValueChange={(val: string) => updateFilter(field.id, val)}
           >
             {field.options?.map(option => (
               <div key={option.value} className="flex items-center space-x-2">
@@ -442,7 +447,7 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
           <div className="flex items-center space-x-2">
             <Checkbox
               checked={(value as boolean) || false}
-              onCheckedChange={(checked) => updateFilter(field.id, checked)}
+              onCheckedChange={(checked: boolean) => updateFilter(field.id, checked)}
             />
             <Label className="text-sm">{field.description || 'Enable'}</Label>
           </div>
@@ -461,7 +466,7 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
               <CalendarComponent
                 mode="single"
                 selected={value as Date}
-                onSelect={(date) => updateFilter(field.id, date)}
+                onSelect={(date: Date | undefined) => date && updateFilter(field.id, date)}
                 initialFocus
               />
             </PopoverContent>
@@ -552,14 +557,14 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
           <div className="space-y-2">
             <Slider
               value={[value as number || field.min || 0]}
-              onValueChange={(vals) => updateFilter(field.id, vals[0])}
-              min={field.min}
-              max={field.max}
-              step={field.step}
+              onValueChange={(vals: number[]) => vals[0] !== undefined && updateFilter(field.id, vals[0])}
+              min={field.min || 0}
+              max={field.max || 100}
+              step={field.step || 1}
             />
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>{field.min}</span>
-              <span className="font-medium">{value || field.min}</span>
+              <span className="font-medium">{String(value || field.min)}</span>
               <span>{field.max}</span>
             </div>
           </div>

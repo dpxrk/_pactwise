@@ -1,10 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DynamicChart from "@/app/_components/common/DynamicCharts"
 const contractTrends = [
-  { month: "Jan", active: 45, completed: 30, expired: 5, value: 150000 },
-  { month: "Feb", active: 52, completed: 35, expired: 3, value: 180000 },
-  { month: "Mar", active: 48, completed: 40, expired: 4, value: 165000 },
-  { month: "Apr", active: 60, completed: 38, expired: 6, value: 200000 },
+  { name: "Jan", month: "Jan", active: 45, completed: 30, expired: 5, value: 150000 },
+  { name: "Feb", month: "Feb", active: 52, completed: 35, expired: 3, value: 180000 },
+  { name: "Mar", month: "Mar", active: 48, completed: 40, expired: 4, value: 165000 },
+  { name: "Apr", month: "Apr", active: 60, completed: 38, expired: 6, value: 200000 },
 ];
 
 export const ContractAnalyticsSection = () => (
@@ -40,7 +40,7 @@ export const ContractAnalyticsSection = () => (
                 stackId: "1",
                 fillOpacity: 0.6
               }
-            ]}
+            ] as any}
             xAxisKey="month"
             height={340}
             stacked={true}

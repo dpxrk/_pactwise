@@ -1,5 +1,7 @@
 // Animation utilities and configurations for modern UI interactions
 
+import * as React from 'react';
+
 export const animations = {
   // Duration constants
   duration: {
@@ -178,7 +180,7 @@ export function useScrollAnimation() {
   React.useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
+        if (entry && entry.isIntersecting) {
           setIsVisible(true);
           observer.unobserve(entry.target);
         }

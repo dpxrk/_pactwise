@@ -205,7 +205,7 @@ class GlobalErrorHandler {
     };
   }
 
-  private categorizeConvexError(error: ConvexError): ErrorCategory {
+  private categorizeConvexError(error: ConvexError<any>): ErrorCategory {
     const message = error.message.toLowerCase();
     if (message.includes('auth') || message.includes('unauthorized')) return 'auth';
     if (message.includes('permission') || message.includes('access')) return 'permission';
@@ -214,7 +214,7 @@ class GlobalErrorHandler {
     return 'api';
   }
 
-  private getSeverityForConvexError(error: ConvexError): ErrorSeverity {
+  private getSeverityForConvexError(error: ConvexError<any>): ErrorSeverity {
     const message = error.message.toLowerCase();
     if (message.includes('critical') || message.includes('security')) return 'critical';
     if (message.includes('auth') || message.includes('permission')) return 'high';
@@ -222,7 +222,7 @@ class GlobalErrorHandler {
     return 'low';
   }
 
-  private isRetryableConvexError(error: ConvexError): boolean {
+  private isRetryableConvexError(error: ConvexError<any>): boolean {
     const message = error.message.toLowerCase();
     // Don't retry auth, permission, or validation errors
     if (message.includes('auth') || message.includes('permission') || message.includes('validation')) {
@@ -254,7 +254,7 @@ class GlobalErrorHandler {
   }
 
   // Main error handling method
-  public async handleError(error: Error | ConvexError | unknown, context?: ErrorContext): Promise<AppError> {
+  public async handleError(error: Error | ConvexError<any> | unknown, context?: ErrorContext): Promise<AppError> {
     const appError = this.normalizeError(error, context);
 
     // Add to history
@@ -273,22 +273,22 @@ class GlobalErrorHandler {
   }
 
   // Convenience methods for specific error types
-  public async handleApiError(error: Error | ConvexError | unknown, endpoint?: string, operation?: string): Promise<AppError> {
+  public async handleApiError(error: Error | ConvexError<any> | unknown, endpoint?: string, operation?: string): Promise<AppError> {
     return this.handleError(error, {
       action: 'api_call',
       metadata: { endpoint, operation }
     });
   }
 
-  public async handleUserError(error: Error | ConvexError | unknown, userId?: string, action?: string): Promise<AppError> {
-    return this.handleError(error, {
-      userId,
-      action,
-      category: 'user'
-    });
+  public async handleUserError(error: Error | ConvexError<any> | unknown, userId?: string, action?: string): Promise<AppError> {
+    const context: ErrorContext = {};
+    if (userId) context.userId = userId;
+    if (action) context.action = action;
+    
+    return this.handleError(error, context);
   }
 
-  public async handleComponentError(error: Error | ConvexError | unknown, component: string, props?: Record<string, unknown>): Promise<AppError> {
+  public async handleComponentError(error: Error | ConvexError<any> | unknown, component: string, props?: Record<string, unknown>): Promise<AppError> {
     return this.handleError(error, {
       component,
       action: 'component_render',

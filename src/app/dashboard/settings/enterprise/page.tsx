@@ -117,7 +117,7 @@ const EnterpriseSettingsPage = () => {
   }
 
   return (
-    <PermissionGate requiredRole="admin">
+    <PermissionGate role="admin">
       <div className="space-y-6">
         {/* Basic Information */}
         <Card>

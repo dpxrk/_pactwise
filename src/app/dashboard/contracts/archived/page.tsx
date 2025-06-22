@@ -25,7 +25,7 @@ const ArchivedContracts = () => {
         isArchived &&
         (contract.title.toLowerCase().includes(searchLower) ||
           contract.vendor?.name.toLowerCase().includes(searchLower) ||
-          contract.contract_number.toLowerCase().includes(searchLower))
+          contract._id.toLowerCase().includes(searchLower))
       );
     });
   }, [contracts, searchQuery]);
@@ -33,7 +33,7 @@ const ArchivedContracts = () => {
   // Calculate archive statistics
   const stats = useMemo(() => {
     const totalValue = archivedContracts.reduce(
-      (sum, contract) => sum + (contract.value || 0),
+      (sum, contract) => sum + 0, // TODO: Add value field
       0
     );
     const lastThirtyDays = new Date();
@@ -43,7 +43,7 @@ const ArchivedContracts = () => {
       total: archivedContracts.length,
       totalValue: totalValue,
       recentlyArchived: archivedContracts.filter(
-        (contract) => new Date(contract.archived_at) > lastThirtyDays
+        (contract) => contract._creationTime && new Date(contract._creationTime) > lastThirtyDays
       ).length,
     };
   }, [archivedContracts]);
@@ -105,7 +105,7 @@ const ArchivedContracts = () => {
       {/* Contracts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {archivedContracts.map((contract) => (
-          <Card key={contract.id} className="hover:shadow-lg transition-shadow">
+          <Card key={contract._id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex justify-between items-start">
                 <CardTitle className="text-lg font-medium">
@@ -118,7 +118,7 @@ const ArchivedContracts = () => {
               <div className="flex items-center text-sm text-muted-foreground">
                 <Archive className="h-4 w-4 mr-1" />
                 Archived on{" "}
-                {new Date(contract.archived_at).toLocaleDateString()}
+                {contract._creationTime ? new Date(contract._creationTime).toLocaleDateString() : 'N/A'}
               </div>
             </CardHeader>
             <CardContent>
@@ -128,13 +128,13 @@ const ArchivedContracts = () => {
                     Contract #:
                   </span>
                   <span className="font-medium">
-                    {contract.contract_number}
+                    {contract._id}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Value:</span>
                   <span className="font-medium">
-                    ${contract.value?.toLocaleString()}
+                    {contract.extractedPricing || 'N/A'}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -146,7 +146,7 @@ const ArchivedContracts = () => {
                     End Date:
                   </span>
                   <span className="font-medium">
-                    {new Date(contract.expires_at).toLocaleDateString()}
+                    {contract.extractedEndDate ? new Date(contract.extractedEndDate).toLocaleDateString() : 'N/A'}
                   </span>
                 </div>
               </div>

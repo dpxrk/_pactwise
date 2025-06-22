@@ -44,10 +44,10 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({
         
         <div className="mt-4">
           <ContractForm 
+            {...(contractId && { contractId })}
             isModal={true} 
-            contractId={contractId} 
             onClose={onClose}
-            onSuccess={onSuccess}
+            {...(onSuccess && { onSuccess })}
           />
         </div>
       </DialogContent>

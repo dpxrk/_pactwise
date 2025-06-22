@@ -3,7 +3,7 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
-import { Text } from '@react-three/drei';
+import { Text, Line as DreiLine } from '@react-three/drei';
 import { LineChartProps, ChartDataPoint, ChartSeries } from '@/types/three-charts.types';
 import { BaseThreeChart } from './BaseThreeChart';
 import {
@@ -102,44 +102,43 @@ const AnimatedLine: React.FC<{
   smoothCurve: boolean;
   index: number;
 }> = ({ points, color, lineWidth, smoothCurve, index }) => {
-  const lineRef = useRef<THREE.Line>(null);
-  const materialRef = useRef<THREE.LineBasicMaterial>(null);
+  const lineRef = useRef<any>(null);
+  const [opacity, setOpacity] = React.useState(0);
 
-  // Create line geometry
-  const geometry = useMemo(() => {
+  // Create line points
+  const linePoints = useMemo(() => {
     if (smoothCurve && points.length > 2) {
       // Create smooth curve using CatmullRomCurve3
       const curve = new THREE.CatmullRomCurve3(points);
       const curvePoints = curve.getPoints(points.length * 10);
-      return new THREE.BufferGeometry().setFromPoints(curvePoints);
+      return curvePoints.map(p => [p.x, p.y, p.z] as [number, number, number]);
     } else {
-      return new THREE.BufferGeometry().setFromPoints(points);
+      return points.map(p => [p.x, p.y, p.z] as [number, number, number]);
     }
   }, [points, smoothCurve]);
 
   // Animation on mount
   useEffect(() => {
-    if (materialRef.current) {
-      materialRef.current.opacity = 0;
-      gsap.to(materialRef.current, {
-        duration: 0.8,
-        opacity: 1,
-        delay: index * 0.2,
-        ease: "power2.out",
-      });
-    }
+    gsap.to({ value: 0 }, {
+      duration: 0.8,
+      value: 1,
+      delay: index * 0.2,
+      ease: "power2.out",
+      onUpdate: function() {
+        setOpacity(this.targets()[0].value);
+      }
+    });
   }, [index]);
 
   return (
-    <line ref={lineRef} geometry={geometry}>
-      <lineBasicMaterial
-        ref={materialRef}
-        color={hexToThreeColor(color)}
-        linewidth={lineWidth}
-        transparent
-        opacity={1}
-      />
-    </line>
+    <DreiLine
+      ref={lineRef}
+      points={linePoints}
+      color={hexToThreeColor(color)}
+      lineWidth={lineWidth * 10}
+      transparent
+      opacity={opacity}
+    />
   );
 };
 
@@ -156,7 +155,10 @@ const AreaFill: React.FC<{
     const shape = new THREE.Shape();
     
     // Start from bottom
-    shape.moveTo(points[0].x, 0);
+    const firstPoint = points[0];
+    if (firstPoint) {
+      shape.moveTo(firstPoint.x, 0);
+    }
     
     if (smoothCurve && points.length > 2) {
       // Create smooth curve
@@ -178,8 +180,12 @@ const AreaFill: React.FC<{
     }
     
     // Close the shape at bottom
-    shape.lineTo(points[points.length - 1].x, 0);
-    shape.lineTo(points[0].x, 0);
+    const lastPoint = points[points.length - 1];
+    const firstPt = points[0];
+    if (lastPoint && firstPt) {
+      shape.lineTo(lastPoint.x, 0);
+      shape.lineTo(firstPt.x, 0);
+    }
 
     return new THREE.ShapeGeometry(shape);
   }, [points, smoothCurve]);
@@ -282,9 +288,13 @@ const LineChartContent: React.FC<{
       
       lines.push(
         <group key={`grid-${i}`}>
-          <line geometry={geometry}>
-            <lineBasicMaterial color={theme.gridColor} opacity={0.3} transparent />
-          </line>
+          <DreiLine
+            points={points}
+            color={theme.gridColor}
+            lineWidth={1}
+            opacity={0.3}
+            transparent
+          />
           <Text
             position={[-totalWidth / 2 - 1.5, y, 0]}
             fontSize={0.2}
@@ -349,17 +359,21 @@ const LineChartContent: React.FC<{
           )}
           
           {/* Data points */}
-          {showPoints && seriesData.visible && seriesData.points.map((point, pointIndex) => (
-            <DataPoint
-              key={`point-${seriesIndex}-${pointIndex}`}
-              position={[point.x, point.y, point.z]}
-              color={seriesData.color}
-              size={pointSize}
-              dataPoint={seriesData.dataPoints[pointIndex]}
-              index={pointIndex}
-              visible={seriesData.visible}
-            />
-          ))}
+          {showPoints && seriesData.visible && seriesData.points.map((point, pointIndex) => {
+            const dataPoint = seriesData.dataPoints[pointIndex];
+            if (!dataPoint) return null;
+            return (
+              <DataPoint
+                key={`point-${seriesIndex}-${pointIndex}`}
+                position={[point.x, point.y, point.z]}
+                color={seriesData.color}
+                size={pointSize}
+                dataPoint={dataPoint}
+                index={pointIndex}
+                visible={seriesData.visible}
+              />
+            );
+          })}
         </group>
       ))}
     </group>
@@ -418,12 +432,12 @@ export const ThreeLineChart: React.FC<LineChartProps> = ({
       camera={camera}
       enableGrid={false}
       enableAxes={false}
-      className={className}
+      {...(className && { className })}
       {...props}
     >
       <LineChartContent
         data={validData}
-        series={series}
+        {...(series && { series })}
         lineWidth={lineWidth}
         pointSize={pointSize}
         showPoints={showPoints}

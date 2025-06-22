@@ -36,6 +36,7 @@ export const SessionWrapper: React.FC<SessionWrapperProps> = ({ children }) => {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       };
     }
+    return undefined;
   }, [isSignedIn, userId, extendSession]);
 
   return <>{children}</>;

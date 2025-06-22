@@ -73,11 +73,17 @@ export function rateLimitedQuery<Args, Output>(
     if (!shouldSkipRateLimit(userRole, options)) {
       const ipAddress = getIpAddress(ctx);
       
-      const rateLimitResult = await checkRateLimit(ctx, options.operation, {
-        userId,
-        ipAddress,
-        cost: options.cost,
-      });
+      const rateLimitOptions: {
+        userId?: Id<"users">;
+        ipAddress?: string;
+        cost?: number;
+      } = {};
+      
+      if (userId !== undefined) rateLimitOptions.userId = userId;
+      if (ipAddress !== undefined && ipAddress !== "unknown") rateLimitOptions.ipAddress = ipAddress;
+      if (options.cost !== undefined) rateLimitOptions.cost = options.cost;
+      
+      const rateLimitResult = await checkRateLimit(ctx, options.operation, rateLimitOptions);
       
       if (!rateLimitResult.allowed) {
         throw new ConvexError(`Rate limit exceeded for operation: ${options.operation}. Please try again in ${rateLimitResult.resetIn || 60} seconds.`);
@@ -102,11 +108,17 @@ export function rateLimitedMutation<Args, Output>(
     if (!shouldSkipRateLimit(userRole, options)) {
       const ipAddress = getIpAddress(ctx);
       
-      const rateLimitResult = await checkRateLimit(ctx, options.operation, {
-        userId,
-        ipAddress,
-        cost: options.cost,
-      });
+      const rateLimitOptions: {
+        userId?: Id<"users">;
+        ipAddress?: string;
+        cost?: number;
+      } = {};
+      
+      if (userId !== undefined) rateLimitOptions.userId = userId;
+      if (ipAddress !== undefined && ipAddress !== "unknown") rateLimitOptions.ipAddress = ipAddress;
+      if (options.cost !== undefined) rateLimitOptions.cost = options.cost;
+      
+      const rateLimitResult = await checkRateLimit(ctx, options.operation, rateLimitOptions);
       
       if (!rateLimitResult.allowed) {
         throw new ConvexError(`Rate limit exceeded for operation: ${options.operation}. Please try again in ${rateLimitResult.resetIn || 60} seconds.`);
@@ -132,11 +144,18 @@ export function rateLimitedAction<Args, Output>(
     const userId = identity?.subject;
     
     try {
-      await ctx.runMutation(rateLimitCheck, {
+      const mutationArgs: {
+        operation: string;
+        cost?: number;
+        clerkId?: string;
+      } = {
         operation: options.operation,
-        cost: options.cost,
-        clerkId: userId,
-      });
+      };
+      
+      if (options.cost !== undefined) mutationArgs.cost = options.cost;
+      if (userId !== undefined) mutationArgs.clerkId = userId;
+      
+      await ctx.runMutation(rateLimitCheck, mutationArgs);
     } catch (error) {
       if (error instanceof ConvexError && error.message.includes("Rate limit exceeded")) {
         throw error;

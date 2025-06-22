@@ -43,7 +43,6 @@ export const VendorForm: React.FC<VendorFormProps> = ({
     contactPhone: "",
     address: "",
     website: "",
-    category: undefined,
     status: "active",
     notes: "",
   });
@@ -53,16 +52,17 @@ export const VendorForm: React.FC<VendorFormProps> = ({
   // Reset form when dialog opens/closes or vendor changes
   useEffect(() => {
     if (vendor) {
-      setFormData({
+      const data: Partial<VendorType> = {
         name: vendor.name || "",
         contactEmail: vendor.contactEmail || "",
         contactPhone: vendor.contactPhone || "",
         address: vendor.address || "",
         website: vendor.website || "",
-        category: vendor.category,
         status: vendor.status || "active",
         notes: vendor.notes || "",
-      });
+      };
+      if (vendor.category) data.category = vendor.category;
+      setFormData(data);
     } else {
       setFormData({
         name: "",
@@ -70,7 +70,6 @@ export const VendorForm: React.FC<VendorFormProps> = ({
         contactPhone: "",
         address: "",
         website: "",
-        category: undefined,
         status: "active",
         notes: "",
       });
@@ -161,7 +160,7 @@ export const VendorForm: React.FC<VendorFormProps> = ({
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select
-                  value={formData.category}
+                  {...(formData.category && { value: formData.category })}
                   onValueChange={(value) => handleInputChange("category", value)}
                 >
                   <SelectTrigger>
@@ -181,7 +180,7 @@ export const VendorForm: React.FC<VendorFormProps> = ({
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
               <Select
-                value={formData.status}
+                {...(formData.status && { value: formData.status })}
                 onValueChange={(value) => handleInputChange("status", value)}
               >
                 <SelectTrigger>

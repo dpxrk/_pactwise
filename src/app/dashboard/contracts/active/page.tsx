@@ -25,7 +25,7 @@ const ActiveContracts = () => {
         isActive &&
         (contract.title.toLowerCase().includes(searchLower) ||
           contract.vendor?.name.toLowerCase().includes(searchLower) ||
-          contract.contract_number.toLowerCase().includes(searchLower))
+          contract._id.toLowerCase().includes(searchLower))
       );
     });
   }, [contracts, searchQuery]);
@@ -33,7 +33,7 @@ const ActiveContracts = () => {
   // Calculate active contract statistics
   const stats = useMemo(() => {
     const totalValue = activeContracts.reduce(
-      (sum, contract) => sum + (contract.value || 0),
+      (sum, contract) => sum + 0, // TODO: Add value field to contract
       0
     );
     const avgValue =
@@ -44,10 +44,10 @@ const ActiveContracts = () => {
       totalValue: totalValue,
       averageValue: avgValue,
       expiringSoon: activeContracts.filter((contract) => {
-        const expiryDate = new Date(contract.expires_at);
+        const expiryDate = contract.extractedEndDate ? new Date(contract.extractedEndDate) : null;
         const thirtyDaysFromNow = new Date();
         thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-        return expiryDate <= thirtyDaysFromNow;
+        return expiryDate && expiryDate <= thirtyDaysFromNow;
       }).length,
     };
   }, [activeContracts]);
@@ -109,13 +109,13 @@ const ActiveContracts = () => {
       {/* Contracts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {activeContracts.map((contract) => (
-          <Card key={contract.id} className="hover:shadow-lg transition-shadow">
+          <Card key={contract._id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <CardTitle className="text-lg font-medium">
                 {contract.title}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Contract #{contract.contract_number}
+                Contract #{contract._id}
               </p>
             </CardHeader>
             <CardContent>
@@ -123,7 +123,7 @@ const ActiveContracts = () => {
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Value:</span>
                   <span className="font-medium">
-                    ${contract.value?.toLocaleString()}
+                    {contract.extractedPricing || 'N/A'}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -135,7 +135,7 @@ const ActiveContracts = () => {
                     Expires:
                   </span>
                   <span className="font-medium">
-                    {new Date(contract.expires_at).toLocaleDateString()}
+                    {contract.extractedEndDate ? new Date(contract.extractedEndDate).toLocaleDateString() : 'N/A'}
                   </span>
                 </div>
               </div>

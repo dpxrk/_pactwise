@@ -2,9 +2,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DynamicChart from "@/app/_components/common/DynamicCharts"
 
 const departmentPerformance = [
-  { department: "Legal", efficiency: 92, contracts: 150, savings: 125000 },
-  { department: "Sales", efficiency: 88, contracts: 200, savings: 180000 },
-  { department: "Procurement", efficiency: 95, contracts: 180, savings: 150000 },
+  { name: "Legal", department: "Legal", value: 150, efficiency: 92, contracts: 150, savings: 125000 },
+  { name: "Sales", department: "Sales", value: 200, efficiency: 88, contracts: 200, savings: 180000 },
+  { name: "Procurement", department: "Procurement", value: 180, efficiency: 95, contracts: 180, savings: 150000 },
 ];
 
 export const DepartmentPerformanceSection = () => (
@@ -22,7 +22,7 @@ export const DepartmentPerformanceSection = () => (
               dataKey: "contracts",
               name: "Contracts",
               color: "#60a5fa"
-            }]}
+            }] as any}
             xAxisKey="department"
             height={280}
             showGrid={true}
@@ -48,7 +48,7 @@ export const DepartmentPerformanceSection = () => (
               color: "#4ade80",
               strokeWidth: 2,
               dot: true
-            }]}
+            }] as any}
             xAxisKey="department"
             height={280}
             showGrid={true}

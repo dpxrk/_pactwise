@@ -132,12 +132,19 @@ export const upsertUser = mutation({
       .first();
     
     if (existingUser) {
-      await ctx.db.patch(existingUser._id, {
+      const updateData: any = {
         lastLoginAt: new Date().toISOString(),
-        firstName: typeof identity.given_name === "string" ? identity.given_name : undefined,
-        lastName: typeof identity.family_name === "string" ? identity.family_name : undefined,
-        email: identity.email || existingUser.email, 
-      });
+        email: identity.email || existingUser.email,
+      };
+      
+      if (typeof identity.given_name === "string") {
+        updateData.firstName = identity.given_name;
+      }
+      if (typeof identity.family_name === "string") {
+        updateData.lastName = identity.family_name;
+      }
+      
+      await ctx.db.patch(existingUser._id, updateData);
       return existingUser._id;
     }
 
@@ -199,17 +206,24 @@ export const upsertUser = mutation({
     }
 
     // Create the new user document
-    const userId = await ctx.db.insert("users", {
+    const userData: any = {
       clerkId: identity.subject,
       email: identity.email || "", // Ensure email is always set
-      firstName: typeof identity.given_name === "string" ? identity.given_name : undefined,
-      lastName: typeof identity.family_name === "string" ? identity.family_name : undefined,
       enterpriseId: resolvedEnterpriseId,
       role: resolvedRole,
       isActive: true, // New users are active by default
       lastLoginAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
-    });
+    };
+    
+    if (typeof identity.given_name === "string") {
+      userData.firstName = identity.given_name;
+    }
+    if (typeof identity.family_name === "string") {
+      userData.lastName = identity.family_name;
+    }
+    
+    const userId = await ctx.db.insert("users", userData);
 
     return userId;
   },
@@ -472,7 +486,7 @@ export const updateUserProfile = mutation({
       if (args.firstName.trim().length < 1 && userToUpdate.firstName === undefined) { // only error if it was undefined and now it is empty
          // Allow clearing if already set
       } else if (args.firstName.trim().length < 1 && userToUpdate.firstName !== undefined) {
-         updates.firstName = undefined; // Set to undefined to clear
+         delete updates.firstName; // Remove from updates to clear
       }
       else if (args.firstName.trim().length > 0) {
         updates.firstName = args.firstName.trim();
@@ -483,7 +497,7 @@ export const updateUserProfile = mutation({
       if (args.lastName.trim().length < 1 && userToUpdate.lastName === undefined) {
         // Allow clearing if already set
       } else if (args.lastName.trim().length < 1 && userToUpdate.lastName !== undefined) {
-          updates.lastName = undefined; // Set to undefined to clear
+          delete updates.lastName; // Remove from updates to clear
       }
       else if (args.lastName.trim().length > 0) {
         updates.lastName = args.lastName.trim();
@@ -492,13 +506,28 @@ export const updateUserProfile = mutation({
 
 
     if (args.phoneNumber !== undefined) {
-      updates.phoneNumber = args.phoneNumber.trim() || undefined;
+      const trimmedPhone = args.phoneNumber.trim();
+      if (trimmedPhone) {
+        updates.phoneNumber = trimmedPhone;
+      } else {
+        delete updates.phoneNumber;
+      }
     }
     if (args.department !== undefined) {
-      updates.department = args.department.trim() || undefined;
+      const trimmedDept = args.department.trim();
+      if (trimmedDept) {
+        updates.department = trimmedDept;
+      } else {
+        delete updates.department;
+      }
     }
     if (args.title !== undefined) {
-      updates.title = args.title.trim() || undefined;
+      const trimmedTitle = args.title.trim();
+      if (trimmedTitle) {
+        updates.title = trimmedTitle;
+      } else {
+        delete updates.title;
+      }
     }
 
     if (Object.keys(updates).length > 0) {

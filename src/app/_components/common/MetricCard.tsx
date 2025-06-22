@@ -23,7 +23,9 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
   <Card className="bg-background-glass backdrop-blur-sm border border-border/50 shadow-lg hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1 transition-all duration-200 ease-out cursor-pointer group">
     <CardHeader className="flex flex-row items-center justify-between pb-2">
       <CardTitle className="text-sm font-medium">{title}</CardTitle>
-      <Icon className="h-4 w-4 text-primary group-hover:scale-110 transition-transform duration-200 ease-out" />
+      {React.createElement(Icon, {
+        className: "h-4 w-4 text-primary group-hover:scale-110 transition-transform duration-200 ease-out"
+      })}
     </CardHeader>
     <CardContent>
       <div className="text-2xl font-bold text-primary">{value}</div>

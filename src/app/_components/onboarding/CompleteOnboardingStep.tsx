@@ -10,7 +10,7 @@ import { api } from '@/../convex/_generated/api';
 
 const CompleteOnboardingStep: React.FC = () => {
   const router = useRouter();
-  const completeOnboardingAction = useConvexAction(api.onboarding.completeOnboarding);
+  const completeOnboardingAction = useConvexAction(api.onboardingActions.completeOnboarding);
 
   useEffect(() => {
     // Call the action to finalize onboarding on the backend

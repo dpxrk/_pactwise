@@ -3,6 +3,64 @@ import { v } from "convex/values";
 import { query, mutation, internalMutation } from "../../_generated/server";
 import { Id } from "../../_generated/dataModel";
 
+// Type definitions for document data
+type DocumentInsertData = {
+  title: string;
+  contractId?: Id<"contracts">;
+  ownerId: Id<"users">;
+  collaborators: Id<"users">[];
+  permissions: {
+    read: Id<"users">[];
+    write: Id<"users">[];
+    comment: Id<"users">[];
+    admin: Id<"users">[];
+  };
+  state: {
+    content: string;
+    operations: Array<{
+      type: "insert" | "delete" | "retain" | "format";
+      position: number;
+      userId: Id<"users">;
+      timestamp: number;
+      id: string;
+      content?: string;
+      length?: number;
+      attributes?: unknown;
+    }>;
+    version: number;
+    lastModified: number;
+    spans: Array<{
+      content: string;
+      attributes?: unknown;
+      start: number;
+      end: number;
+    }>;
+  };
+  isLocked: boolean;
+  createdAt: number;
+};
+
+type SuggestionInsertData = {
+  documentId: Id<"collaborativeDocuments">;
+  userId: Id<"users">;
+  userName: string;
+  type: "delete" | "insert" | "replace";
+  position: number;
+  length: number;
+  originalContent: string;
+  suggestedContent: string;
+  reason?: string;
+  status: "pending";
+  createdAt: number;
+};
+
+type SuggestionPatchData = {
+  status: "accepted" | "rejected";
+  reviewedBy: Id<"users">;
+  reviewedAt: number;
+  reviewComment?: string;
+};
+
 // ============================================================================
 // QUERIES
 // ============================================================================
@@ -48,6 +106,26 @@ export const getPresence = query({
       .first();
 
     return session?.users.filter(user => user.isActive) || [];
+  }
+});
+
+export const getUserDocuments = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    // Get all documents and filter in memory
+    // (Convex doesn't support arrayContains in queries yet)
+    const allDocuments = await ctx.db
+      .query("collaborativeDocuments")
+      .order("desc")
+      .collect();
+
+    // Filter documents where user is owner or collaborator
+    const userDocuments = allDocuments.filter(doc => 
+      doc.ownerId === userId || doc.collaborators.includes(userId)
+    );
+
+    // Return the most recent 10
+    return userDocuments.slice(0, 10);
   }
 });
 
@@ -120,9 +198,8 @@ export const createDocument = mutation({
   },
   handler: async (ctx, args) => {
     try {
-      const documentId = await ctx.db.insert("collaborativeDocuments", {
+      const documentData: DocumentInsertData = {
         title: args.title,
-        contractId: args.contractId,
         ownerId: args.ownerId,
         collaborators: args.collaborators,
         permissions: args.permissions,
@@ -135,7 +212,13 @@ export const createDocument = mutation({
         },
         isLocked: false,
         createdAt: Date.now()
-      });
+      };
+      
+      if (args.contractId !== undefined) {
+        documentData.contractId = args.contractId;
+      }
+      
+      const documentId = await ctx.db.insert("collaborativeDocuments", documentData);
 
       // Create initial snapshot
       await ctx.db.insert("documentSnapshots", {
@@ -382,7 +465,7 @@ export const addSuggestion = mutation({
   },
   handler: async (ctx, args) => {
     try {
-      const suggestionId = await ctx.db.insert("documentSuggestions", {
+      const suggestionData: SuggestionInsertData = {
         documentId: args.documentId,
         userId: args.userId,
         userName: args.userName,
@@ -391,10 +474,15 @@ export const addSuggestion = mutation({
         length: args.length,
         originalContent: args.originalContent,
         suggestedContent: args.suggestedContent,
-        reason: args.reason,
         status: "pending",
         createdAt: Date.now()
-      });
+      };
+      
+      if (args.reason !== undefined) {
+        suggestionData.reason = args.reason;
+      }
+      
+      const suggestionId = await ctx.db.insert("documentSuggestions", suggestionData);
 
       return { success: true, suggestionId };
     } catch (error) {
@@ -430,9 +518,7 @@ export const unlockDocument = mutation({
   handler: async (ctx, { documentId }) => {
     try {
       await ctx.db.patch(documentId, {
-        isLocked: false,
-        lockedBy: undefined,
-        lockTimestamp: undefined
+        isLocked: false
       });
 
       return { success: true };
@@ -535,12 +621,17 @@ export const reviewSuggestion = mutation({
   },
   handler: async (ctx, args) => {
     try {
-      await ctx.db.patch(args.suggestionId, {
+      const patchData: SuggestionPatchData = {
         status: args.status,
         reviewedBy: args.reviewedBy,
-        reviewedAt: Date.now(),
-        reviewComment: args.reviewComment
-      });
+        reviewedAt: Date.now()
+      };
+      
+      if (args.reviewComment !== undefined) {
+        patchData.reviewComment = args.reviewComment;
+      }
+      
+      await ctx.db.patch(args.suggestionId, patchData);
 
       return { success: true };
     } catch (error) {

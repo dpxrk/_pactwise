@@ -25,7 +25,7 @@ export function useScrollReveal(threshold = 0.1) {
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
+        if (entry && entry.isIntersecting) {
           setIsVisible(true);
           // Optionally keep observing for exit animations
           // observer.unobserve(entry.target);
@@ -119,6 +119,8 @@ export function useLoadingAnimation(isLoading: boolean, minDuration = 500) {
       
       return () => clearTimeout(timer);
     }
+    // Add explicit return for the 'if' branch
+    return undefined;
   }, [isLoading, minDuration]);
   
   return { showLoading, isTransitioning };

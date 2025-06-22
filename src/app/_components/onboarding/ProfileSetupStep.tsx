@@ -45,13 +45,24 @@ const ProfileSetupStep: React.FC<ProfileSetupStepProps> = ({ onStepComplete }) =
     }
 
     try {
-      await completeProfileMutation.execute({
+      const args: any = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        phoneNumber: phoneNumber.trim() || undefined,
-        department: department.trim() || undefined,
-        title: title.trim() || undefined,
-      });
+      };
+      
+      if (phoneNumber.trim()) {
+        args.phoneNumber = phoneNumber.trim();
+      }
+      
+      if (department.trim()) {
+        args.department = department.trim();
+      }
+      
+      if (title.trim()) {
+        args.title = title.trim();
+      }
+      
+      await completeProfileMutation.execute(args);
       onStepComplete();
     } catch (err: any) {
       setError(err.message || 'Failed to save profile.');

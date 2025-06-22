@@ -27,7 +27,7 @@ export const hexToThreeColor = (hex: string): THREE.Color => {
 };
 
 export const getColorFromPalette = (index: number, palette: string[] = defaultChartTheme.accentColors): string => {
-  return palette[index % palette.length];
+  return palette[index % palette.length] || '#888888';
 };
 
 export const lightenColor = (color: string, amount: number): string => {
@@ -113,6 +113,18 @@ export const createGlowMaterial = (color: string, opacity: number = 0.3): THREE.
 
 // Animation utilities
 export const createEasingFunction = (type: string) => {
+  const easeOutBounce = (t: number) => {
+    if (t < 1 / 2.75) {
+      return 7.5625 * t * t;
+    } else if (t < 2 / 2.75) {
+      return 7.5625 * (t -= 1.5 / 2.75) * t + 0.75;
+    } else if (t < 2.5 / 2.75) {
+      return 7.5625 * (t -= 2.25 / 2.75) * t + 0.9375;
+    } else {
+      return 7.5625 * (t -= 2.625 / 2.75) * t + 0.984375;
+    }
+  };
+  
   const easings: { [key: string]: (t: number) => number } = {
     linear: (t: number) => t,
     easeInQuad: (t: number) => t * t,
@@ -124,21 +136,12 @@ export const createEasingFunction = (type: string) => {
     easeInQuart: (t: number) => t * t * t * t,
     easeOutQuart: (t: number) => 1 - (--t) * t * t * t,
     easeInOutQuart: (t: number) => t < 0.5 ? 8 * t * t * t * t : 1 - 8 * (--t) * t * t * t,
-    easeInBounce: (t: number) => 1 - easings.easeOutBounce(1 - t),
-    easeOutBounce: (t: number) => {
-      if (t < 1 / 2.75) {
-        return 7.5625 * t * t;
-      } else if (t < 2 / 2.75) {
-        return 7.5625 * (t -= 1.5 / 2.75) * t + 0.75;
-      } else if (t < 2.5 / 2.75) {
-        return 7.5625 * (t -= 2.25 / 2.75) * t + 0.9375;
-      } else {
-        return 7.5625 * (t -= 2.625 / 2.75) * t + 0.984375;
-      }
-    },
+    easeInBounce: (t: number) => 1 - easeOutBounce(1 - t),
+    easeOutBounce: easeOutBounce,
   };
   
-  return easings[type] || easings.easeOutQuad;
+  const easingFn = easings[type];
+  return easingFn || easings.easeOutQuad;
 };
 
 // Interaction utilities
@@ -146,11 +149,11 @@ export const getIntersectedObject = (
   mouse: THREE.Vector2,
   camera: THREE.Camera,
   objects: THREE.Object3D[]
-): THREE.Intersection | null => {
+): THREE.Intersection<THREE.Object3D> | null => {
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObjects(objects, true);
-  return intersects.length > 0 ? intersects[0] : null;
+  return intersects.length > 0 ? intersects[0]! : null;
 };
 
 export const screenToWorld = (

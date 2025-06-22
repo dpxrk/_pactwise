@@ -1,8 +1,38 @@
 // convex/memory/memoryIntegration.ts
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { api } from "./_generated/api";
+import { mutation, query, internalMutation } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
+
+// Type definitions
+type MemoryType = "user_preference" | "interaction_pattern" | "domain_knowledge" | 
+  "conversation_context" | "task_history" | "feedback" | "entity_relation" | "process_knowledge";
+
+// Helper function to store memory that avoids type depth issues
+async function storeMemoryHelper(
+  ctx: any,
+  args: {
+    sessionId: string;
+    memoryType: string;
+    content: string;
+    structuredData: any;
+    context: any;
+    importance: string;
+    confidence: number;
+    source: string;
+  }
+) {  
+  //@ts-ignore
+  await ctx.runMutation(api.memoryShortTerm.store, args);
+}
+
+type ShortTermMemory = Doc<"shortTermMemory">;
+type LongTermMemory = Doc<"longTermMemory">;
+
+type MemoryResult = {
+  shortTerm: ShortTermMemory[];
+  longTerm: LongTermMemory[];
+};
 
 // ============================================================================
 // MEMORY INTEGRATION WITH MANAGER AGENT
@@ -58,8 +88,8 @@ export const storeTaskContext = mutation({
       importance = "low";
     }
 
-    // Store in short-term memory
-    await ctx.runMutation(api.memoryShortTerm.store, {
+    // Store in short-term memory using helper to avoid type depth issues
+    await storeMemoryHelper(ctx, {
       sessionId: args.sessionId,
       memoryType: "task_history",
       content: memoryContent,
@@ -120,19 +150,22 @@ export const storeInsightMemory = mutation({
     const importance = importanceMap[insight.priority as keyof typeof importanceMap] || "medium";
 
     // Store in short-term memory
-    await ctx.runMutation(api.memoryShortTerm.store, {
+    const relatedEntities: Array<{type: string; id: string; name?: string}> = [];
+    if (insight.contractId) {
+      relatedEntities.push({ type: "contract", id: insight.contractId as string });
+    }
+    if (insight.vendorId) {
+      relatedEntities.push({ type: "vendor", id: insight.vendorId as string });
+    }
+    
+    await storeMemoryHelper(ctx, {
       sessionId: args.sessionId,
       memoryType: "domain_knowledge",
       content: memoryContent,
       structuredData,
       context: {
         agentId: agentName,
-        // Note: agentInsights schema doesn't have relatedEntities field
-        // Using contractId and vendorId instead
-        relatedEntities: [
-          ...(insight.contractId ? [{ type: "contract", id: insight.contractId, name: undefined }] : []),
-          ...(insight.vendorId ? [{ type: "vendor", id: insight.vendorId, name: undefined }] : []),
-        ],
+        relatedEntities,
       },
       importance,
       confidence: 0.9,
@@ -168,7 +201,7 @@ export const getRelevantMemoriesForAgent = query({
     entityType: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<MemoryResult> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return { shortTerm: [], longTerm: [] };
 
@@ -183,7 +216,7 @@ export const getRelevantMemoriesForAgent = query({
     const relevantMemoryTypes = getRelevantMemoryTypesForAgent(args.agentType);
 
     // Get recent short-term memories
-    const shortTermMemories = await ctx.runQuery(
+    const shortTermMemories: ShortTermMemory[] = await ctx.runQuery(
       api.memoryShortTerm.getRecentMemories,
       {
         memoryTypes: relevantMemoryTypes,
@@ -193,7 +226,7 @@ export const getRelevantMemoriesForAgent = query({
     );
 
     // Get relevant long-term memories
-    const longTermMemories = await ctx.runQuery(
+    const longTermMemories: LongTermMemory[] = await ctx.runQuery(
       api.memoryLongTerm.getMemories,
       {
         memoryTypes: relevantMemoryTypes,
@@ -204,16 +237,16 @@ export const getRelevantMemoriesForAgent = query({
     );
 
     // Filter by entity if provided
-    let filteredShortTerm = shortTermMemories;
-    let filteredLongTerm = longTermMemories;
+    let filteredShortTerm: ShortTermMemory[] = shortTermMemories;
+    let filteredLongTerm: LongTermMemory[] = longTermMemories;
 
     if (args.entityId && args.entityType) {
-      filteredShortTerm = shortTermMemories.filter(m => {
+      filteredShortTerm = shortTermMemories.filter((m: ShortTermMemory) => {
         const entities = m.context.relatedEntities || [];
-        return entities.some(e => e.id === args.entityId && e.type === args.entityType);
+        return entities.some((e: any) => e.id === args.entityId && e.type === args.entityType);
       });
 
-      filteredLongTerm = longTermMemories.filter(m => {
+      filteredLongTerm = longTermMemories.filter((m: LongTermMemory) => {
         if (args.entityType === "contract" && m.context.contractIds?.includes(args.entityId as Id<"contracts">)) {
           return true;
         }
@@ -253,7 +286,7 @@ export const storeInteractionPattern = mutation({
 
     const content = `User performed ${args.action} on ${args.entityType} (${args.entityId})`;
     
-    await ctx.runMutation(api.memoryShortTerm.store, {
+    await storeMemoryHelper(ctx, {
       sessionId: args.sessionId,
       memoryType: "interaction_pattern",
       content,
@@ -306,7 +339,7 @@ export const storeUserFeedback = mutation({
                       args.feedbackType === "preference" ? "high" : "medium";
 
     // Store in short-term memory
-    await ctx.runMutation(api.memoryShortTerm.store, {
+    await storeMemoryHelper(ctx, {
       sessionId: args.sessionId,
       memoryType: "feedback",
       content: args.content,
@@ -359,14 +392,20 @@ export const makeInformedDecision = query({
     if (!identity) return null;
 
     // Get relevant memories
+    const queryArgs: any = {
+      agentType: "manager",
+      taskType: args.decisionContext.taskType,
+    };
+    if (args.decisionContext.entityId !== undefined) {
+      queryArgs.entityId = args.decisionContext.entityId;
+    }
+    if (args.decisionContext.entityType !== undefined) {
+      queryArgs.entityType = args.decisionContext.entityType;
+    }
+    
     const memories = await ctx.runQuery(
       api.memoryIntegration.getRelevantMemoriesForAgent,
-      {
-        agentType: "manager",
-        taskType: args.decisionContext.taskType,
-        entityId: args.decisionContext.entityId,
-        entityType: args.decisionContext.entityType,
-      }
+      queryArgs
     );
 
     // Get user preferences
@@ -380,7 +419,7 @@ export const makeInformedDecision = query({
     );
 
     // Get recent task outcomes
-    const taskHistory = memories.shortTerm.filter(m => 
+    const taskHistory = memories.shortTerm.filter((m: ShortTermMemory) => 
       m.memoryType === "task_history" && 
       m.structuredData?.taskType === args.decisionContext.taskType
     );

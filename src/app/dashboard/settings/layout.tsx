@@ -126,7 +126,7 @@ const SettingsLayout = ({ children }: SettingsLayoutProps) => {
                   const isDisabled = item.badge && item.badge !== 'Pro';
 
                   return (
-                    <PermissionGate key={item.href} requiredRole="user" allowedRoles={item.permissions}>
+                    <PermissionGate key={item.href} minimumRole="user">
                       <Link
                         href={isDisabled ? '#' : item.href}
                         className={cn(
@@ -136,7 +136,7 @@ const SettingsLayout = ({ children }: SettingsLayoutProps) => {
                             : "text-muted-foreground hover:text-foreground hover:bg-accent/50 hover:shadow-sm hover:scale-[1.02] hover:border-accent-foreground/10 border border-transparent",
                           isDisabled && "opacity-50 cursor-not-allowed hover:scale-100 hover:bg-transparent hover:shadow-none"
                         )}
-                        onClick={isDisabled ? (e) => e.preventDefault() : undefined}
+                        {...(isDisabled && { onClick: (e: any) => e.preventDefault() })}
                       >
                         <Icon className="h-4 w-4 flex-shrink-0" />
                         <div className="flex-1 min-w-0">

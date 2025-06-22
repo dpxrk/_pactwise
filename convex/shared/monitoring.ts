@@ -41,13 +41,23 @@ export const logAnalyticsEvent = mutation({
       .first() : null;
 
     // Store analytics event
-    const eventId = await ctx.db.insert("analytics_events", {
-      ...args,
-      ...(user?._id && { authenticatedUserId: user._id }),
-      ...(user?.enterpriseId && { enterpriseId: user.enterpriseId }),
+    const eventRecord: any = {
+      event: args.event,
+      timestamp: args.timestamp,
+      url: args.url,
+      sessionId: args.sessionId,
       serverTimestamp: Date.now(),
       createdAt: new Date().toISOString(),
-    });
+    };
+    
+    if (args.userId !== undefined) eventRecord.userId = args.userId;
+    if (args.properties !== undefined) eventRecord.properties = args.properties;
+    if (args.userAgent !== undefined) eventRecord.userAgent = args.userAgent;
+    if (args.ip !== undefined) eventRecord.ip = args.ip;
+    if (user?._id) eventRecord.authenticatedUserId = user._id;
+    if (user?.enterpriseId) eventRecord.enterpriseId = user.enterpriseId;
+    
+    const eventId = await ctx.db.insert("analytics_events", eventRecord);
 
     // Log important events to console in development
     if (process.env.NODE_ENV === 'development' && 
@@ -91,15 +101,25 @@ export const logAnalyticsEventBatch = mutation({
 
     // Insert all events
     const eventIds = await Promise.all(
-      validEvents.map(event => 
-        ctx.db.insert("analytics_events", {
-          ...event,
-          ...(user?._id && { authenticatedUserId: user._id }),
-          ...(user?.enterpriseId && { enterpriseId: user.enterpriseId }),
+      validEvents.map(event => {
+        const eventRecord: any = {
+          event: event.event,
+          timestamp: event.timestamp,
+          url: event.url,
+          sessionId: event.sessionId,
           serverTimestamp: Date.now(),
           createdAt: new Date().toISOString(),
-        })
-      )
+        };
+        
+        if (event.userId !== undefined) eventRecord.userId = event.userId;
+        if (event.properties !== undefined) eventRecord.properties = event.properties;
+        if (event.userAgent !== undefined) eventRecord.userAgent = event.userAgent;
+        if (event.ip !== undefined) eventRecord.ip = event.ip;
+        if (user?._id) eventRecord.authenticatedUserId = user._id;
+        if (user?.enterpriseId) eventRecord.enterpriseId = user.enterpriseId;
+        
+        return ctx.db.insert("analytics_events", eventRecord);
+      })
     );
 
     console.log(`Processed analytics batch: ${eventIds.length} events`);
@@ -186,14 +206,23 @@ export const reportError = mutation({
       .first() : null;
 
     // Store error report
-    const errorId = await ctx.db.insert("error_reports", {
-      ...args,
+    const errorRecord: any = {
+      message: args.message,
+      timestamp: args.timestamp,
+      url: args.url,
+      userAgent: args.userAgent,
       sessionId: args.sessionId || `system_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      ...(user?._id && { authenticatedUserId: user._id }),
-      ...(user?.enterpriseId && { enterpriseId: user.enterpriseId }),
       serverTimestamp: Date.now(),
       createdAt: new Date().toISOString(),
-    });
+    };
+    
+    if (args.stack !== undefined) errorRecord.stack = args.stack;
+    if (args.userId !== undefined) errorRecord.userId = args.userId;
+    if (args.context !== undefined) errorRecord.context = args.context;
+    if (user?._id) errorRecord.authenticatedUserId = user._id;
+    if (user?.enterpriseId) errorRecord.enterpriseId = user.enterpriseId;
+    
+    const errorId = await ctx.db.insert("error_reports", errorRecord);
 
     // Log error to console
     console.error('Client Error Report:', {

@@ -363,8 +363,14 @@ export const getSpacing = (size: keyof typeof spacing): string => {
 };
 
 export const getFontSize = (size: keyof typeof typography.fontSize): string => {
-  const [fontSize] = typography.fontSize[size];
-  return fontSize;
+  const fontSizeEntry = typography.fontSize[size];
+  if (typeof fontSizeEntry === 'string') {
+    return fontSizeEntry;
+  }
+  if (Array.isArray(fontSizeEntry)) {
+    return fontSizeEntry[0];
+  }
+  return '1rem'; // fallback
 };
 
 export const getBreakpoint = (breakpoint: keyof typeof breakpoints): string => {
@@ -378,9 +384,9 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
     throw new Error(`Invalid hex color: ${hex}`);
   }
   return {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
+    r: parseInt(result[1]!, 16),
+    g: parseInt(result[2]!, 16),
+    b: parseInt(result[3]!, 16)
   };
 }
 

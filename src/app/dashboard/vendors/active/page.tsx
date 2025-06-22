@@ -84,13 +84,7 @@ const ActiveVendors = () => {
         _id: `vendor-${Date.now()}` as any,
         enterpriseId: "enterprise-1" as any,
         name: vendorData.name || "",
-        contactEmail: vendorData.contactEmail,
-        contactPhone: vendorData.contactPhone,
-        address: vendorData.address,
-        website: vendorData.website,
-        category: vendorData.category,
         status: "active",
-        notes: vendorData.notes,
         vendor_number: `VND-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
         total_spend: 0,
         active_contracts: 0,
@@ -98,6 +92,14 @@ const ActiveVendors = () => {
         compliance_score: 85,
         _creationTime: Date.now(),
       };
+      
+      // Add optional fields only if they have values
+      if (vendorData.contactEmail) newVendor.contactEmail = vendorData.contactEmail;
+      if (vendorData.contactPhone) newVendor.contactPhone = vendorData.contactPhone;
+      if (vendorData.address) newVendor.address = vendorData.address;
+      if (vendorData.website) newVendor.website = vendorData.website;
+      if (vendorData.category) newVendor.category = vendorData.category;
+      if (vendorData.notes) newVendor.notes = vendorData.notes;
 
       addVendor(newVendor);
     } finally {

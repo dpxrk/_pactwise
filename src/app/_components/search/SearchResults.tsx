@@ -110,8 +110,8 @@ const mockSearchResults: SearchResult[] = [
     value: 150000,
     tags: ['enterprise', 'software', 'annual'],
     assignedTo: [
-      { id: '1', name: 'Sarah Johnson', avatar: undefined },
-      { id: '2', name: 'Mike Chen', avatar: undefined }
+      { id: '1', name: 'Sarah Johnson' },
+      { id: '2', name: 'Mike Chen' }
     ],
     metadata: {
       vendor: 'Microsoft Corporation',
@@ -150,7 +150,7 @@ const mockSearchResults: SearchResult[] = [
     progress: 65,
     tags: ['approval', 'high-value', 'multi-stage'],
     assignedTo: [
-      { id: '3', name: 'Legal Team', avatar: undefined }
+      { id: '3', name: 'Legal Team' }
     ]
   },
   {

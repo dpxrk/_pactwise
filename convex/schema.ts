@@ -538,6 +538,15 @@ export default defineSchema({
     .index("by_timestamp", ["timestamp"])
     .index("by_session", ["sessionId"]),
 
+  dashboardPreferences: defineTable({
+    userId: v.id("users"),
+    enabledMetrics: v.array(v.string()),
+    metricOrder: v.array(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"]),
+
   ...agentTables,
   ...notificationTables,
   ...rateLimitTables,

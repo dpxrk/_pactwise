@@ -30,6 +30,7 @@ import {
   CheckCircle,
   Archive,
   AlertCircle,
+  FileEdit,
 } from "lucide-react";
 import { useDashboardStore } from "@/stores/dashboard-store"
 import type { NavSection } from "@/types/homedashboard.types"
@@ -197,6 +198,11 @@ export const SideNavigation = ({ className }: { className?: string }) => {
               icon: Archive,
             },
           ],
+        },
+        {
+          label: "Collaborative Editor",
+          href: "/dashboard/collaborative-editor",
+          icon: FileEdit,
         },
         {
           label: "Vendors",

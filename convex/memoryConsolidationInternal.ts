@@ -94,7 +94,10 @@ async function consolidateMemoryGroup(
 ): Promise<{ id: Id<"longTermMemory">, patterns: number } | null> {
   if (memories.length === 0) return null;
 
-  const memoryType = memories[0].memoryType;
+  const firstMemory = memories[0];
+  if (!firstMemory) return null;
+  
+  const memoryType = firstMemory.memoryType;
   const patterns = identifyPatterns(memories);
   const consolidatedContent = synthesizeContent(memories);
   const importance = calculateImportance(memories);

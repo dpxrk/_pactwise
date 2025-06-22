@@ -10,13 +10,13 @@ import React, {
   ClipboardEvent,
   MouseEvent
 } from 'react';
-import { useConvexQuery, useConvexMutation } from '@/lib/api-client';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../../convex/_generated/api';
 import { Id } from '../../../../convex/_generated/dataModel';
 import { useUser } from '@clerk/nextjs';
 
 // Core editor functionality
-import { OperationalTransform, DocumentStateManager } from '@/lib/collaborative-editor/operational-transform';
+// import { OperationalTransform, DocumentStateManager } from '@/lib/collaborative-editor/operational-transform';
 import { PresenceManager, CursorUtils } from '@/lib/collaborative-editor/presence-manager';
 
 // Types
@@ -74,8 +74,8 @@ import { cn } from '@/lib/utils';
 // ============================================================================
 
 interface CollaborativeEditorProps {
-  documentId: Id<"collaborativeDocuments">;
-  contractId?: Id<"contracts">;
+  documentId: string; // Simplify to string to avoid deep type nesting
+  contractId?: string;
   initialContent?: string;
   config?: Partial<EditorConfig>;
   className?: string;
@@ -149,19 +149,20 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
   }), [userConfig]);
 
   // Convex queries and mutations
-  const { data: document, isLoading } = useConvexQuery(
+  const document = useQuery(
     api.collaborativeDocuments.getDocument,
-    documentId ? { documentId } : "skip"
+    documentId ? { documentId: documentId as Id<"collaborativeDocuments"> } : "skip"
   );
+  const isLoading = document === undefined;
 
-  const { data: presence } = useConvexQuery(
+  const presence = useQuery(
     api.collaborativeDocuments.getPresence,
-    documentId ? { documentId } : "skip"
+    documentId ? { documentId: documentId as Id<"collaborativeDocuments"> } : "skip"
   );
 
-  const applyOperation = useConvexMutation(api.collaborativeDocuments.applyOperation);
-  const updatePresence = useConvexMutation(api.collaborativeDocuments.updatePresence);
-  const saveDocument = useConvexMutation(api.collaborativeDocuments.saveDocument);
+  const applyOperation = useMutation(api.collaborativeDocuments.applyOperation);
+  const updatePresence = useMutation(api.collaborativeDocuments.updatePresence);
+  const saveDocument = useMutation(api.collaborativeDocuments.saveDocument);
 
   // ============================================================================
   // INITIALIZATION
@@ -202,7 +203,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     if (document && !isLoading) {
       setEditorState(prev => ({
         ...prev,
-        document,
+        document: document as CollaborativeDocument,
         isLoading: false,
         isConnected: true,
         canEdit: document.permissions.write.includes(userId) || document.ownerId === userId,
@@ -219,12 +220,12 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
   // Update presence
   useEffect(() => {
     if (presence && presenceManagerRef.current) {
-      setEditorState(prev => ({ ...prev, presence }));
+      setEditorState(prev => ({ ...prev, presence: presence as UserPresence[] }));
       
       // Update presence manager
       presence.forEach(user => {
         if (user.userId !== userId) {
-          presenceManagerRef.current?.addUser(user);
+          presenceManagerRef.current?.addUser(user as UserPresence);
         }
       });
     }
@@ -240,23 +241,23 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
 
     // Content change handlers
     editor.addEventListener('input', handleInput);
-    editor.addEventListener('keydown', handleKeyDown);
-    editor.addEventListener('paste', handlePaste);
+    editor.addEventListener('keydown', handleKeyDown as any);
+    editor.addEventListener('paste', handlePaste as any);
     
     // Selection change handlers
-    document.addEventListener('selectionchange', handleSelectionChange);
+    globalThis.document.addEventListener('selectionchange', handleSelectionChange);
     
     // Mouse handlers
-    editor.addEventListener('click', handleClick);
-    editor.addEventListener('mouseup', handleMouseUp);
+    editor.addEventListener('click', handleClick as any);
+    editor.addEventListener('mouseup', handleMouseUp as any);
 
     return () => {
       editor.removeEventListener('input', handleInput);
-      editor.removeEventListener('keydown', handleKeyDown);
-      editor.removeEventListener('paste', handlePaste);
-      document.removeEventListener('selectionchange', handleSelectionChange);
-      editor.removeEventListener('click', handleClick);
-      editor.removeEventListener('mouseup', handleMouseUp);
+      editor.removeEventListener('keydown', handleKeyDown as any);
+      editor.removeEventListener('paste', handlePaste as any);
+      globalThis.document.removeEventListener('selectionchange', handleSelectionChange);
+      editor.removeEventListener('click', handleClick as any);
+      editor.removeEventListener('mouseup', handleMouseUp as any);
     };
   }, []);
 
@@ -278,7 +279,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     }
   }, [editorState.canEdit, onError]);
 
-  const handleKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (!editorState.canEdit) {
       event.preventDefault();
       return;
@@ -330,7 +331,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     }
   }, [editorState.canEdit]);
 
-  const handlePaste = useCallback((event: ClipboardEvent<HTMLDivElement>) => {
+  const handlePaste = useCallback((event: ClipboardEvent) => {
     if (!editorState.canEdit) {
       event.preventDefault();
       return;
@@ -360,12 +361,15 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
         presenceManagerRef.current.updateCursor(userId, position, textSelection);
         
         // Send to server
-        updatePresence.execute({
-          documentId,
+        const presenceArgs: any = {
+          documentId: documentId as Id<"collaborativeDocuments">,
           userId,
-          cursor: { position, isVisible: true },
-          selection: textSelection
-        });
+          cursor: { position, isVisible: true }
+        };
+        if (textSelection) {
+          presenceArgs.selection = textSelection;
+        }
+        updatePresence(presenceArgs);
       }
 
       // Update active formatting
@@ -375,11 +379,11 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     }
   }, [documentId, userId, updatePresence]);
 
-  const handleClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
+  const handleClick = useCallback((event: MouseEvent) => {
     // Handle clicking on comments, suggestions, etc.
   }, []);
 
-  const handleMouseUp = useCallback((event: MouseEvent<HTMLDivElement>) => {
+  const handleMouseUp = useCallback((event: MouseEvent) => {
     handleSelectionChange();
   }, [handleSelectionChange]);
 
@@ -459,8 +463,8 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
 
     try {
       for (const operation of operations) {
-        await applyOperation.execute({
-          documentId,
+        await applyOperation({
+          documentId: documentId as Id<"collaborativeDocuments">,
           operation
         });
       }
@@ -540,6 +544,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     if (editorState.undoStack.length === 0) return;
 
     const lastOperation = editorState.undoStack[editorState.undoStack.length - 1];
+    if (!lastOperation) return;
     // Create inverse operation
     const inverseOperation = createInverseOperation(lastOperation);
     
@@ -558,6 +563,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     if (editorState.redoStack.length === 0) return;
 
     const operation = editorState.redoStack[editorState.redoStack.length - 1];
+    if (!operation) return;
     queueOperation(operation);
     
     setEditorState(prev => ({
@@ -577,8 +583,8 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     try {
       const content = editorRef.current.textContent || '';
       
-      await saveDocument.execute({
-        documentId,
+      await saveDocument({
+        documentId: documentId as Id<"collaborativeDocuments">,
         content,
         spans: editorState.document.state.spans
       });
@@ -795,7 +801,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
                 lineHeight: config.lineHeight
               }}
               spellCheck={config.enableSpellCheck}
-              placeholder="Start typing..."
+              data-placeholder="Start typing..."
             />
           </CardContent>
         </Card>

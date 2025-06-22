@@ -667,7 +667,7 @@ async function sendEmailNotification(ctx: any, notification: any): Promise<void>
       message: "Failed to send email notification",
       data: {
         notificationId: notification._id,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       },
       timestamp: new Date().toISOString(),
       category: "email_delivery",

@@ -72,17 +72,21 @@ export const createVendor = mutation({
       throw new ConvexError("Invalid email format.");
     }
 
-    const vendorId = await ctx.db.insert("vendors", {
+    const vendorData: any = {
       enterpriseId: args.enterpriseId,
       name: args.name.trim(),
-      contactEmail: args.contactEmail ? args.contactEmail.toLowerCase() : undefined,
-      contactPhone: args.contactPhone ? args.contactPhone : undefined,
-      address: args.address ? args.address : undefined,
-      notes: args.notes ? args.notes : undefined,  
-      website: args.website ? args.website : undefined,
-      category: args.category ? args.category : undefined,
       createdAt: args.createdAt,
-    });
+    };
+    
+    // Only add optional fields if they have values
+    if (args.contactEmail) vendorData.contactEmail = args.contactEmail.toLowerCase();
+    if (args.contactPhone) vendorData.contactPhone = args.contactPhone;
+    if (args.address) vendorData.address = args.address;
+    if (args.notes) vendorData.notes = args.notes;
+    if (args.website) vendorData.website = args.website;
+    if (args.category) vendorData.category = args.category;
+    
+    const vendorId = await ctx.db.insert("vendors", vendorData);
 
     console.log(`Vendor created with ID: ${vendorId} for enterprise ${args.enterpriseId}`);
     return vendorId;

@@ -12,7 +12,7 @@ interface TableContextType {
   onSort?: (field: string) => void;
 }
 
-const TableContext = createContext<TableContextType>({});
+const TableContext = createContext<TableContextType | undefined>(undefined);
 
 // Main DataTable component
 interface DataTableProps {
@@ -30,8 +30,20 @@ export function DataTable({
   sortDirection, 
   onSort 
 }: DataTableProps) {
+  const contextValue: TableContextType = {};
+  
+  if (sortField !== undefined) {
+    contextValue.sortField = sortField;
+  }
+  if (sortDirection !== undefined) {
+    contextValue.sortDirection = sortDirection;
+  }
+  if (onSort !== undefined) {
+    contextValue.onSort = onSort;
+  }
+
   return (
-    <TableContext.Provider value={{ sortField, sortDirection, onSort }}>
+    <TableContext.Provider value={contextValue}>
       <Card className={cn('overflow-hidden', className)}>
         {children}
       </Card>
@@ -105,7 +117,10 @@ interface TableCellProps {
 }
 
 export function TableCell({ children, className, sortable, sortField }: TableCellProps) {
-  const { sortField: currentSortField, sortDirection, onSort } = useContext(TableContext);
+  const context = useContext(TableContext);
+  const currentSortField = context?.sortField;
+  const sortDirection = context?.sortDirection;
+  const onSort = context?.onSort;
   
   const handleSort = () => {
     if (sortable && sortField && onSort) {

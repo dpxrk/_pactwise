@@ -30,19 +30,32 @@ export const logEvent = mutation({
     const sessionId = args.sessionId || properties.sessionId || 'unknown';
 
     // Store user event
-    const eventId = await ctx.db.insert("user_events", {
+    const eventData: Record<string, any> = {
       event: args.event,
       timestamp,
       url,
       sessionId,
-      userId: args.userId,
-      userAgent: args.userAgent,
-      properties: args.properties,
-      ...(user?._id && { authenticatedUserId: user._id }),
-      ...(user?.enterpriseId && { enterpriseId: user.enterpriseId }),
       serverTimestamp: Date.now(),
       createdAt: new Date().toISOString(),
-    });
+    };
+    
+    if (args.userId !== undefined) {
+      eventData.userId = args.userId;
+    }
+    if (args.userAgent !== undefined) {
+      eventData.userAgent = args.userAgent;
+    }
+    if (args.properties !== undefined) {
+      eventData.properties = args.properties;
+    }
+    if (user?._id) {
+      eventData.authenticatedUserId = user._id;
+    }
+    if (user?.enterpriseId) {
+      eventData.enterpriseId = user.enterpriseId;
+    }
+    
+    const eventId = await ctx.db.insert("user_events", eventData as any);
 
     // Log important events in development
     if (process.env.NODE_ENV === 'development' && 

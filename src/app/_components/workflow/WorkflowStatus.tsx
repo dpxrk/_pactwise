@@ -491,7 +491,7 @@ export const WorkflowStatusList: React.FC<WorkflowStatusListProps> = ({
           key={execution.id}
           execution={execution}
           variant={variant}
-          onViewExecution={onExecutionClick}
+          {...(onExecutionClick && { onViewExecution: onExecutionClick })}
           showDetails={variant === 'full'}
         />
       ))}

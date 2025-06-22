@@ -115,9 +115,12 @@ export class PresenceManager {
         position,
         isVisible: true
       },
-      selection,
       lastSeen: Date.now()
     };
+    
+    if (selection) {
+      updatedUser.selection = selection;
+    }
 
     this.presenceMap.set(userId, updatedUser);
     this.updateCursorVisual(userId, position, selection);
@@ -417,7 +420,7 @@ export class PresenceManager {
     if (!container) {
       container = document.createElement('div');
       container.className = 'cursor-container';
-      container.style.cssText = `
+      (container as HTMLElement).style.cssText = `
         position: relative;
         pointer-events: none;
         z-index: 1000;
@@ -458,11 +461,11 @@ export class PresenceManager {
     const availableColors = USER_COLORS.filter(color => !usedColors.has(color));
     
     if (availableColors.length > 0) {
-      this.userColorMap.set(userId, availableColors[0]);
+      this.userColorMap.set(userId, availableColors[0]!);
     } else {
       // If all colors are used, use a random one
       const randomIndex = Math.floor(Math.random() * USER_COLORS.length);
-      this.userColorMap.set(userId, USER_COLORS[randomIndex]);
+      this.userColorMap.set(userId, USER_COLORS[randomIndex]!);
     }
   }
 

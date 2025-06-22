@@ -34,6 +34,7 @@ export const agentTypeOptions = [
   "scheduler",      // Task scheduling and timing
   "backup",         // Data backup and recovery
   "monitor",        // System health and performance monitoring
+  "vendor",         // Vendor management and analysis
 ] as const;
 export type AgentType = typeof agentTypeOptions[number];
 
@@ -582,6 +583,7 @@ export const AGENT_TYPE_LABELS: Record<AgentType, string> = {
   scheduler: "Task Scheduler",
   backup: "Backup Manager",
   monitor: "System Monitor",
+  vendor: "Vendor Manager",
 };
 
 /** Human-readable labels for InsightType enum values. */

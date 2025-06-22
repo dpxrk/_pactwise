@@ -82,10 +82,17 @@ export class OperationalTransform {
       }
     }
 
+    if (conflictResolutions.length > 0) {
+      return {
+        transformedOperation: currentOp,
+        requiresRebase,
+        conflictResolution: conflictResolutions[0]!
+      };
+    }
+    
     return {
       transformedOperation: currentOp,
-      requiresRebase,
-      conflictResolution: conflictResolutions.length > 0 ? conflictResolutions[0] : undefined
+      requiresRebase
     };
   }
 

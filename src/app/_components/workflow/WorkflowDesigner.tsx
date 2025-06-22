@@ -226,9 +226,9 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
 
     try {
       await onSave(workflow);
-      showToast.success('Workflow saved successfully');
+      showToast.success('Workflow saved successfully', {});
     } catch (error) {
-      showToast.error('Failed to save workflow');
+      showToast.error('Failed to save workflow', {});
     }
   };
 
@@ -460,7 +460,11 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
                       onCheckedChange={(checked) => updateNode(selectedNode.id, {
                         data: {
                           ...selectedNode.data,
-                          escalation: { ...selectedNode.data.escalation, enabled: checked }
+                          escalation: { 
+                            enabled: checked,
+                            timeLimit: selectedNode.data.escalation?.timeLimit || 24,
+                            escalateTo: selectedNode.data.escalation?.escalateTo || []
+                          }
                         }
                       })}
                     />

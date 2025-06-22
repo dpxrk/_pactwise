@@ -13,7 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Loader2, Send, UserPlus, SkipForward, Trash2 } from 'lucide-react';
 import { userRoleOptions } from '@/../convex/schema'; 
 import type { UserRole } from '@/../convex/schema';
-import { ONBOARDING_STEPS, OnboardingStep } from '@/../convex/onboarding';
+import { ONBOARDING_STEPS, type OnboardingStep } from '@/../convex/onboardingConstants';
 
 interface InviteTeamStepProps {
   onStepComplete: (nextStep?: OnboardingStep, metadata?: any) => void;
@@ -34,10 +34,12 @@ const InviteTeamStep: React.FC<InviteTeamStepProps> = ({ onStepComplete, onSkip 
 
   const handleInputChange = (index: number, field: keyof Invitation, value: string) => {
     const newInvitations = [...invitations];
-    if (field === 'role') {
-      newInvitations[index][field] = value as UserRole;
-    } else {
-      newInvitations[index][field] = value;
+    if (newInvitations[index]) {
+      if (field === 'role') {
+        newInvitations[index][field] = value as UserRole;
+      } else {
+        newInvitations[index][field] = value;
+      }
     }
     setInvitations(newInvitations);
   };

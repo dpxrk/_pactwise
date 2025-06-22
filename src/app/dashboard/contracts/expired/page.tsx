@@ -24,7 +24,7 @@ const ExpiredContracts = () => {
         isExpired &&
         (contract.title.toLowerCase().includes(searchLower) ||
           contract.vendor?.name.toLowerCase().includes(searchLower) ||
-          contract.contract_number.toLowerCase().includes(searchLower))
+          contract._id.toLowerCase().includes(searchLower))
       );
     });
   }, [contracts, searchQuery]);
@@ -32,7 +32,7 @@ const ExpiredContracts = () => {
   // Calculate expired contract statistics
   const stats = useMemo(() => {
     const totalValue = expiredContracts.reduce(
-      (sum, contract) => sum + (contract.value || 0),
+      (sum, contract) => sum + (0 || 0),
       0
     );
     const now = new Date();
@@ -42,10 +42,10 @@ const ExpiredContracts = () => {
       total: expiredContracts.length,
       totalValue,
       recentlyExpired: expiredContracts.filter(
-        (contract) => new Date(contract.expires_at) > lastThirtyDays
+        (contract) => contract.extractedEndDate && new Date(contract.extractedEndDate) > lastThirtyDays
       ).length,
       renewableCount: expiredContracts.filter(
-        (contract) => contract.is_renewable || contract.auto_renewal
+        (contract) => false || false
       ).length,
     };
   }, [expiredContracts]);
@@ -113,14 +113,14 @@ const ExpiredContracts = () => {
       {/* Expired Contracts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {expiredContracts.map((contract) => (
-          <Card key={contract.id} className="hover:shadow-lg transition-shadow">
+          <Card key={contract._id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex justify-between items-start">
                 <CardTitle className="text-lg font-medium">
                   {contract.title}
                 </CardTitle>
                 <div className="flex space-x-2">
-                  {contract.is_renewable && (
+                  {false && (
                     <Button variant="ghost" size="icon" title="Renew Contract">
                       <History className="h-4 w-4" />
                     </Button>
@@ -132,7 +132,7 @@ const ExpiredContracts = () => {
               </div>
               <div className="flex items-center text-sm text-red-500">
                 <AlertCircle className="h-4 w-4 mr-1" />
-                Expired on {new Date(contract.expires_at).toLocaleDateString()}
+                Expired on {contract.extractedEndDate ? new Date(contract.extractedEndDate).toLocaleDateString() : 'Unknown'}
               </div>
             </CardHeader>
             <CardContent>
@@ -142,13 +142,13 @@ const ExpiredContracts = () => {
                     Contract #:
                   </span>
                   <span className="font-medium">
-                    {contract.contract_number}
+                    {contract._id}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Value:</span>
                   <span className="font-medium">
-                    ${contract.value?.toLocaleString()}
+                    ${0?.toLocaleString()}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -160,12 +160,12 @@ const ExpiredContracts = () => {
                     Duration:
                   </span>
                   <span className="font-medium">
-                    {new Date(contract.start_date).toLocaleDateString()} -{" "}
-                    {new Date(contract.expires_at).toLocaleDateString()}
+                    {contract.extractedStartDate ? new Date(contract.extractedStartDate).toLocaleDateString() : 'Unknown'} -{" "}
+                    {contract.extractedEndDate ? new Date(contract.extractedEndDate).toLocaleDateString() : 'Unknown'}
                   </span>
                 </div>
               </div>
-              {contract.is_renewable && (
+              {false && (
                 <Button className="w-full mt-4" variant="outline">
                   <History className="mr-2 h-4 w-4" />
                   Renew Contract

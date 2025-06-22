@@ -8,13 +8,11 @@ import { cn } from '@/lib/utils';
 import { 
   ThreeChartProps, 
   ChartTheme, 
-  TooltipData,
-  ChartMesh 
+  TooltipData
 } from '@/types/three-charts.types';
 import { 
   defaultChartTheme, 
-  validateChartData, 
-  disposeObject 
+  validateChartData
 } from '@/lib/three-chart-utils';
 
 interface BaseThreeChartProps extends ThreeChartProps {
@@ -163,7 +161,7 @@ const ChartScene: React.FC<{
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(scene.children, true);
 
-    if (intersects.length > 0) {
+    if (intersects.length > 0 && intersects[0]) {
       const object = intersects[0].object;
       if (object !== hoveredObject && object.userData?.dataPoint) {
         setHoveredObject(object);
@@ -185,7 +183,7 @@ const ChartScene: React.FC<{
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(scene.children, true);
 
-    if (intersects.length > 0) {
+    if (intersects.length > 0 && intersects[0]) {
       const object = intersects[0].object;
       if (object.userData?.dataPoint) {
         onClick?.(object.userData.dataPoint);

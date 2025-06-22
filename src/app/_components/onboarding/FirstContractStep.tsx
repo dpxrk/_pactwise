@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { FilePlus2, SkipForward, CheckCircle } from 'lucide-react';
 import ContractFormModal from '@/app/_components/contracts/ContractFormModal'; // Re-use the existing modal
 import { Id } from '@/../convex/_generated/dataModel';
-import { ONBOARDING_STEPS, OnboardingStep } from '@/../convex/onboarding';
+import { ONBOARDING_STEPS, type OnboardingStep } from '@/../convex/onboardingConstants';
 import { useConvexMutation } from '@/lib/api-client';
 import { api } from '@/../convex/_generated/api';
 

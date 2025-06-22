@@ -5,6 +5,7 @@ import { ConvexReactClient, useConvex } from "convex/react";
 import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { userAnalytics, errorTracker, healthMonitor } from "@/lib/monitoring";
+import { api } from "../../convex/_generated/api";
 
 // Type for the convex analytics object
 interface ConvexAnalytics {
@@ -41,7 +42,7 @@ function MonitoringProvider({ children }: { children: ReactNode }) {
           // Direct mutation call to avoid circular dependency with UserAnalytics
           // This method is called BY UserAnalytics, so we shouldn't call back into it
           try {
-            await convex.mutation("userEvents:logEvent", { event, properties });
+            await convex.mutation(api.realtime.userEvents.logEvent, { event, properties });
           } catch (error) {
             console.error("Failed to log event to Convex:", error);
           }
@@ -50,7 +51,7 @@ function MonitoringProvider({ children }: { children: ReactNode }) {
           // Direct mutation calls to avoid circular dependency
           try {
             await Promise.all(events.map(({ event, properties }) => 
-              convex.mutation("userEvents:logEvent", { event, properties })
+              convex.mutation(api.realtime.userEvents.logEvent, { event, properties })
             ));
           } catch (error) {
             console.error("Failed to log event batch to Convex:", error);
@@ -79,6 +80,7 @@ function MonitoringProvider({ children }: { children: ReactNode }) {
         userAnalytics.flush();
       };
     }
+    return undefined;
   }, [convex]);
 
   return <>{children}</>;

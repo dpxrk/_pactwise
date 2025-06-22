@@ -1,29 +1,50 @@
 // src/app/_components/dashboard/DashboardContent.tsx
 'use client';
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Activity,
   DollarSign,
   TrendingUp,
-  Scale,
   Building,
   Target,
-  ShieldCheck,
   AlertCircle,
   FileText,
   Users,
-  Calendar
+  Calendar,
+  Shield,
+  PiggyBank,
+  Clock
 } from "lucide-react";
-import { MetricCard } from "@/app/_components/common/MetricCard";
-import DynamicChart from "@/app/_components/common/DynamicCharts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
+import { DraggableMetricCard } from "./DraggableMetricCard";
+import { DraggableChartCard } from "./DraggableChartCard";
+import { DashboardCustomizationMenu } from "./DashboardCustomizationMenu";
+import { MetricId } from "../../../../convex/dashboardPreferences";
+import DynamicChart from "@/app/_components/common/DynamicCharts";
+import { MetricCard } from "@/app/_components/common/MetricCard";
+import { toast } from "sonner";
 
 // Define chart colors for consistency
 const CHART_COLORS = {
@@ -40,8 +61,48 @@ interface DashboardContentProps {
   enterpriseId: Id<"enterprises">;
 }
 
+// Define metric data interface
+interface MetricData {
+  id: MetricId;
+  title: string;
+  value: string | number;
+  icon: React.ElementType;
+  trend?: number;
+  changeType?: "positive" | "negative" | "neutral";
+  description?: string;
+}
+
+// Define dashboard item type that can be either metric or chart
+interface DashboardItem {
+  id: MetricId;
+  type: "metric" | "chart";
+  title: string;
+  // For metrics
+  value?: string | number;
+  icon?: React.ElementType;
+  trend?: number;
+  changeType?: "positive" | "negative" | "neutral";
+  description?: string;
+  // For charts
+  chartContent?: React.ReactNode;
+}
+
 const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => {
-  const [timeRange, setTimeRange] = useState("month");
+  // Fetch user preferences
+  const userPreferences = useQuery(api.dashboardPreferences.getUserPreferences);
+  const savePreferences = useMutation(api.dashboardPreferences.saveUserPreferences);
+  
+  // State for metric order and enabled metrics
+  const [enabledMetrics, setEnabledMetrics] = useState<MetricId[]>([]);
+  const [metricOrder, setMetricOrder] = useState<MetricId[]>([]);
+
+  // Update state when preferences load
+  useEffect(() => {
+    if (userPreferences) {
+      setEnabledMetrics(userPreferences.enabledMetrics);
+      setMetricOrder(userPreferences.metricOrder);
+    }
+  }, [userPreferences]);
 
   // Fetch data from Convex backend
   const contractStats = useQuery(api.contracts.getContractStats, { enterpriseId });
@@ -61,6 +122,49 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
   const agentSystemStatus = useQuery(api.agents.manager.getAgentSystemStatus, {});
   const recentInsights = useQuery(api.agents.manager.getRecentInsights, { limit: 10 });
 
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      setMetricOrder((items) => {
+        const oldIndex = items.indexOf(active.id as MetricId);
+        const newIndex = items.indexOf(over?.id as MetricId);
+        const newOrder = arrayMove(items, oldIndex, newIndex);
+        
+        // Save to database asynchronously
+        savePreferences({
+          enabledMetrics,
+          metricOrder: newOrder,
+        });
+        
+        return newOrder;
+      });
+    }
+  };
+
+  // Handle removing a metric
+  const handleRemoveMetric = async (metricId: MetricId) => {
+    const newEnabledMetrics = enabledMetrics.filter(id => id !== metricId);
+    setEnabledMetrics(newEnabledMetrics);
+    
+    // Save to database
+    await savePreferences({
+      enabledMetrics: newEnabledMetrics,
+      metricOrder: metricOrder,
+    });
+    
+    toast.success("Card removed from dashboard");
+  };
+
   // Helper functions
   const formatCurrency = (value: number) => {
     if (isNaN(value) || typeof value !== 'number') return '$0';
@@ -72,15 +176,6 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
     }).format(value);
   };
 
-  const formatYAxis = (value: number) => {
-    if (isNaN(value) || typeof value !== 'number') return '0';
-    if (value >= 1000000) {
-      return `$${(value / 1000000).toFixed(1)}M`;
-    } else if (value >= 1000) {
-      return `$${(value / 1000).toFixed(0)}k`;
-    }
-    return value.toString();
-  };
 
   // Calculate metrics from actual data
   const calculateTotalContractValue = () => {
@@ -105,6 +200,46 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
       const endDate = new Date(contract.extractedEndDate);
       return endDate <= thirtyDaysFromNow && endDate > new Date();
     }).length;
+  };
+
+  const calculateComplianceScore = () => {
+    // Calculate compliance score based on completed checks
+    if (!contracts || !Array.isArray(contracts)) return 100;
+    const activeContracts = contracts.filter(c => c.status === 'active');
+    if (activeContracts.length === 0) return 100;
+    
+    // Simple scoring: 100 - (expired contracts percentage * 2)
+    const expiredCount = contracts.filter(c => c.status === 'expired').length;
+    const score = Math.max(0, 100 - (expiredCount / contracts.length) * 200);
+    return Math.round(score);
+  };
+
+  const calculateRiskScore = () => {
+    // Calculate risk based on high-value contracts without proper analysis
+    if (!contracts || !Array.isArray(contracts)) return 0;
+    
+    let riskScore = 0;
+    contracts.forEach(contract => {
+      const value = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
+      if (value > 100000 && contract.analysisStatus !== 'completed') {
+        riskScore += 20;
+      }
+      if (contract.status === 'expired') {
+        riskScore += 10;
+      }
+    });
+    
+    return Math.min(100, riskScore);
+  };
+
+  const calculateSavingsOpportunities = () => {
+    // Mock calculation - in real app would analyze contract spend patterns
+    const totalValue = calculateTotalContractValue();
+    return Math.round(totalValue * 0.08); // 8% potential savings
+  };
+
+  const calculatePendingApprovals = () => {
+    return contractStats?.byStatus?.pending_analysis || 0;
   };
 
   const getStatusDistributionData = () => {
@@ -204,7 +339,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
   };
 
   // Loading state
-  const isLoading = contractStats === undefined || contractsData === undefined || vendorsData === undefined;
+  const isLoading = contractStats === undefined || contractsData === undefined || vendorsData === undefined || userPreferences === undefined;
 
   if (isLoading) {
     return (
@@ -219,11 +354,260 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
     );
   }
 
+  // Calculate all metric values
   const totalContractValue = calculateTotalContractValue();
   const activeContracts = calculateActiveContracts();
   const expiringCount = calculateExpiringContracts();
   const totalVendors = (vendors && Array.isArray(vendors)) ? vendors.length : 0;
   const agentInsights = recentInsights?.length || 0;
+  const complianceScore = calculateComplianceScore();
+  const riskScore = calculateRiskScore();
+  const savingsOpportunities = calculateSavingsOpportunities();
+  const pendingApprovals = calculatePendingApprovals();
+
+  // Define all available metrics
+  const allMetrics: Record<MetricId, MetricData> = {
+    "total-contracts": {
+      id: "total-contracts",
+      title: "Total Contracts",
+      value: contractStats?.total?.toString() || "0",
+      icon: FileText,
+      description: "All contracts in system"
+    },
+    "active-contracts": {
+      id: "active-contracts",
+      title: "Active Contracts",
+      value: activeContracts.toString(),
+      icon: Activity,
+      trend: 8.2,
+      changeType: "positive",
+      description: "Currently active contracts"
+    },
+    "expiring-soon": {
+      id: "expiring-soon",
+      title: "Expiring Soon",
+      value: expiringCount.toString(),
+      icon: Calendar,
+      trend: -5.7,
+      changeType: expiringCount > 5 ? "negative" : "positive",
+      description: "Contracts expiring in 30 days"
+    },
+    "total-value": {
+      id: "total-value",
+      title: "Total Contract Value",
+      value: formatCurrency(totalContractValue),
+      icon: DollarSign,
+      trend: 12.5,
+      changeType: "positive",
+      description: "Total portfolio value"
+    },
+    "compliance-score": {
+      id: "compliance-score",
+      title: "Compliance Score",
+      value: `${complianceScore}%`,
+      icon: Shield,
+      trend: complianceScore > 80 ? 5 : -5,
+      changeType: complianceScore > 80 ? "positive" : "negative",
+      description: "Overall compliance health"
+    },
+    "vendors": {
+      id: "vendors",
+      title: "Total Vendors",
+      value: totalVendors.toString(),
+      icon: Users,
+      trend: 15.3,
+      changeType: "positive",
+      description: "Vendor relationships"
+    },
+    "risk-score": {
+      id: "risk-score",
+      title: "Risk Score",
+      value: `${riskScore}%`,
+      icon: AlertCircle,
+      trend: riskScore > 50 ? -10 : 5,
+      changeType: riskScore > 50 ? "negative" : "positive",
+      description: "Portfolio risk assessment"
+    },
+    "savings-opportunities": {
+      id: "savings-opportunities",
+      title: "Savings Opportunities",
+      value: formatCurrency(savingsOpportunities),
+      icon: PiggyBank,
+      trend: 22.4,
+      changeType: "positive",
+      description: "Potential cost savings"
+    },
+    "pending-approvals": {
+      id: "pending-approvals",
+      title: "Pending Approvals",
+      value: pendingApprovals.toString(),
+      icon: Clock,
+      trend: pendingApprovals > 10 ? -15 : 0,
+      changeType: pendingApprovals > 10 ? "negative" : "neutral",
+      description: "Awaiting approval"
+    },
+    "recent-activity": {
+      id: "recent-activity",
+      title: "AI Insights",
+      value: agentInsights.toString(),
+      icon: Activity,
+      trend: 25.4,
+      changeType: "positive",
+      description: "Recent AI analysis insights"
+    }
+  };
+
+  // Define all dashboard items (metrics and charts)
+  const allDashboardItems: Record<MetricId, DashboardItem> = {
+    // Metrics
+    ...Object.entries(allMetrics).reduce((acc, [id, metric]) => ({
+      ...acc,
+      [id]: {
+        ...metric,
+        type: "metric" as const
+      }
+    }), {}),
+    // Charts
+    "contract-status-chart": {
+      id: "contract-status-chart",
+      type: "chart",
+      title: "Contract Status Distribution",
+      chartContent: (
+        <div className="h-[300px] w-full">
+          <DynamicChart 
+            type="pie" 
+            data={getStatusDistributionData()} 
+            height={300} 
+            showLegend={false} 
+            colors={getStatusDistributionData().map(item => item.color)}
+            pieConfig={{ 
+              innerRadius: 60, 
+              outerRadius: 100
+            }}
+          />
+          <div className="flex justify-center mt-2 flex-wrap gap-2">
+            {getStatusDistributionData().map((item, index) => (
+              <div key={index} className="flex items-center">
+                <div className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: item.color }} />
+                <span className="text-xs">{item.name} ({item.value})</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    },
+    "risk-distribution-chart": {
+      id: "risk-distribution-chart",
+      type: "chart",
+      title: "Risk Distribution",
+      chartContent: (
+        <div className="h-[300px] w-full">
+          <DynamicChart 
+            type="pie" 
+            data={getRiskDistributionData()} 
+            height={300} 
+            showLegend={false} 
+            colors={getRiskDistributionData().map(item => item.color)}
+            pieConfig={{ 
+              innerRadius: 60, 
+              outerRadius: 100
+            }}
+          />
+          <div className="flex justify-center mt-2 space-x-4">
+            {getRiskDistributionData().map((item, index) => (
+              <div key={index} className="flex items-center">
+                <div className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: item.color }} />
+                <span className="text-xs">{item.name} ({item.value})</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+  };
+
+  // Get only enabled items in the correct order
+  const displayItems = metricOrder
+    .filter(id => enabledMetrics.includes(id))
+    .map(id => allDashboardItems[id])
+    .filter(Boolean);
+
+  // Dynamic metric configuration for tabs
+
+  const contractsTabMetrics = [
+    {
+      title: "Total Contracts",
+      value: contractStats?.total?.toString() || "0",
+      icon: FileText,
+      description: "All contracts in system"
+    },
+    {
+      title: "Active Contracts",
+      value: contractStats?.byStatus?.active?.toString() || "0",
+      icon: Activity,
+      description: "Currently active contracts"
+    },
+    {
+      title: "Draft Contracts",
+      value: contractStats?.byStatus?.draft?.toString() || "0",
+      icon: Activity,
+      description: "Contracts in draft status"
+    },
+    {
+      title: "Recently Created",
+      value: contractStats?.recentlyCreated?.toString() || "0",
+      icon: Calendar,
+      description: "Created in last 7 days"
+    }
+  ];
+
+  const vendorsTabMetrics = [
+    {
+      title: "Total Vendors",
+      value: totalVendors.toString(),
+      icon: Building,
+      description: "Registered vendor relationships"
+    },
+    {
+      title: "Active Relationships",
+      value: (vendors && Array.isArray(vendors)) ? vendors.filter(v => v.contractCount > 0).length.toString() : "0",
+      icon: Activity,
+      description: "Vendors with active contracts"
+    },
+    {
+      title: "Avg Contracts per Vendor",
+      value: (totalVendors > 0 ? ((contractStats?.total || 0) / totalVendors).toFixed(1) : "0"),
+      icon: Target,
+      description: "Average contracts per vendor"
+    }
+  ];
+
+  const agentsTabMetrics = [
+    {
+      title: "System Status",
+      value: agentSystemStatus?.system?.isRunning ? "Running" : "Stopped",
+      icon: Activity,
+      description: "AI agent system status"
+    },
+    {
+      title: "Active Agents",
+      value: agentSystemStatus?.stats?.activeAgents?.toString() || "0",
+      icon: Users,
+      description: "Currently running agents"
+    },
+    {
+      title: "Recent Insights",
+      value: agentSystemStatus?.stats?.recentInsights?.toString() || "0",
+      icon: TrendingUp,
+      description: "Insights generated (24h)"
+    },
+    {
+      title: "Active Tasks",
+      value: agentSystemStatus?.stats?.activeTasks?.toString() || "0",
+      icon: Calendar,
+      description: "Tasks being processed"
+    }
+  ];
 
   return (
     <div className="w-full min-h-screen bg-background">
@@ -236,6 +620,14 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
               <TabsTrigger value="vendors">Vendor Insights</TabsTrigger>
               <TabsTrigger value="agents">AI Agents</TabsTrigger>
             </TabsList>
+            {/* Dashboard customization menu */}
+            <DashboardCustomizationMenu
+              enabledMetrics={enabledMetrics}
+              onMetricsChange={(metrics) => {
+                setEnabledMetrics(metrics);
+                setMetricOrder(metrics);
+              }}
+            />
           </div>
 
           {/* Alert for expiring contracts */}
@@ -253,166 +645,64 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
           )}
 
           <TabsContent value="overview" className="space-y-6 mt-0">
-            {/* Executive KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <MetricCard
-                title="Total Contract Value"
-                value={formatCurrency(totalContractValue)}
-                icon={DollarSign}
-                trend={12.5}
-                changeType="positive"
-                description="Total portfolio value"
-              />
-              <MetricCard
-                title="Active Contracts"
-                value={activeContracts.toString()}
-                icon={FileText}
-                trend={8.2}
-                changeType="positive"
-                description="Currently active contracts"
-              />
-              <MetricCard
-                title="Total Vendors"
-                value={totalVendors.toString()}
-                icon={Users}
-                trend={15.3}
-                changeType="positive"
-                description="Vendor relationships"
-              />
-              <MetricCard
-                title="Expiring Soon"
-                value={expiringCount.toString()}
-                icon={Calendar}
-                trend={-5.7}
-                changeType={expiringCount > 5 ? "negative" : "positive"}
-                description="Contracts expiring in 30 days"
-              />
-            </div>
-
-            {/* AI Insights Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <MetricCard 
-                title="AI Insights Generated" 
-                value={agentInsights.toString()} 
-                icon={Activity} 
-                trend={25.4} 
-                changeType="positive" 
-                description="Recent AI analysis insights"
-              />
-              <MetricCard 
-                title="System Health" 
-                value={agentSystemStatus?.system?.isRunning ? "Running" : "Stopped"} 
-                icon={ShieldCheck} 
-                trend={0} 
-                changeType="neutral" 
-                description="AI agent system status"
-              />
-              <MetricCard 
-                title="Active Agents" 
-                value={agentSystemStatus?.stats?.activeAgents?.toString() || "0"} 
-                icon={Target} 
-                trend={0} 
-                changeType="neutral" 
-                description="Currently running agents"
-              />
-            </div>
-
-            {/* Contract Analysis Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card className="border border-gold/10 shadow-luxury">
-                <CardHeader>
-                  <CardTitle className="text-primary font-sans">Contract Status Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[300px] w-full">
-                    <DynamicChart 
-                      type="pie" 
-                      data={getStatusDistributionData()} 
-                      series={[{ dataKey: "value" }]} 
-                      height={300} 
-                      showLegend={false} 
-                      colors={getStatusDistributionData().map(item => item.color)}
-                      pieConfig={{ 
-                        dataKey: "value", 
-                        nameKey: "name", 
-                        innerRadius: 60, 
-                        outerRadius: 100, 
-                        paddingAngle: 2 
-                      }}
-                    />
-                    <div className="flex justify-center mt-2 flex-wrap gap-2">
-                      {getStatusDistributionData().map((item, index) => (
-                        <div key={index} className="flex items-center">
-                          <div className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: item.color }} />
-                          <span className="text-xs">{item.name} ({item.value})</span>
+            {/* Unified Draggable Dashboard Grid */}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={displayItems.map(item => item.id)}
+                strategy={rectSortingStrategy}
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {displayItems.map((item) => {
+                    if (item.type === "metric") {
+                      return (
+                        <DraggableMetricCard
+                          key={item.id}
+                          id={item.id}
+                          title={item.title}
+                          value={item.value!}
+                          change={item.trend}
+                          trend={item.changeType === "positive" ? "up" : item.changeType === "negative" ? "down" : undefined}
+                          icon={item.icon}
+                          description={item.description}
+                          changeType={item.changeType}
+                          onRemove={handleRemoveMetric}
+                        />
+                      );
+                    } else {
+                      // Chart card takes up 2 columns
+                      return (
+                        <div key={item.id} className="lg:col-span-2">
+                          <DraggableChartCard
+                            id={item.id}
+                            title={item.title}
+                            onRemove={handleRemoveMetric}
+                          >
+                            {item.chartContent}
+                          </DraggableChartCard>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border border-gold/10 shadow-luxury">
-                <CardHeader>
-                  <CardTitle className="text-primary font-sans">Risk Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[300px] w-full">
-                    <DynamicChart 
-                      type="pie" 
-                      data={getRiskDistributionData()} 
-                      series={[{ dataKey: "value" }]} 
-                      height={300} 
-                      showLegend={false} 
-                      colors={getRiskDistributionData().map(item => item.color)}
-                      pieConfig={{ 
-                        dataKey: "value", 
-                        nameKey: "name", 
-                        innerRadius: 60, 
-                        outerRadius: 100, 
-                        paddingAngle: 2 
-                      }}
-                    />
-                    <div className="flex justify-center mt-2 space-x-4">
-                      {getRiskDistributionData().map((item, index) => (
-                        <div key={index} className="flex items-center">
-                          <div className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: item.color }} />
-                          <span className="text-xs">{item.name} ({item.value})</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                      );
+                    }
+                  })}
+                </div>
+              </SortableContext>
+            </DndContext>
           </TabsContent>
 
           <TabsContent value="contracts" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <MetricCard 
-                title="Total Contracts" 
-                value={contractStats?.total?.toString() || "0"} 
-                icon={FileText} 
-                description="All contracts in system"
-              />
-              <MetricCard 
-                title="Active Contracts" 
-                value={contractStats?.byStatus?.active?.toString() || "0"} 
-                icon={Activity} 
-                description="Currently active contracts"
-              />
-              <MetricCard 
-                title="Draft Contracts" 
-                value={contractStats?.byStatus?.draft?.toString() || "0"} 
-                icon={Activity} 
-                description="Contracts in draft status"
-              />
-              <MetricCard 
-                title="Recently Created" 
-                value={contractStats?.recentlyCreated?.toString() || "0"} 
-                icon={Calendar} 
-                description="Created in last 7 days"
-              />
+              {contractsTabMetrics.map((metric, index) => (
+                <MetricCard 
+                  key={index}
+                  title={metric.title}
+                  value={metric.value}
+                  icon={metric.icon}
+                  description={metric.description}
+                />
+              ))}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -425,8 +715,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
                     <DynamicChart 
                       type="bar" 
                       data={getContractTypeData()} 
-                      series={[{ dataKey: "value", name: "Count", fill: CHART_COLORS.primary }]} 
-                      xAxisKey="name" 
+                      colors={[CHART_COLORS.primary]}
                       height={320} 
                       showGrid={true} 
                       showLegend={false} 
@@ -450,12 +739,9 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
                                status === 'failed' ? CHART_COLORS.danger : 
                                status === 'processing' ? CHART_COLORS.warning : CHART_COLORS.primary
                       }))} 
-                      series={[{ dataKey: "value" }]} 
                       height={320} 
                       showLegend={true} 
                       pieConfig={{ 
-                        dataKey: "value", 
-                        nameKey: "name", 
                         innerRadius: 60, 
                         outerRadius: 120 
                       }}
@@ -468,24 +754,15 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
 
           <TabsContent value="vendors" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <MetricCard 
-                title="Total Vendors" 
-                value={totalVendors.toString()} 
-                icon={Building} 
-                description="Registered vendor relationships"
-              />
-              <MetricCard 
-                title="Active Relationships" 
-                value={(vendors && Array.isArray(vendors)) ? vendors.filter(v => v.contractCount > 0).length.toString() : "0"} 
-                icon={Activity} 
-                description="Vendors with active contracts"
-              />
-              <MetricCard 
-                title="Avg Contracts per Vendor" 
-                value={(totalVendors > 0 ? ((contractStats?.total || 0) / totalVendors).toFixed(1) : "0")} 
-                icon={Target} 
-                description="Average contracts per vendor"
-              />
+              {vendorsTabMetrics.map((metric, index) => (
+                <MetricCard 
+                  key={index}
+                  title={metric.title}
+                  value={metric.value}
+                  icon={metric.icon}
+                  description={metric.description}
+                />
+              ))}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -538,30 +815,15 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
 
           <TabsContent value="agents" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <MetricCard 
-                title="System Status" 
-                value={agentSystemStatus?.system?.isRunning ? "Running" : "Stopped"} 
-                icon={Activity} 
-                description="AI agent system status"
-              />
-              <MetricCard 
-                title="Active Agents" 
-                value={agentSystemStatus?.stats?.activeAgents?.toString() || "0"} 
-                icon={Users} 
-                description="Currently running agents"
-              />
-              <MetricCard 
-                title="Recent Insights" 
-                value={agentSystemStatus?.stats?.recentInsights?.toString() || "0"} 
-                icon={TrendingUp} 
-                description="Insights generated (24h)"
-              />
-              <MetricCard 
-                title="Active Tasks" 
-                value={agentSystemStatus?.stats?.activeTasks?.toString() || "0"} 
-                icon={Calendar} 
-                description="Tasks being processed"
-              />
+              {agentsTabMetrics.map((metric, index) => (
+                <MetricCard 
+                  key={index}
+                  title={metric.title}
+                  value={metric.value}
+                  icon={metric.icon}
+                  description={metric.description}
+                />
+              ))}
             </div>
 
             {/* Recent AI Insights */}

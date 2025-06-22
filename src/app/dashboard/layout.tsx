@@ -46,7 +46,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           isSearchOpen={isSearchOpen}
           onSearchOpen={() => setIsSearchOpen(true)}
           onSearchClose={() => setIsSearchOpen(false)}
-          className="relative z-10"
         />
         <main className={`flex-1 overflow-auto relative ${isVisible ? 'animate-slide-in-bottom' : ''}`}>
           <div className="min-h-full">

@@ -76,7 +76,7 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
   subtitle,
   data,
   type = "area",
-  series = [],
+  series: seriesProp,
   height = 300,
   showExport = true,
   showTypeSelector = true,
@@ -86,6 +86,7 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
   className,
   loading = false,
 }) => {
+  const series = seriesProp || [];
   const [chartType, setChartType] = useState<ChartType>(type);
   const [visibleSeries, setVisibleSeries] = useState<Set<string>>(
     new Set(series.map(s => s.key))
@@ -193,7 +194,7 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
         // Handle hover events if needed
       },
       theme: threeJsTheme,
-      series: visibleSeriesData.length > 0 ? visibleSeriesData : undefined,
+      ...(visibleSeriesData.length > 0 && { series: visibleSeriesData }),
       className: "w-full",
     };
 

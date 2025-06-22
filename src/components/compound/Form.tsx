@@ -165,8 +165,16 @@ export function FormSelect({ name, placeholder, children, value, onValueChange, 
   const { errors, touched } = useContext(FormContext);
   const hasError = errors?.[name] && touched?.[name];
   
+  const selectProps: any = {};
+  if (value !== undefined) {
+    selectProps.value = value;
+  }
+  if (onValueChange !== undefined) {
+    selectProps.onValueChange = onValueChange;
+  }
+  
   return (
-    <Select value={value} onValueChange={onValueChange}>
+    <Select {...selectProps}>
       <SelectTrigger 
         id={name}
         className={cn(hasError && 'border-destructive focus:ring-destructive', className)}

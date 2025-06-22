@@ -131,9 +131,12 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
   const generateUploadUrlMutation = useConvexMutation(api.contracts.generateUploadUrl);
 
   const [formState, setFormState] = useState<FormState>({
-    title: '', description: '', contractType: '', vendorId: '',
-    effectiveDate: undefined, expiresAt: undefined,
-    autoRenewal: false, currency: 'USD', value: undefined,
+    title: '', 
+    description: '', 
+    contractType: '', 
+    vendorId: '',
+    autoRenewal: false, 
+    currency: 'USD', 
     documents: [],
   });
 
@@ -222,24 +225,41 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
 
   useEffect(() => {
     if (contractData && contractId && contractData._id === contractId) {
-      setFormState({
+      const newFormState: FormState = {
         title: contractData.title || '',
         description: contractData.notes || '', // Map to notes
         contractType: (contractData as any).contractType || '', // Add missing field
         vendorId: contractData.vendorId?.toString() || '',
-        effectiveDate: contractData.extractedStartDate ? new Date(contractData.extractedStartDate) : undefined,
-        expiresAt: contractData.extractedEndDate ? new Date(contractData.extractedEndDate) : undefined,
         // These fields are not in the simplified schema
         autoRenewal: (contractData as any).autoRenewal || false,
         currency: (contractData as any).currency || 'USD',
-        value: (contractData as any).extractedPricing ? parseFloat((contractData as any).extractedPricing.replace(/[^0-9.-]+/g,"")) : undefined, // Basic parsing attempt
         documents: [],
-      });
+      };
+      
+      if (contractData.extractedStartDate) {
+        newFormState.effectiveDate = new Date(contractData.extractedStartDate);
+      }
+      
+      if (contractData.extractedEndDate) {
+        newFormState.expiresAt = new Date(contractData.extractedEndDate);
+      }
+      
+      if ((contractData as any).extractedPricing) {
+        const value = parseFloat((contractData as any).extractedPricing.replace(/[^0-9.-]+/g,""));
+        if (!isNaN(value)) {
+          newFormState.value = value;
+        }
+      }
+      
+      setFormState(newFormState);
     } else if (!contractId) { // Reset for new contract
       setFormState({
-        title: '', description: '', contractType: '', vendorId: '',
-        effectiveDate: undefined, expiresAt: undefined,
-        autoRenewal: false, currency: 'USD', value: undefined,
+        title: '', 
+        description: '', 
+        contractType: '', 
+        vendorId: '',
+        autoRenewal: false, 
+        currency: 'USD',
         documents: [],
       });
     }
@@ -262,7 +282,8 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
   const removeDocument = (indexToRemove: number) => setFormState(prev => ({ ...prev, documents: prev.documents.filter((_, index) => index !== indexToRemove) }));
   const selectVendor = (vendorId: string) => { setFormState(prev => ({ ...prev, vendorId })); setShowVendorSearch(false); };
 
-  const filteredVendors = vendors && vendors.filter((vendor: VendorType) => {
+  const vendorsList = Array.isArray(vendors) ? vendors : (vendors?.vendors || []);
+  const filteredVendors = vendorsList.filter((vendor: VendorType) => {
     if (!vendorSearchQuery) return true;
     return vendor.name?.toLowerCase().includes(vendorSearchQuery.toLowerCase());
   });
@@ -301,7 +322,7 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
       let uploadedFileType = '';
 
       if (formState.documents.length > 0) {
-        const fileToUpload = formState.documents[0]; // Process first file
+        const fileToUpload = formState.documents[0]!; // Process first file
         uploadedFileName = fileToUpload.name;
         uploadedFileType = fileToUpload.type;
 
@@ -309,7 +330,9 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
         if (!postUrlResult) throw new Error("Could not get an upload URL.");
         
         const uploadResponse = await fetch(postUrlResult.toString(), {
-            method: "POST", headers: { "Content-Type": fileToUpload.type }, body: fileToUpload,
+            method: "POST", 
+            headers: { "Content-Type": fileToUpload.type }, 
+            body: fileToUpload as BodyInit,
         });
         const { storageId } = await uploadResponse.json();
         if (!storageId) throw new Error(`Upload failed for ${fileToUpload.name}`);
@@ -326,7 +349,7 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
         // Note: Updating vendorId, status, or file (storageId) for an existing contract
         // would require specific logic and potentially different mutations or checks.
         // The current `updateContract` in `convex/contracts.ts` is simple.
-        if (formState.vendorId !== contractData?.vendorId.toString()) {
+        if (formState.vendorId !== contractData?.vendorId?.toString()) {
             // You might want to add a specific check or disallow vendor change here
             // or ensure backend handles implications of vendor change.
             // For now, let's assume it's not directly updatable via this form post-creation
@@ -422,7 +445,7 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
             <div className="relative flex-grow">
                <Building className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                <Button type="button" variant="outline" className="w-full justify-start text-left font-normal pl-8" onClick={() => setShowVendorSearch(true)} disabled={isLoadingVendors || (!enterpriseIdFromClerk && !contractId) }>
-                 {isLoadingVendors ? 'Loading vendors...' : ( formState.vendorId && vendors&& vendors.length > 0 ? vendors.find((v:VendorType) => v._id.toString() === formState.vendorId)?.name ?? 'Select vendor...' : 'Select vendor...' )}
+                 {isLoadingVendors ? 'Loading vendors...' : ( formState.vendorId && vendorsList.length > 0 ? vendorsList.find((v:VendorType) => v._id.toString() === formState.vendorId)?.name ?? 'Select vendor...' : 'Select vendor...' )}
                </Button>
             </div>
             <Button type="button" variant="outline" size="icon" onClick={() => setShowVendorSearch(true)} disabled={isLoadingVendors || (!enterpriseIdFromClerk && !contractId) }><Search className="h-4 w-4" /></Button>

@@ -9,6 +9,7 @@ import {
   ChartDataPoint,
   ChartSeries 
 } from '../three-charts';
+import { convertLegacySeries, createChartProps, type LegacySeries } from '@/lib/chart-type-helpers';
 
 // Define available chart types (reduced to what Three.js supports)
 type ChartType = 
@@ -17,19 +18,12 @@ type ChartType =
   | 'area' 
   | 'pie';
 
-// Define chart series configuration (simplified for Three.js)
-interface SeriesConfig {
-  dataKey: string;
-  name?: string;
-  color?: string;
-  type?: 'line' | 'bar' | 'area' | 'pie';
-  visible?: boolean;
-}
+// Define available chart types (reduced to what Three.js supports)
 
 interface DynamicChartProps {
   type: ChartType;
   data: ChartDataPoint[];
-  series?: ChartSeries[];
+  series?: ChartSeries[] | LegacySeries[];
   width?: number;
   height?: number;
   colors?: string[];
@@ -37,12 +31,20 @@ interface DynamicChartProps {
   showGrid?: boolean;
   showAxes?: boolean;
   animation?: boolean;
+  // Legacy props for backward compatibility (will be ignored)
+  xAxisKey?: string;
+  showLegend?: boolean;
+  showTooltip?: boolean;
+  stacked?: boolean;
   // Chart specific configs
   pieConfig?: {
+    dataKey?: string; // Legacy - ignored
+    nameKey?: string; // Legacy - ignored
     innerRadius?: number;
     outerRadius?: number;
     showLabels?: boolean;
     labelDistance?: number;
+    paddingAngle?: number; // Legacy - ignored
   };
   barConfig?: {
     barWidth?: number;
@@ -77,6 +79,8 @@ const DynamicChart: React.FC<DynamicChartProps> = ({
   showGrid = true,
   showAxes = false,
   animation = true,
+  xAxisKey, // Legacy - ignored
+  showLegend, // Legacy - ignored
   pieConfig,
   barConfig,
   lineConfig,
@@ -85,20 +89,29 @@ const DynamicChart: React.FC<DynamicChartProps> = ({
   onHover,
   className
 }) => {
-  // Common props for all Three.js charts
-  const commonProps = {
+  // Convert legacy series format to ChartSeries format
+  const convertedSeries = convertLegacySeries(series, colors);
+
+  // Base props that are always defined
+  const baseProps = {
     data,
     width,
     height,
-    onClick,
-    onHover,
     theme: {
       accentColors: colors,
     },
-    series,
-    className,
-    animation,
   };
+
+  // Optional props
+  const optionalProps = {
+    onClick,
+    onHover,
+    series: convertedSeries,
+    className,
+  };
+
+  // Common props for all Three.js charts
+  const commonProps = createChartProps(baseProps, optionalProps);
 
   // Validate data
   if (!data || data.length === 0) {

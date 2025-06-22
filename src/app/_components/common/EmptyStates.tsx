@@ -221,15 +221,26 @@ export const EmptyContracts: React.FC<{
 
   const config = configs[variant];
 
-  return (
-    <EmptyState
-      icon={config.icon || FileText}
-      title={config.title}
-      description={config.description}
-      action={config.action}
-      className={className}
-    />
-  );
+  const props: EmptyStateProps & { className?: string } = {
+    title: config.title,
+    description: config.description,
+  };
+  
+  if ('icon' in config && config.icon) {
+    props.icon = config.icon;
+  } else {
+    props.icon = FileText;
+  }
+  
+  if ('action' in config && config.action) {
+    props.action = config.action;
+  }
+  
+  if (className) {
+    props.className = className;
+  }
+  
+  return <EmptyState {...props} />;
 };
 
 // Vendor-specific empty states
@@ -281,15 +292,21 @@ export const EmptyVendors: React.FC<{
 
   const config = configs[variant];
 
-  return (
-    <EmptyState
-      icon={Building}
-      title={config.title}
-      description={config.description}
-      action={config.action}
-      className={className}
-    />
-  );
+  const props: EmptyStateProps & { className?: string } = {
+    icon: Building,
+    title: config.title,
+    description: config.description,
+  };
+  
+  if ('action' in config && config.action) {
+    props.action = config.action;
+  }
+  
+  if (className) {
+    props.className = className;
+  }
+  
+  return <EmptyState {...props} />;
 };
 
 // Search empty state
@@ -299,18 +316,27 @@ export const EmptySearchResults: React.FC<{
   onClearSearch?: () => void;
   onSuggestionClick?: (suggestion: string) => void;
   className?: string;
-}> = ({ query, suggestions = [], onClearSearch, onSuggestionClick, className }) => (
-  <EmptyState
-    icon={Search}
-    title={`No results for "${query}"`}
-    description="We couldn't find anything matching your search. Try different keywords or check your spelling."
-    action={onClearSearch ? {
+}> = ({ query, suggestions = [], onClearSearch, onSuggestionClick, className }) => {
+  const props: EmptyStateProps & { className?: string } = {
+    icon: Search,
+    title: `No results for "${query}"`,
+    description: "We couldn't find anything matching your search. Try different keywords or check your spelling.",
+  };
+  
+  if (onClearSearch) {
+    props.action = {
       label: 'Clear Search',
       onClick: onClearSearch,
       variant: 'outline'
-    } : undefined}
-    className={className}
-  >
+    };
+  }
+  
+  if (className) {
+    props.className = className;
+  }
+  
+  return (
+    <EmptyState {...props}>
     {suggestions.length > 0 && (
       <div className="mt-4 space-y-2">
         <p className="text-sm text-muted-foreground">Try searching for:</p>
@@ -328,8 +354,9 @@ export const EmptySearchResults: React.FC<{
         </div>
       </div>
     )}
-  </EmptyState>
-);
+    </EmptyState>
+  );
+};
 
 // Analytics empty state
 export const EmptyAnalytics: React.FC<{
@@ -362,15 +389,21 @@ export const EmptyAnalytics: React.FC<{
 
   const config = configs[type];
 
-  return (
-    <EmptyState
-      icon={config.icon}
-      title={config.title}
-      description={config.description}
-      action={config.action}
-      className={className}
-    />
-  );
+  const props: EmptyStateProps & { className?: string } = {
+    icon: config.icon,
+    title: config.title,
+    description: config.description,
+  };
+  
+  if ('action' in config && config.action) {
+    props.action = config.action;
+  }
+  
+  if (className) {
+    props.className = className;
+  }
+  
+  return <EmptyState {...props} />;
 };
 
 // Notifications empty state
@@ -399,16 +432,19 @@ export const EmptyNotifications: React.FC<{
 
   const config = configs[variant];
 
-  return (
-    <EmptyState
-      icon={config.icon}
-      title={config.title}
-      description={config.description}
-      size="sm"
-      variant="minimal"
-      className={className}
-    />
-  );
+  const props: EmptyStateProps & { className?: string; size?: string; variant?: string } = {
+    icon: config.icon,
+    title: config.title,
+    description: config.description,
+    size: "sm",
+    variant: "minimal",
+  };
+  
+  if (className) {
+    props.className = className;
+  }
+  
+  return <EmptyState {...props} />;
 };
 
 // File upload empty state
@@ -417,20 +453,28 @@ export const EmptyFileUpload: React.FC<{
   acceptedTypes?: string[];
   maxSize?: string;
   className?: string;
-}> = ({ onUpload, acceptedTypes = ['PDF', 'DOC', 'DOCX'], maxSize = '10MB', className }) => (
-  <EmptyState
-    icon={Upload}
-    title="Upload your contract"
-    description={`Drag and drop your contract file here, or click to browse. Accepted formats: ${acceptedTypes.join(', ')}. Max size: ${maxSize}.`}
-    action={onUpload ? {
+}> = ({ onUpload, acceptedTypes = ['PDF', 'DOC', 'DOCX'], maxSize = '10MB', className }) => {
+  const props: EmptyStateProps & { className?: string; variant?: string } = {
+    icon: Upload,
+    title: "Upload your contract",
+    description: `Drag and drop your contract file here, or click to browse. Accepted formats: ${acceptedTypes.join(', ')}. Max size: ${maxSize}.`,
+    variant: "card",
+  };
+  
+  if (onUpload) {
+    props.action = {
       label: 'Choose File',
       onClick: onUpload,
       icon: Upload
-    } : undefined}
-    variant="card"
-    className={cn('border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 transition-colors', className)}
-  />
-);
+    };
+  }
+  
+  if (className) {
+    props.className = cn('border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 transition-colors', className);
+  }
+  
+  return <EmptyState {...props} />;
+};
 
 // Permission denied empty state
 export const EmptyPermissions: React.FC<{
@@ -438,19 +482,27 @@ export const EmptyPermissions: React.FC<{
   action?: string;
   onRequestAccess?: () => void;
   className?: string;
-}> = ({ resource, action = 'access', onRequestAccess, className }) => (
-  <EmptyState
-    icon={AlertTriangle}
-    title="Access restricted"
-    description={`You don't have permission to ${action} ${resource}. Contact your administrator if you need access.`}
-    action={onRequestAccess ? {
+}> = ({ resource, action = 'access', onRequestAccess, className }) => {
+  const props: EmptyStateProps & { className?: string; variant?: string } = {
+    icon: AlertTriangle,
+    title: "Access restricted",
+    description: `You don't have permission to ${action} ${resource}. Contact your administrator if you need access.`,
+  };
+  
+  if (onRequestAccess) {
+    props.action = {
       label: 'Request Access',
       onClick: onRequestAccess,
       variant: 'outline'
-    } : undefined}
-    className={className}
-  />
-);
+    };
+  }
+  
+  if (className) {
+    props.className = className;
+  }
+  
+  return <EmptyState {...props} />;
+};
 
 // Coming soon empty state
 export const ComingSoon: React.FC<{
@@ -459,26 +511,36 @@ export const ComingSoon: React.FC<{
   timeline?: string;
   onNotifyMe?: () => void;
   className?: string;
-}> = ({ feature, description, timeline, onNotifyMe, className }) => (
-  <EmptyState
-    icon={Star}
-    title={`${feature} coming soon`}
-    description={description || `We're working hard to bring you ${feature}. ${timeline ? `Expected ${timeline}.` : ''}`}
-    action={onNotifyMe ? {
+}> = ({ feature, description, timeline, onNotifyMe, className }) => {
+  const props: EmptyStateProps & { className?: string; children?: React.ReactNode } = {
+    icon: Star,
+    title: `${feature} coming soon`,
+    description: description || `We're working hard to bring you ${feature}. ${timeline ? `Expected ${timeline}.` : ''}`,
+  };
+  
+  if (onNotifyMe) {
+    props.action = {
       label: 'Notify Me',
       onClick: onNotifyMe,
       variant: 'outline',
       icon: Bell
-    } : undefined}
-    className={className}
-  >
-    {timeline && (
+    };
+  }
+  
+  if (className) {
+    props.className = className;
+  }
+  
+  if (timeline) {
+    props.children = (
       <Badge variant="outline" className="mt-2">
         {timeline}
       </Badge>
-    )}
-  </EmptyState>
-);
+    );
+  }
+  
+  return <EmptyState {...props} />;
+};
 
 // Maintenance empty state
 export const MaintenanceMode: React.FC<{
@@ -493,20 +555,29 @@ export const MaintenanceMode: React.FC<{
   expectedDuration,
   onCheckStatus,
   className 
-}) => (
-  <EmptyState
-    icon={Settings}
-    title={title}
-    description={`${description} ${expectedDuration ? `Expected completion: ${expectedDuration}.` : ''}`}
-    action={onCheckStatus ? {
+}) => {
+  const emptyStateProps: any = {
+    icon: Settings,
+    title,
+    description: `${description} ${expectedDuration ? `Expected completion: ${expectedDuration}.` : ''}`,
+    variant: "card",
+    size: "lg",
+  };
+  
+  if (onCheckStatus) {
+    emptyStateProps.action = {
       label: 'Check Status',
       onClick: onCheckStatus,
-      variant: 'outline'
-    } : undefined}
-    variant="card"
-    size="lg"
-    className={className}
-  >
+      variant: 'outline' as const
+    };
+  }
+  
+  if (className) {
+    emptyStateProps.className = className;
+  }
+  
+  return (
+    <EmptyState {...emptyStateProps}>
     {expectedDuration && (
       <div className="flex items-center gap-2 mt-2">
         <Clock className="h-4 w-4 text-muted-foreground" />
@@ -515,7 +586,8 @@ export const MaintenanceMode: React.FC<{
         </span>
       </div>
     )}
-  </EmptyState>
-);
+    </EmptyState>
+  );
+};
 
 export default EmptyState;

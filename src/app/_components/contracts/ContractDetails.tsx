@@ -338,13 +338,13 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
                 {vendorInfo.category && (
                   <DetailItem icon={Briefcase} label="Category" value={formatStatusLabel(vendorInfo.category)} />
                 )}
-                {vendorInfo.contactEmail && (
+                {'contactEmail' in vendorInfo && vendorInfo.contactEmail && (
                     <DetailItem label="Email" value={vendorInfo.contactEmail} isLink={`mailto:${vendorInfo.contactEmail}`} />
                 )}
-                {vendorInfo.contactPhone && (
+                {'contactPhone' in vendorInfo && vendorInfo.contactPhone && (
                   <DetailItem label="Phone" value={vendorInfo.contactPhone} />
                 )}
-                {vendorInfo.website && (
+                {'website' in vendorInfo && vendorInfo.website && (
                   <DetailItem label="Website" value={vendorInfo.website} isLink={vendorInfo.website.startsWith('http') ? vendorInfo.website : `https://${vendorInfo.website}`} />
                 )}
               </CardContent>
@@ -388,7 +388,7 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
           </TabsContent>
 
           <TabsContent value="history" className="mt-6">
-            <ContractVersionHistory contractId={contractId} currentContract={contract} />
+            <ContractVersionHistory contractId={contractId} currentContract={contract as any} />
           </TabsContent>
 
           <TabsContent value="collaborative" className="mt-6">
@@ -454,7 +454,7 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
 const DetailItem = ({ icon: Icon, label, value, isLink, isMonospace, valueClassName }: { icon?: React.ElementType, label: string, value?: string | number | null, isLink?: string, isMonospace?: boolean, valueClassName?: string}) => (
     <div>
         <p className="text-sm font-medium text-foreground dark:text-gray-300 flex items-center">
-            {Icon && <Icon className="h-4 w-4 text-muted-foreground mr-2 flex-shrink-0" />}
+            {Icon && React.createElement(Icon, { className: "h-4 w-4 text-muted-foreground mr-2 flex-shrink-0" })}
             {label}
         </p>
         {value && (

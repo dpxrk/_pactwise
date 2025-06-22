@@ -80,6 +80,9 @@ export async function checkRateLimit(
   } = {}
 ): Promise<{ allowed: boolean; tokens: number; resetIn?: number }> {
   const config = RATE_LIMIT_CONFIGS[operation] || RATE_LIMIT_CONFIGS["query.default"];
+  if (!config) {
+    throw new Error(`No rate limit config found for operation: ${operation}`);
+  }
   const cost = options.cost || config.costPerRequest;
   
   // Generate rate limit key
@@ -103,20 +106,37 @@ export async function checkRateLimit(
       lastRefill: now.toISOString(),
       violations: 0,
     });
-    bucket = { tokens: config.maxTokens, violations: 0 };
+    bucket = { 
+      _id: undefined as any,
+      key,
+      tokens: config.maxTokens,
+      lastRefill: now.toISOString(),
+      violations: 0,
+      blockedUntil: undefined
+    };
   } else {
     // Check if blocked
     if (bucket.blockedUntil && new Date(bucket.blockedUntil) > now) {
       const resetIn = Math.ceil((new Date(bucket.blockedUntil).getTime() - now.getTime()) / 1000);
       
-      await logRateLimit(ctx, {
-        userId: options.userId,
+      const logData: {
+        userId?: Id<"users">;
+        ipAddress: string;
+        operation: string;
+        allowed: boolean;
+        tokens: number;
+        metadata?: any;
+      } = {
         ipAddress: options.ipAddress || "unknown",
         operation,
         allowed: false,
         tokens: 0,
         metadata: { reason: "blocked", resetIn }
-      });
+      };
+      
+      if (options.userId !== undefined) logData.userId = options.userId;
+      
+      await logRateLimit(ctx, logData);
       
       return { allowed: false, tokens: 0, resetIn };
     }
@@ -137,18 +157,30 @@ export async function checkRateLimit(
   // Check if enough tokens
   if (bucket.tokens >= cost) {
     // Consume tokens
-    await ctx.db.patch(bucket._id, {
-      tokens: bucket.tokens - cost,
-      violations: 0, // Reset violations on successful request
-    });
+    if (bucket._id) {
+      await ctx.db.patch(bucket._id, {
+        tokens: bucket.tokens - cost,
+        violations: 0, // Reset violations on successful request
+      });
+    }
     
-    await logRateLimit(ctx, {
-      userId: options.userId,
+    const logDataSuccess: {
+      userId?: Id<"users">;
+      ipAddress: string;
+      operation: string;
+      allowed: boolean;
+      tokens: number;
+      metadata?: any;
+    } = {
       ipAddress: options.ipAddress || "unknown",
       operation,
       allowed: true,
       tokens: bucket.tokens - cost,
-    });
+    };
+    
+    if (options.userId !== undefined) logDataSuccess.userId = options.userId;
+    
+    await logRateLimit(ctx, logDataSuccess);
     
     return { allowed: true, tokens: bucket.tokens - cost };
   } else {
@@ -156,21 +188,33 @@ export async function checkRateLimit(
     const violations = bucket.violations + 1;
     const blockDuration = calculateBlockDuration(violations);
     
-    await ctx.db.patch(bucket._id, {
-      violations,
-      blockedUntil: blockDuration > 0 
-        ? new Date(now.getTime() + blockDuration).toISOString()
-        : undefined,
-    });
+    if (bucket._id) {
+      await ctx.db.patch(bucket._id, {
+        violations,
+        blockedUntil: blockDuration > 0 
+          ? new Date(now.getTime() + blockDuration).toISOString()
+          : undefined,
+      });
+    }
     
-    await logRateLimit(ctx, {
-      userId: options.userId,
+    const logDataFailure: {
+      userId?: Id<"users">;
+      ipAddress: string;
+      operation: string;
+      allowed: boolean;
+      tokens: number;
+      metadata?: any;
+    } = {
       ipAddress: options.ipAddress || "unknown",
       operation,
       allowed: false,
       tokens: bucket.tokens,
       metadata: { violations, blockDuration }
-    });
+    };
+    
+    if (options.userId !== undefined) logDataFailure.userId = options.userId;
+    
+    await logRateLimit(ctx, logDataFailure);
     
     const resetIn = Math.ceil((config.maxTokens - bucket.tokens) / config.refillRate * 60);
     
@@ -203,15 +247,18 @@ async function logRateLimit(
     metadata?: any;
   }
 ): Promise<void> {
-  await ctx.db.insert("rateLimitLogs", {
-    userId: data.userId,
+  const logEntry: any = {
     ipAddress: data.ipAddress,
     operation: data.operation,
     allowed: data.allowed,
     tokens: data.tokens,
     timestamp: new Date().toISOString(),
-    metadata: data.metadata,
-  });
+  };
+  
+  if (data.userId !== undefined) logEntry.userId = data.userId;
+  if (data.metadata !== undefined) logEntry.metadata = data.metadata;
+  
+  await ctx.db.insert("rateLimitLogs", logEntry);
 }
 
 /**
@@ -235,10 +282,15 @@ export const checkRateLimitAction = mutation({
       userId = user?._id;
     }
     
-    const rateLimitResult = await checkRateLimit(ctx, args.operation, {
-      userId,
-      cost: args.cost,
-    });
+    const rateLimitOptions: {
+      userId?: Id<"users">;
+      cost?: number;
+    } = {};
+    
+    if (userId !== undefined) rateLimitOptions.userId = userId;
+    if (args.cost !== undefined) rateLimitOptions.cost = args.cost;
+    
+    const rateLimitResult = await checkRateLimit(ctx, args.operation, rateLimitOptions);
     
     if (!rateLimitResult.allowed) {
       throw new ConvexError(`Rate limit exceeded for operation: ${args.operation}. Please try again in ${rateLimitResult.resetIn || 60} seconds.`);
@@ -274,10 +326,13 @@ export const cleanupRateLimits = internalMutation({
       .collect();
     
     for (const bucket of expiredBlocks) {
-      await ctx.db.patch(bucket._id, {
-        blockedUntil: undefined,
-        violations: 0,
-      });
+      if (bucket.blockedUntil) {
+        const patchData: any = {
+          violations: 0,
+        };
+        // Remove blockedUntil by not including it in the patch
+        await ctx.db.patch(bucket._id, patchData);
+      }
     }
   },
 });

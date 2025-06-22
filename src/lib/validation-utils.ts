@@ -48,11 +48,11 @@ export const fileValidationSchema = z.object({
 // URL validation
 export const urlValidationSchema = z.string()
   .url('Invalid URL format')
-  .refine((url) => {
+  .refine((url: string) => {
     const parsedUrl = new URL(url);
     return ['http:', 'https:'].includes(parsedUrl.protocol);
   }, 'Only HTTP and HTTPS URLs are allowed')
-  .refine((url) => {
+  .refine((url: string) => {
     const parsedUrl = new URL(url);
     return !parsedUrl.hostname.includes('localhost') && !parsedUrl.hostname.includes('127.0.0.1');
   }, 'Localhost URLs are not allowed');
@@ -61,13 +61,13 @@ export const urlValidationSchema = z.string()
 export const emailValidationSchema = z.string()
   .email('Invalid email format')
   .max(254, 'Email too long')
-  .refine((email) => {
+  .refine((email: string) => {
     // Additional email validation
     const parts = email.split('@');
     if (parts.length !== 2) return false;
     
     const [local, domain] = parts;
-    return local.length <= 64 && domain.length <= 253;
+    return local && domain && local.length <= 64 && domain.length <= 253;
   }, 'Invalid email structure');
 
 // Phone number validation
@@ -189,7 +189,7 @@ export const validateFileUpload = (file: File): { valid: boolean; error?: string
     return { valid: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { valid: false, error: error.errors[0].message };
+      return { valid: false, error: error.errors[0]?.message || 'Validation error' };
     }
     return { valid: false, error: 'File validation failed' };
   }

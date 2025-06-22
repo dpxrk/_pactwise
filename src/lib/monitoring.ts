@@ -1,6 +1,6 @@
 'use client';
 
-import { getCLS, getINP, getFCP, getLCP, getTTFB, onCLS, onFCP, onINP, onLCP, onTTFB } from 'web-vitals';
+import { onCLS, onFCP, onINP, onLCP, onTTFB } from 'web-vitals';
 
 // Web Vitals tracking
 interface WebVitalsMetric {
@@ -198,10 +198,11 @@ class UserAnalytics {
       event,
       timestamp: Date.now(),
       url: typeof window !== 'undefined' ? window.location.href : '',
-      userId,
-      properties,
       sessionId: this.sessionId,
     };
+    
+    if (userId) userEvent.userId = userId;
+    if (properties) userEvent.properties = properties;
 
     this.events.push(userEvent);
 
@@ -325,11 +326,14 @@ class ErrorTracker {
       error,
       timestamp: Date.now(),
       url: typeof window !== 'undefined' ? window.location.href : '',
-      userId,
+      userId: userId || '',
       sessionId: userAnalytics.getSessionId(),
-      userAgent: typeof window !== 'undefined' ? navigator.userAgent : '',
-      context,
+      userAgent: typeof window !== 'undefined' ? navigator.userAgent : ''
     };
+    
+    if (context) {
+      errorReport.context = context;
+    }
 
     this.errors.push(errorReport);
 
@@ -378,10 +382,17 @@ class ErrorTracker {
       const Sentry = await import('@sentry/nextjs');
       
       // Set user context
-      Sentry.setUser({
-        id: errorReport.userId || 'anonymous',
-        ip_address: '{{auto}}',
-      });
+      if (errorReport.userId) {
+        Sentry.setUser({
+          id: errorReport.userId,
+          ip_address: '{{auto}}',
+        });
+      } else {
+        Sentry.setUser({
+          id: 'anonymous',
+          ip_address: '{{auto}}',
+        });
+      }
 
       // Set additional context
       Sentry.setContext('error_report', {
@@ -601,28 +612,36 @@ export const reportError = async (
     const Sentry = await import('@sentry/nextjs');
     
     // Set user context if provided
-    if (context?.user) {
+    if (context && context.user) {
       Sentry.setUser(context.user);
     }
 
     // Set additional contexts
-    if (context?.contexts) {
+    if (context && context.contexts) {
       Object.entries(context.contexts).forEach(([key, value]) => {
         Sentry.setContext(key, value);
       });
     }
 
     // Set tags
-    if (context?.tags) {
+    if (context && context.tags) {
       Sentry.setTags(context.tags);
     }
 
     // Capture exception
-    Sentry.captureException(errorObj, {
-      level: context?.level || 'error',
-      extra: context?.extra,
-      fingerprint: context?.fingerprint,
-    });
+    const captureOptions: Parameters<typeof Sentry.captureException>[1] = {
+      level: (context && context.level) || 'error',
+    };
+    
+    if (context && context.extra) {
+      captureOptions.extra = context.extra;
+    }
+    
+    if (context && context.fingerprint) {
+      captureOptions.fingerprint = context.fingerprint;
+    }
+    
+    Sentry.captureException(errorObj, captureOptions);
   } catch (sentryError) {
     console.error('Failed to report error to Sentry:', sentryError);
     // Fall back to error tracker
@@ -645,12 +664,17 @@ export const reportPerformance = async (
     const Sentry = await import('@sentry/nextjs');
     
     // Send custom metric to Sentry
-    Sentry.addBreadcrumb({
+    const breadcrumb: any = {
       category: 'performance',
       message: `${metric.name}: ${metric.value}${metric.unit || ''}`,
-      level: 'info',
-      data: metric.tags,
-    });
+      level: 'info'
+    };
+    
+    if (metric.tags) {
+      breadcrumb.data = metric.tags;
+    }
+    
+    Sentry.addBreadcrumb(breadcrumb);
 
     // Also track via user analytics
     userAnalytics.track('performance_metric', {

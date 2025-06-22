@@ -13,7 +13,7 @@ export function useMutationWithMonitoring<Mutation extends FunctionReference<'mu
   
   return useCallback(
     async (args: FunctionArgs<Mutation>): Promise<FunctionReturnType<Mutation>> => {
-      const functionName = mutationReference._name || 'unknown_mutation';
+      const functionName = 'mutation';
       
       return measurePerformance.measureConvexCall(functionName, () => 
         mutation(args)
@@ -35,7 +35,7 @@ export function useQueryWithMonitoring<Query extends FunctionReference<'query'>>
   const result = useQuery(queryReference, args);
   
   // Track query performance when result changes
-  const functionName = queryReference._name || 'unknown_query';
+  const functionName = 'query';
   
   // Log query execution (this happens on every render when args change)
   if (result !== undefined) {
@@ -60,7 +60,7 @@ export function usePreloadedQueryWithMonitoring<Query extends FunctionReference<
   preloadedQuery: Preloaded<Query>
 ): FunctionReturnType<Query> {
   const result = usePreloadedQuery(preloadedQuery);
-  const functionName = queryReference._name || 'unknown_preloaded_query';
+  const functionName = 'preloaded_query';
   
   // Track preloaded query usage
   if (typeof window !== 'undefined' && (window as any).convexAnalytics) {

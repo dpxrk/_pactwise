@@ -179,9 +179,13 @@ export const processMemoryEmbeddings = internalMutation({
     
     // Update memories with embeddings
     for (let i = 0; i < memories.length; i++) {
-      await ctx.db.patch(memories[i]!._id, {
-        embedding: embeddings[i]!,
-      });
+      const memory = memories[i];
+      const embedding = embeddings[i];
+      if (memory && embedding) {
+        await ctx.db.patch(memory._id, {
+          embedding: embedding,
+        });
+      }
     }
     
     return { processed: memories.length };
@@ -333,22 +337,27 @@ export const clusterMemories = internalMutation({
         // Create associations between clustered memories
         for (let i = 0; i < cluster.length; i++) {
           for (let j = i + 1; j < cluster.length; j++) {
-            const existing = await ctx.db
-              .query("memoryAssociations")
-              .withIndex("by_from", (q) => q.eq("fromMemoryId", cluster[i]._id))
-              .filter(q => q.eq(q.field("toMemoryId"), cluster[j]._id))
-              .first();
+            const firstMemory = cluster[i];
+            const secondMemory = cluster[j];
             
-            if (!existing) {
-              await ctx.db.insert("memoryAssociations", {
-                fromMemoryId: cluster[i]._id,
-                toMemoryId: cluster[j]._id,
-                associationType: "similar",
-                strength: cosineSimilarity(cluster[i].embedding!, cluster[j].embedding!),
-                confidence: 0.9,
-                createdAt: new Date().toISOString(),
-                lastReinforcedAt: new Date().toISOString(),
-              });
+            if (firstMemory && secondMemory && firstMemory.embedding && secondMemory.embedding) {
+              const existing = await ctx.db
+                .query("memoryAssociations")
+                .withIndex("by_from", (q) => q.eq("fromMemoryId", firstMemory._id))
+                .filter(q => q.eq(q.field("toMemoryId"), secondMemory._id))
+                .first();
+              
+              if (!existing) {
+                await ctx.db.insert("memoryAssociations", {
+                  fromMemoryId: firstMemory._id,
+                  toMemoryId: secondMemory._id,
+                  associationType: "similar",
+                  strength: cosineSimilarity(firstMemory.embedding, secondMemory.embedding),
+                  confidence: 0.9,
+                  createdAt: new Date().toISOString(),
+                  lastReinforcedAt: new Date().toISOString(),
+                });
+              }
             }
           }
         }
@@ -414,22 +423,25 @@ export const indexMemoriesByDomain = internalMutation({
     // Calculate pairwise similarities within domain
     for (let i = 0; i < memories.length; i++) {
       for (let j = i + 1; j < memories.length; j++) {
-        if (!memories[i].embedding || !memories[j].embedding) continue;
+        const firstMemory = memories[i];
+        const secondMemory = memories[j];
         
-        const similarity = cosineSimilarity(memories[i].embedding!, memories[j].embedding!);
+        if (!firstMemory || !secondMemory || !firstMemory.embedding || !secondMemory.embedding) continue;
+        
+        const similarity = cosineSimilarity(firstMemory.embedding, secondMemory.embedding);
         
         if (similarity >= EMBEDDING_CONFIG.similarityThreshold) {
           // Check if association exists
           const existing = await ctx.db
             .query("memoryAssociations")
-            .withIndex("by_from", (q) => q.eq("fromMemoryId", memories[i]._id))
-            .filter(q => q.eq(q.field("toMemoryId"), memories[j]._id))
+            .withIndex("by_from", (q) => q.eq("fromMemoryId", firstMemory._id))
+            .filter(q => q.eq(q.field("toMemoryId"), secondMemory._id))
             .first();
           
           if (!existing) {
             await ctx.db.insert("memoryAssociations", {
-              fromMemoryId: memories[i]._id,
-              toMemoryId: memories[j]._id,
+              fromMemoryId: firstMemory._id,
+              toMemoryId: secondMemory._id,
               associationType: "related",
               strength: similarity,
               confidence: 0.8,

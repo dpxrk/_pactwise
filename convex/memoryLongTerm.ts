@@ -86,14 +86,13 @@ export const store = mutation({
     }
 
     // Create new long-term memory
-    const memoryId = await ctx.db.insert("longTermMemory", {
+    const memoryData: Record<string, any> = {
       userId: user._id,
       enterpriseId: user.enterpriseId,
       memoryType: args.memoryType,
       content: args.content,
       structuredData: args.structuredData,
       summary: args.summary || args.content.substring(0, 200),
-      embedding: undefined, // Will be set by vector embedding service
       keywords: args.keywords || extractKeywords(args.content),
       context: args.context,
       importance: args.importance,
@@ -104,13 +103,20 @@ export const store = mutation({
       lastAccessedAt: now,
       createdAt: now,
       updatedAt: now,
-      consolidatedFrom: args.consolidatedFrom,
       confidence: args.confidence,
       isVerified: false,
-      contradictedBy: undefined,
       source: args.source,
-      sourceChain: args.sourceChain,
-    });
+    };
+    
+    // Add optional fields if provided
+    if (args.consolidatedFrom !== undefined) {
+      memoryData.consolidatedFrom = args.consolidatedFrom;
+    }
+    if (args.sourceChain !== undefined) {
+      memoryData.sourceChain = args.sourceChain;
+    }
+    
+    const memoryId = await ctx.db.insert("longTermMemory", memoryData as any);
 
     // Mark short-term memories as consolidated
     if (args.consolidatedFrom) {
@@ -166,7 +172,7 @@ export const getMemories = query({
       for (const memoryType of args.memoryTypes) {
         const typeMemories = await ctx.db
           .query("longTermMemory")
-          .withIndex("by_user_type_strength", (q) => 
+          .withIndex("by_user_type_strength", (q: any) => 
             q.eq("userId", user._id).eq("memoryType", memoryType)
           )
           .order("desc")
@@ -428,14 +434,14 @@ export const applyDecay = mutation({
 
 // Helper functions
 async function findSimilarMemory(
-  ctx: any,
+  ctx: { db: any },
   userId: Id<"users">,
   memoryType: string,
   content: string
 ): Promise<Doc<"longTermMemory"> | null> {
   const memories = await ctx.db
     .query("longTermMemory")
-    .withIndex("by_user_type_strength", (q) => 
+    .withIndex("by_user_type_strength", (q: any) => 
       q.eq("userId", userId).eq("memoryType", memoryType)
     )
     .order("desc")

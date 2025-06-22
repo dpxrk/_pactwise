@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import { ContractType } from "@/types/contract.types";
+import { Id } from "../../convex/_generated/dataModel";
 
 interface ContractModalState {
   // Modal state
@@ -57,8 +58,8 @@ interface ContractStoreState extends ContractModalState {
   // Contract CRUD operations
   setContracts: (contracts: ContractType[]) => void;
   addContract: (contract: ContractType) => void;
-  updateContract: (id: number, contract: Partial<ContractType>) => void;
-  deleteContract: (id: number) => void;
+  updateContract: (id: string, contract: Partial<ContractType>) => void;
+  deleteContract: (id: string) => void;
   fetchMoreContracts: (page: number) => Promise<void>;
 
   // Loading and error states
@@ -89,14 +90,14 @@ const useContractStore = create<ContractStoreState>()(
       updateContract: (id, updatedContract) => {
         set((state) => ({
           contracts: state.contracts.map((contract) =>
-            contract.id === id ? { ...contract, ...updatedContract } : contract
+            contract._id === id ? { ...contract, ...updatedContract } : contract
           ),
         }));
       },
 
       deleteContract: (id) => {
         set((state) => ({
-          contracts: state.contracts.filter((contract) => contract.id !== id),
+          contracts: state.contracts.filter((contract) => contract._id !== id),
         }));
       },
 
@@ -215,7 +216,7 @@ const useContractStore = create<ContractStoreState>()(
       },
       
       // Submit contract
-      submitContract: async () => {
+      submitContract: async (): Promise<void> => {
         const state = get();
         if (!state.isFormValid()) return;
         
@@ -232,34 +233,27 @@ const useContractStore = create<ContractStoreState>()(
           
           // Convert form data to the specific ContractType format
           const contractData: ContractType = {
-            id: Math.floor(Math.random() * 10000), // Temporary ID (server would generate real one)
+            _id: `temp_${Math.floor(Math.random() * 10000)}` as Id<"contracts">, // Temporary ID (server would generate real one)
+            enterpriseId: "temp_enterprise" as Id<"enterprises">, // Would come from user context
             title: state.formData.contractName,
-            type: state.formData.contractType,
-            contract_number: contractNumber,
+            vendorId: "temp_vendor" as Id<"vendors">, // Would come from vendor selection
             status: "draft", // Initial status
-            value: parseFloat(state.formData.contractValue) || 0,
-            created_at: new Date().toISOString(),
-            start_date: formatDate(state.startDate),
-            expires_at: formatDate(state.endDate),
-            updated_at: new Date().toISOString(),
-            assignee: state.formData.contractOwner, // Assuming owner and assignee are the same initially
-            description: state.formData.contractDescription,
-            is_renewable:  true, // Default value of true
-            auto_renewal: true, // Default value since autoRenewal doesn't exist in formData
-            archived_at: "",
-            signature_due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // Default 14 days
-            sent_for_signature_at: new Date(),
-            awaiting_counterparty: true,
-            pending_signers: [], // Default empty array since pendingSigners doesn't exist in formData
+            contractType: (state.formData.contractType || "other") as "nda" | "msa" | "sow" | "saas" | "lease" | "employment" | "partnership" | "other",
+            storageId: "temp_storage" as Id<"_storage">, // Would be set when file is uploaded
+            fileName: "temp_file.pdf", // Would come from file upload
+            fileType: "application/pdf", // Would come from file upload
+            extractedStartDate: formatDate(state.startDate),
+            extractedEndDate: formatDate(state.endDate),
+            extractedPricing: state.formData.contractValue,
+            notes: state.formData.contractDescription,
+            analysisStatus: "pending",
             vendor: {
-              id: 1, // TODO: Get from actual vendor selection/lookup
+              _id: "temp_vendor" as Id<"vendors">,
+              enterpriseId: "temp_enterprise" as Id<"enterprises">,
               name: state.vendorName,
-              location: "", // TODO: Get from vendor data
-              email: "", // TODO: Get from vendor data
-              rating: 0,
-              tier: "Standard"
-            },
-            owner: state.formData.contractOwner
+              contactEmail: "",
+              category: "other"
+            }
           };
           
           // In a real app, this would be an API call
@@ -280,7 +274,6 @@ const useContractStore = create<ContractStoreState>()(
           set({ isSubmitting: false });
           get().closeModal();
           
-          return contractData;
         } catch (error) {
           // Handle error
           set({ 
@@ -300,8 +293,8 @@ const useContractStore = create<ContractStoreState>()(
         const query = searchQuery.toLowerCase();
         return contracts.filter(contract => 
           contract.title.toLowerCase().includes(query) ||
-          contract.vendor.name?.toLowerCase().includes(query) ||
-          contract.type?.toLowerCase().includes(query)
+          contract.vendor?.name?.toLowerCase().includes(query) ||
+          contract.contractType?.toLowerCase().includes(query)
         );
       }
     }),

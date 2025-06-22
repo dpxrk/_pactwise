@@ -339,11 +339,11 @@ async function processAssistantMessage(
   // Get the previous user message to understand context
   const previousMessages = await ctx.db
     .query("conversationMessages")
-    .withIndex("by_thread_timestamp", (q) => q.eq("threadId", thread._id))
+    .withIndex("by_thread_timestamp", (q: any) => q.eq("threadId", thread._id))
     .order("desc")
     .take(2);
 
-  const userMessage = previousMessages.find(m => m.role === "user");
+  const userMessage = previousMessages.find((m: any) => m.role === "user");
   
   if (userMessage) {
     // Store the interaction pattern
@@ -416,13 +416,13 @@ function extractIntentsAndEntities(text: string): {
 
   let match;
   while ((match = contractPattern.exec(text)) !== null) {
-    entities.push({ type: "contract_mention", value: match[2], confidence: 0.7 });
+    entities.push({ type: "contract_mention", value: match[2] || "", confidence: 0.7 });
   }
   while ((match = vendorPattern.exec(text)) !== null) {
-    entities.push({ type: "vendor_mention", value: match[2], confidence: 0.7 });
+    entities.push({ type: "vendor_mention", value: match[2] || "", confidence: 0.7 });
   }
   while ((match = datePattern.exec(text)) !== null) {
-    entities.push({ type: "date", value: match[1], confidence: 0.9 });
+    entities.push({ type: "date", value: match[1] || "", confidence: 0.9 });
   }
 
   return { intents, entities };

@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 import { useConvexQuery } from '@/lib/api-client';
 import { api } from '../../../../convex/_generated/api';
 import { Id } from '../../../../convex/_generated/dataModel';
-import type { ContractStatus, AnalysisStatus, ContractType } from '@/types/contract.types';
+import type { ContractStatus } from '@/types/contract.types';
 import { useUser } from '@clerk/nextjs';
 
 // UI Components
@@ -33,7 +33,6 @@ import {
   SortDesc,
   Eye,
   Edit,
-  Download,
   FileText,
   Calendar,
   Building,
@@ -93,8 +92,10 @@ export const ContractTable = ({
   // Memoized filtered and sorted contracts
   const processedContracts = useMemo(() => {
     if (!contracts) return [];
+    
+    const contractsList = Array.isArray(contracts) ? contracts : contracts.contracts || [];
 
-    let filtered = contracts.filter((contract) => {
+    let filtered = contractsList.filter((contract: any) => {
       // Search filter
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
@@ -116,7 +117,7 @@ export const ContractTable = ({
     });
 
     // Sort contracts
-    filtered.sort((a, b) => {
+    filtered.sort((a: any, b: any) => {
       let aValue: any;
       let bValue: any;
 
@@ -354,7 +355,7 @@ export const ContractTable = ({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedContracts.map((contract) => (
+                  {paginatedContracts.map((contract: any) => (
                     <TableRow key={contract._id} className="hover:bg-accent/50 hover:shadow-md hover:scale-[1.005] transition-all duration-200 ease-out cursor-pointer group">
                       <TableCell className="font-medium">
                         <div className="flex flex-col">
@@ -377,7 +378,7 @@ export const ContractTable = ({
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={cn(statusColors[contract.status], "text-xs")}>
+                        <Badge className={cn(statusColors[contract.status as ContractStatus] || statusColors.draft, "text-xs")}>
                           {formatStatusLabel(contract.status)}
                         </Badge>
                       </TableCell>

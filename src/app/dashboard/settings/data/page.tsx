@@ -42,17 +42,34 @@ export default function DataSettingsPage() {
   });
 
   // Storage usage data - TODO: Replace with actual API calls
-  const storageData = {
+  const storageData: {
+    total: number;
+    used: number;
+    breakdown: Array<{ type: string; size: number; percentage: number }>;
+  } = {
     total: 0,
     used: 0,
     breakdown: []
   };
 
   // Recent backups - TODO: Replace with actual API calls
-  const backupHistory: any[] = [];
+  const backupHistory: Array<{
+    id: string;
+    date: Date;
+    type: string;
+    size: string;
+    status: string;
+    retention: Date;
+  }> = [];
 
   // Data categories for export/deletion - TODO: Replace with actual API calls
-  const dataCategories: any[] = [];
+  const dataCategories: Array<{
+    name: string;
+    count: number;
+    description: string;
+    size: string;
+    lastUpdated: Date;
+  }> = [];
 
   const handleSettingChange = (key: string, value: boolean | string) => {
     setSettings(prev => ({ ...prev, [key]: value }));

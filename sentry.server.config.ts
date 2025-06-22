@@ -19,11 +19,10 @@ if (dsn) {
   release: process.env.NEXT_PUBLIC_APP_VERSION || 'development',
 
   // Server-specific integrations
-  integrations: [
-    new Sentry.httpIntegration({
+  integrations: [    
+    ...(((Sentry as any).Integrations?.Http) ? [new (Sentry as any).Integrations.Http({
       // Capture HTTP requests
-      tracing: true,
-    }),
+    })] : []),
   ],
 
   // Performance monitoring for server-side

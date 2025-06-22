@@ -13,7 +13,7 @@ import {
   VersionDiff,
   TextChange,
   FormatChange,
-  ConflictResolution
+  ConflictResolution as ConflictResolutionType
 } from '@/types/collaborative-editor.types';
 
 // UI Components
@@ -145,13 +145,13 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
   // ============================================================================
 
   const versionDiff = useMemo(() => {
-    if (selectedVersions[0] >= snapshots.length || selectedVersions[1] >= snapshots.length) {
+    if (!snapshots || selectedVersions[0] >= snapshots.length || selectedVersions[1] >= snapshots.length) {
       return null;
     }
 
     const [newerIndex, olderIndex] = selectedVersions;
-    const newerSnapshot = snapshots[newerIndex];
-    const olderSnapshot = snapshots[olderIndex];
+    const newerSnapshot = snapshots?.[newerIndex];
+    const olderSnapshot = snapshots?.[olderIndex];
 
     if (!newerSnapshot || !olderSnapshot) return null;
 
@@ -280,7 +280,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
               Version {versionDiff.toVersion} (Newer)
             </h4>
             <p className="text-sm text-blue-700 dark:text-blue-400">
-              {snapshots[selectedVersions[0]]?.state.content.slice(0, 200)}...
+              {snapshots?.[selectedVersions[0]]?.state.content.slice(0, 200)}...
             </p>
           </div>
           <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
@@ -288,7 +288,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
               Version {versionDiff.fromVersion} (Older)
             </h4>
             <p className="text-sm text-orange-700 dark:text-orange-400">
-              {snapshots[selectedVersions[1]]?.state.content.slice(0, 200)}...
+              {snapshots?.[selectedVersions[1]]?.state.content.slice(0, 200)}...
             </p>
           </div>
         </div>
@@ -371,7 +371,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
               <History className="h-5 w-5 text-primary" />
               <CardTitle>Version History</CardTitle>
               <Badge variant="outline">
-                {snapshots.length} versions
+                {snapshots?.length || 0} versions
               </Badge>
             </div>
             
@@ -402,26 +402,26 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
       </Card>
 
       {/* Conflicts Alert */}
-      {conflicts.length > 0 && (
+      {conflicts && conflicts.length > 0 && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Active Conflicts ({conflicts.length})</AlertTitle>
+          <AlertTitle>Active Conflicts ({conflicts?.length || 0})</AlertTitle>
           <AlertDescription>
             There are unresolved conflicts that need attention.
             <div className="mt-2 space-y-2">
-              {conflicts.slice(0, 3).map((conflict, index) => (
+              {conflicts?.slice(0, 3).map((conflict, index) => (
                 <div key={index} className="flex items-center justify-between p-2 bg-destructive/10 rounded">
                   <span className="text-sm">Conflict at position {(conflict as any).position}</span>
                   <div className="flex gap-1">
                     <Button
-                      size="xs"
+                      size="sm"
                       variant="outline"
                       onClick={() => handleResolveConflict((conflict as any).id, 'accept_local')}
                     >
                       Accept Local
                     </Button>
                     <Button
-                      size="xs"
+                      size="sm"
                       variant="outline"
                       onClick={() => handleResolveConflict((conflict as any).id, 'accept_remote')}
                     >
@@ -440,7 +440,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
         <TabsContent value="timeline">
           <ScrollArea className="h-[600px]">
             <div className="space-y-4 pr-4">
-              {snapshots.map((snapshot, index) => renderVersionCard(snapshot, index))}
+              {snapshots?.map((snapshot, index) => renderVersionCard(snapshot, index))}
             </div>
           </ScrollArea>
         </TabsContent>
@@ -453,7 +453,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4 max-h-[300px] overflow-y-auto">
-                  {snapshots.map((snapshot, index) => renderVersionCard(snapshot, index))}
+                  {snapshots?.map((snapshot, index) => renderVersionCard(snapshot, index))}
                 </div>
               </CardContent>
             </Card>
@@ -462,7 +462,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">
-                    Comparing v{snapshots[selectedVersions[0]]?.version} → v{snapshots[selectedVersions[1]]?.version}
+                    Comparing v{snapshots?.[selectedVersions[0]]?.version} → v{snapshots?.[selectedVersions[1]]?.version}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -521,7 +521,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
 // ============================================================================
 
 interface ConflictResolutionProps {
-  conflicts: ConflictResolution[];
+  conflicts: ConflictResolutionType[];
   onResolveConflict: (conflictId: string, resolution: 'accept_local' | 'accept_remote' | 'merge') => void;
 }
 

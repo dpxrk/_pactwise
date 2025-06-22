@@ -141,7 +141,9 @@ export const ExportOptions = ({
   const [exportProgress, setExportProgress] = useState(0);
   const [exportConfig, setExportConfig] = useState<ExportConfig>({
     format: 'csv',
-    includeFields: fieldConfigs[data]?.basic || [],
+    includeFields: data !== 'custom' && data in fieldConfigs 
+      ? (fieldConfigs as any)[data].basic 
+      : [],
     includeRelatedData: true,
   });
 
@@ -149,21 +151,26 @@ export const ExportOptions = ({
   const enterpriseId = clerkUser?.publicMetadata?.enterpriseId as Id<"enterprises"> | undefined;
 
   // Fetch data for export preview
-  const { data: contractsData } = useConvexQuery(
+  const contractsQuery = useConvexQuery(
     api.contracts.getContracts,
     data === 'contracts' && enterpriseId ? { enterpriseId } : "skip"
   );
+  const contractsData = contractsQuery.data;
 
-  const { data: vendorsData } = useConvexQuery(
+  const vendorsQuery = useConvexQuery(
     api.vendors.getVendors,
     data === 'vendors' && enterpriseId ? { enterpriseId } : "skip"
   );
+  const vendorsData = vendorsQuery.data;
 
   // Get available fields based on data type
   const getAvailableFields = () => {
-    const fields = fieldConfigs[data] || {};
+    if (data === 'custom' || !(data in fieldConfigs)) {
+      return [];
+    }
+    const fields = fieldConfigs[data as keyof typeof fieldConfigs];
     return Object.entries(fields).flatMap(([category, fieldList]) =>
-      fieldList.map(field => ({ field, category, label: formatFieldLabel(field) }))
+      (fieldList as string[]).map(field => ({ field, category, label: formatFieldLabel(field) }))
     );
   };
 
@@ -193,10 +200,10 @@ export const ExportOptions = ({
     
     switch (data) {
       case 'contracts':
-        sourceData = contractsData || [];
+        sourceData = contractsData?.contracts || [];
         break;
       case 'vendors':
-        sourceData = vendorsData || [];
+        sourceData = vendorsData?.vendors || [];
         break;
       default:
         sourceData = [];
@@ -257,7 +264,10 @@ export const ExportOptions = ({
   const convertToCSV = (data: Record<string, unknown>[]): string => {
     if (data.length === 0) return '';
     
-    const headers = Object.keys(data[0]);
+    const firstItem = data[0];
+    if (!firstItem) return '';
+    
+    const headers = Object.keys(firstItem);
     const csvContent = [
       headers.join(','),
       ...data.map(row => 
@@ -352,7 +362,9 @@ export const ExportOptions = ({
     setExportConfig(prev => ({
       ...prev,
       format,
-      includeFields: fieldConfigs[data]?.basic || [],
+      includeFields: data !== 'custom' && data in fieldConfigs 
+        ? (fieldConfigs as any)[data].basic 
+        : [],
     }));
     
     // Perform export immediately
@@ -414,18 +426,18 @@ export const ExportOptions = ({
           <div className="space-y-3">
             <Label className="text-base font-medium">Fields to Include</Label>
             <div className="grid grid-cols-1 gap-3 max-h-48 overflow-y-auto">
-              {Object.entries(fieldConfigs[data] || {}).map(([category, fields]) => (
+              {data !== 'custom' && data in fieldConfigs && Object.entries(fieldConfigs[data as keyof typeof fieldConfigs]).map(([category, fields]) => (
                 <div key={category} className="space-y-2">
                   <Label className="text-sm font-medium capitalize text-muted-foreground">
                     {category}
                   </Label>
                   <div className="grid grid-cols-2 gap-2 pl-4">
-                    {fields.map(field => (
+                    {(fields as string[]).map(field => (
                       <div key={field} className="flex items-center space-x-2">
                         <Checkbox
                           id={field}
                           checked={exportConfig.includeFields.includes(field)}
-                          onCheckedChange={(checked) => {
+                          onCheckedChange={(checked: boolean) => {
                             setExportConfig(prev => ({
                               ...prev,
                               includeFields: checked
@@ -452,8 +464,8 @@ export const ExportOptions = ({
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="includeRelated"
-                  checked={exportConfig.includeRelatedData}
-                  onCheckedChange={(checked) => 
+                  checked={exportConfig.includeRelatedData || false}
+                  onCheckedChange={(checked: boolean) => 
                     setExportConfig(prev => ({ ...prev, includeRelatedData: !!checked }))
                   }
                 />

@@ -1078,8 +1078,8 @@ function calculateSavingsOpportunities(contracts: any[], vendors: any[]): {
         contractCount: 0
       };
     }
-    vendorSpend[contract.vendorId].totalSpend += value;
-    vendorSpend[contract.vendorId].contractCount++;
+    vendorSpend[contract.vendorId]!.totalSpend += value;
+    vendorSpend[contract.vendorId]!.contractCount++;
     
     // Track category spend
     const vendor = vendors.find(v => v._id === contract.vendorId);
@@ -1095,7 +1095,7 @@ function calculateSavingsOpportunities(contracts: any[], vendors: any[]): {
       if (!vendorsByCategory[data.vendor.category]) {
         vendorsByCategory[data.vendor.category] = [];
       }
-      vendorsByCategory[data.vendor.category].push({
+      vendorsByCategory[data.vendor.category]!.push({
         vendorId,
         ...data
       });
@@ -1976,10 +1976,10 @@ async function gatherMonthlyMetrics(ctx: any, since: Date): Promise<any> {
   for (const contract of periodContracts.filter((c: any) => c.status === "active" || c.status === "expired")) {
     const statusHistory = await ctx.db
       .query("contractStatusHistory")
-      .withIndex("by_contract_time", (q) => q.eq("contractId", contract._id))
+      .withIndex("by_contract_time", (q: any) => q.eq("contractId", contract._id))
       .collect();
     
-    const activationEntry = statusHistory.find(entry => 
+    const activationEntry = statusHistory.find((entry: any) => 
       entry.previousStatus === "draft" && entry.newStatus === "active"
     );
     
@@ -2840,19 +2840,19 @@ function analyzeExpirationSchedule(contracts: any[]): any {
   
   contracts.forEach(contract => {
     if (!contract.extractedEndDate) {
-      schedule.noEndDate = schedule.noEndDate + 1;
+      schedule.noEndDate = (schedule.noEndDate || 0) + 1;
       return;
     }
     
     const endDate = new Date(contract.extractedEndDate);
     const daysUntil = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     
-    if (daysUntil < 0) schedule.expired = schedule.expired + 1;
-    else if (daysUntil <= 30) schedule.within30Days = schedule.within30Days + 1;
-    else if (daysUntil <= 90) schedule.within90Days = schedule.within90Days + 1;
-    else if (daysUntil <= 180) schedule.within180Days = schedule.within180Days + 1;
-    else if (daysUntil <= 365) schedule.within1Year = schedule.within1Year + 1;
-    else schedule.beyond1Year = schedule.beyond1Year + 1;
+    if (daysUntil < 0) schedule.expired = (schedule.expired || 0) + 1;
+    else if (daysUntil <= 30) schedule.within30Days = (schedule.within30Days || 0) + 1;
+    else if (daysUntil <= 90) schedule.within90Days = (schedule.within90Days || 0) + 1;
+    else if (daysUntil <= 180) schedule.within180Days = (schedule.within180Days || 0) + 1;
+    else if (daysUntil <= 365) schedule.within1Year = (schedule.within1Year || 0) + 1;
+    else schedule.beyond1Year = (schedule.beyond1Year || 0) + 1;
   });
   
   return schedule;
@@ -3384,11 +3384,11 @@ async function calculateAverageContractProcessingTime(ctx: any, contracts: any[]
       // Get status history
       const statusHistory = await ctx.db
         .query("contractStatusHistory")
-        .withIndex("by_contract_time", (q) => q.eq("contractId", contract._id))
+        .withIndex("by_contract_time", (q: any) => q.eq("contractId", contract._id))
         .collect();
       
       // Find activation time
-      const activationEntry = statusHistory.find(entry => 
+      const activationEntry = statusHistory.find((entry: any) => 
         entry.previousStatus === "draft" && entry.newStatus === "active"
       );
       
@@ -3854,7 +3854,7 @@ async function countComplianceIssues(ctx: any, contracts: any[]): Promise<number
     .collect();
   
   // Count total unresolved issues
-  complianceChecks.forEach(check => {
+  complianceChecks.forEach((check: any) => {
     if (check.issues) {
       totalIssues += check.issues.filter((issue: any) => 
         !issue.resolvedAt && (issue.severity === "critical" || issue.severity === "high")
@@ -3883,7 +3883,7 @@ async function countBudgetAlerts(ctx: any, enterpriseId: Id<"enterprises"> | und
   let totalAlerts = 0;
   
   // Count unacknowledged alerts
-  budgets.forEach(budget => {
+  budgets.forEach((budget: any) => {
     if (budget.alerts) {
       totalAlerts += budget.alerts.filter((alert: any) => !alert.acknowledged).length;
     }

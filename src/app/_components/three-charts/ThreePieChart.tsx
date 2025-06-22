@@ -224,12 +224,11 @@ const PieSlice: React.FC<{
           <bufferGeometry>
             <bufferAttribute
               attach="attributes-position"
-              array={new Float32Array([
+              args={[new Float32Array([
                 Math.cos(midAngle) * (outerRadius + 0.1), Math.sin(midAngle) * (outerRadius + 0.1), thickness / 2,
                 labelX - Math.cos(midAngle) * 0.3, labelY - Math.sin(midAngle) * 0.3, thickness / 2,
-              ])}
+              ]), 3]}
               count={2}
-              itemSize={3}
             />
           </bufferGeometry>
           <lineBasicMaterial color={color} opacity={0.6} transparent />
@@ -390,7 +389,7 @@ export const ThreePieChart: React.FC<PieChartProps> = ({
       camera={camera}
       enableGrid={false}
       enableAxes={false}
-      className={className}
+      {...(className && { className })}
       {...props}
     >
       <PieChartContent

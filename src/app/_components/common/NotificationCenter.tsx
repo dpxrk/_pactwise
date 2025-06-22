@@ -107,13 +107,18 @@ export const NotificationCenter = ({
   const [selectedTab, setSelectedTab] = useState('all');
 
   // Queries
+  const notificationArgs: any = { 
+    limit: 50, 
+    includeRead: filter !== 'unread',
+  };
+  
+  if (filter === 'high') {
+    notificationArgs.priority = 'high';
+  }
+  
   const { data: notificationData, isLoading } = useConvexQuery(
     api.notifications.getMyNotifications,
-    { 
-      limit: 50, 
-      includeRead: filter !== 'unread',
-      priority: filter === 'high' ? 'high' : undefined 
-    }
+    notificationArgs
   );
 
   const { data: unreadCount } = useConvexQuery(
@@ -148,7 +153,7 @@ export const NotificationCenter = ({
   // Handlers
   const handleMarkAsRead = async (notificationId: Id<"notifications">) => {
     try {
-      await markAsRead({ notificationId });
+      await markAsRead.execute({ notificationId });
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
     }
@@ -156,7 +161,7 @@ export const NotificationCenter = ({
 
   const handleMarkAllAsRead = async () => {
     try {
-      await markAllAsRead({});
+      await markAllAsRead.execute({});
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
     }
@@ -164,7 +169,7 @@ export const NotificationCenter = ({
 
   const handleDismiss = async (notificationId: Id<"notifications">) => {
     try {
-      await dismissNotification({ notificationId });
+      await dismissNotification.execute({ notificationId });
     } catch (error) {
       console.error('Failed to dismiss notification:', error);
     }

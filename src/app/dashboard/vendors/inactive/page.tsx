@@ -34,14 +34,14 @@ const InactiveVendors = () => {
         vendor.vendor_number
           ?.toLowerCase()
           .includes(searchQuery.toLowerCase()) ||
-        vendor.email?.toLowerCase().includes(searchQuery.toLowerCase());
+        vendor.contactEmail?.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesCategory =
         categoryFilter === "all" || vendor.category === categoryFilter;
 
       // Filter by inactivity period if specified
       if (inactivityFilter !== "all") {
-        const lastActiveDate = new Date(vendor.updated_at);
+        const lastActiveDate = vendor.updated_at ? new Date(vendor.updated_at) : new Date();
         const monthsDiff =
           (new Date().getTime() - lastActiveDate.getTime()) /
           (1000 * 60 * 60 * 24 * 30);
@@ -73,7 +73,7 @@ const InactiveVendors = () => {
     const lastActiveVendors = filteredVendors.reduce(
       (counts, vendor) => {
         const monthsDiff =
-          (new Date().getTime() - new Date(vendor.updated_at).getTime()) /
+          (new Date().getTime() - (vendor.updated_at ? new Date(vendor.updated_at).getTime() : new Date().getTime())) /
           (1000 * 60 * 60 * 24 * 30);
         if (monthsDiff <= 3) counts.threeMonths++;
         if (monthsDiff <= 6) counts.sixMonths++;
@@ -190,7 +190,7 @@ const InactiveVendors = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredVendors.map((vendor) => (
           <Card
-            key={vendor.id}
+            key={vendor._id}
             className="hover:shadow-lg transition-shadow cursor-pointer"
           >
             <CardHeader>
@@ -219,7 +219,7 @@ const InactiveVendors = () => {
                     Last Active:
                   </span>
                   <span className="font-medium">
-                    {new Date(vendor.updated_at).toLocaleDateString()}
+                    {vendor.updated_at ? new Date(vendor.updated_at).toLocaleDateString() : 'Unknown'}
                   </span>
                 </div>
                 <div className="flex justify-between">

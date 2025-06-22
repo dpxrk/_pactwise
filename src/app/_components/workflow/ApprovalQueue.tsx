@@ -29,6 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -268,27 +269,27 @@ export const ApprovalQueue: React.FC<ApprovalQueueProps> = ({
     
     try {
       await onApprove(request.id, actionComment);
-      showToast.success('Request approved successfully');
+      showToast.success('Request approved successfully', {});
       setActionComment('');
       setIsDetailDialogOpen(false);
     } catch (error) {
-      showToast.error('Failed to approve request');
+      showToast.error('Failed to approve request', {});
     }
   };
 
   const handleReject = async (request: ApprovalRequest) => {
     if (!onReject || !actionComment.trim()) {
-      showToast.warning('Please provide a reason for rejection');
+      showToast.warning('Please provide a reason for rejection', {});
       return;
     }
     
     try {
       await onReject(request.id, actionComment);
-      showToast.success('Request rejected');
+      showToast.success('Request rejected', {});
       setActionComment('');
       setIsDetailDialogOpen(false);
     } catch (error) {
-      showToast.error('Failed to reject request');
+      showToast.error('Failed to reject request', {});
     }
   };
 

@@ -1,3 +1,5 @@
+"use client"
+
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
@@ -12,7 +14,7 @@ function Card({
   
   return (
     <div
-      ref={elementRef}
+      ref={elementRef as React.Ref<HTMLDivElement>}
       data-slot="card"
       className={cn(
         "bg-card/50 backdrop-blur-sm text-card-foreground flex flex-col gap-6",

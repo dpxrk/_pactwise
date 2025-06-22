@@ -1196,13 +1196,13 @@ function calculateCostPerUnit(contract: any): number {
       const match = matches[0];
       // Check for direct per-unit pricing
       if (pattern.source.includes('per\\s+')) {
-        if (match[2]) {
+        if (match && match[2]) {
           costPerUnit = parseFloat(match[2].replace(/,/g, ''));
           if (costPerUnit > 0) {
             return costPerUnit;
           }
         }
-      } else if (match[1]) {
+      } else if (match && match[1]) {
         // Extract unit count
         const potentialUnits = parseInt(match[1]);
         if (potentialUnits > 0 && potentialUnits < 100000) { // Sanity check
@@ -1258,23 +1258,27 @@ function calculatePaybackPeriod(contract: any): number {
       const match = matches[0];
       if (pattern.source.includes('roi') || pattern.source.includes('%')) {
         // ROI or percentage savings
-        const percentage = parseFloat(match[1]);
-        if (percentage > 0 && percentage <= 100) {
-          monthlySavings = (investmentCost * (percentage / 100)) / 12; // Monthly ROI
-          break;
+        if (match && match[1]) {
+          const percentage = parseFloat(match[1]);
+          if (percentage > 0 && percentage <= 100) {
+            monthlySavings = (investmentCost * (percentage / 100)) / 12; // Monthly ROI
+            break;
+          }
         }
       } else {
         // Direct savings amount
-        const savingsAmount = parseFloat(match[1].replace(/,/g, ''));
-        const period = match[2]?.toLowerCase();
+        if (match && match[1]) {
+          const savingsAmount = parseFloat(match[1].replace(/,/g, ''));
+          const period = match[2]?.toLowerCase();
         
-        if (savingsAmount > 0) {
-          if (period === 'year' || period === 'annually') {
-            monthlySavings = savingsAmount / 12;
-          } else {
-            monthlySavings = savingsAmount; // Assume monthly if not specified
+          if (savingsAmount > 0) {
+            if (period === 'year' || period === 'annually') {
+              monthlySavings = savingsAmount / 12;
+            } else {
+              monthlySavings = savingsAmount; // Assume monthly if not specified
+            }
+            break;
           }
-          break;
         }
       }
     }
@@ -1283,7 +1287,7 @@ function calculatePaybackPeriod(contract: any): number {
   // If no explicit savings found, estimate based on contract type
   if (monthlySavings === 0) {
     const contractType = contract.contractType?.toLowerCase() || '';
-    const estimatedROI = {
+    const estimatedROI: { [key: string]: number } = {
       'saas': 0.15,           // 15% annual ROI
       'software': 0.20,       // 20% annual ROI
       'consulting': 0.25,     // 25% annual ROI
@@ -1340,18 +1344,20 @@ function calculateTCO(contract: any): number {
     if (matches.length > 0) {
       foundExplicitCosts = true;
       const match = matches[0];
-      const amount = parseFloat(match[1].replace(/,/g, ''));
+      if (match && match[1]) {
+        const amount = parseFloat(match[1].replace(/,/g, ''));
       
-      if (pattern.source.includes('implementation') || pattern.source.includes('setup')) {
-        implementationCost += amount;
-      } else if (pattern.source.includes('training')) {
-        trainingCost += amount;
-      } else if (pattern.source.includes('maintenance') || pattern.source.includes('support')) {
-        const period = match[2]?.toLowerCase();
-        if (period === 'month') {
-          annualMaintenanceCost += amount * 12;
-        } else {
-          annualMaintenanceCost += amount;
+        if (pattern.source.includes('implementation') || pattern.source.includes('setup')) {
+          implementationCost += amount;
+        } else if (pattern.source.includes('training')) {
+          trainingCost += amount;
+        } else if (pattern.source.includes('maintenance') || pattern.source.includes('support')) {
+          const period = match[2]?.toLowerCase();
+          if (period === 'month') {
+            annualMaintenanceCost += amount * 12;
+          } else {
+            annualMaintenanceCost += amount;
+          }
         }
       }
     }
@@ -1362,7 +1368,7 @@ function calculateTCO(contract: any): number {
     const contractType = contract.contractType?.toLowerCase() || '';
     
     // TCO multipliers by contract type
-    const tcoMultipliers = {
+    const tcoMultipliers: { [key: string]: any } = {
       'saas': {
         implementation: 0.10,      // 10% one-time
         training: 0.05,           // 5% one-time

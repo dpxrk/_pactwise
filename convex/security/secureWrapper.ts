@@ -80,12 +80,17 @@ export function createSecureQuery<Args, Output>(
       
       // Check rate limit
       if (options.rateLimit) {
+        const rateLimitOptions: {
+          userId?: any;
+          cost?: number;
+        } = {};
+        
+        if (securityContext.userId !== undefined) rateLimitOptions.userId = securityContext.userId;
+        if (options.rateLimit.cost !== undefined) rateLimitOptions.cost = options.rateLimit.cost;
+        
         const rateLimitResult = await checkRateLimit(ctx, 
           options.rateLimit.operation || "query.default",
-          {
-            userId: securityContext.userId,
-            cost: options.rateLimit.cost
-          }
+          rateLimitOptions
         );
         
         if (!rateLimitResult.allowed) {
@@ -128,12 +133,17 @@ export function createSecureMutation<Args, Output>(
       
       // Check rate limit
       if (options.rateLimit) {
+        const rateLimitOptions: {
+          userId?: any;
+          cost?: number;
+        } = {};
+        
+        if (securityContext.userId !== undefined) rateLimitOptions.userId = securityContext.userId;
+        if (options.rateLimit.cost !== undefined) rateLimitOptions.cost = options.rateLimit.cost;
+        
         const rateLimitResult = await checkRateLimit(ctx, 
           options.rateLimit.operation || "mutation.default",
-          {
-            userId: securityContext.userId,
-            cost: options.rateLimit.cost
-          }
+          rateLimitOptions
         );
         
         if (!rateLimitResult.allowed) {
@@ -276,7 +286,7 @@ export function createSecureAction<Args extends { userId: string; enterpriseId: 
               resourceType: options.audit.resourceType,
               action: options.audit.action,
               status: "failure",
-              errorMessage: error instanceof Error ? error.message : String(error),
+              ...(error instanceof Error ? { errorMessage: error.message } : {}),
             });
           } catch (auditError) {
             console.error("Failed to log audit event:", auditError);

@@ -36,6 +36,7 @@ import {
   Users
 } from 'lucide-react';
 import LoadingSpinner from '@/app/_components/common/LoadingSpinner';
+import { DemoDataManager } from '@/app/_components/demo/DemoDataManager';
 
 const GeneralSettingsPage = () => {
   const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
@@ -315,6 +316,11 @@ const GeneralSettingsPage = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Demo Data Manager */}
+      {enterpriseId && (userContext.user.role === 'owner' || userContext.user.role === 'admin') && (
+        <DemoDataManager enterpriseId={enterpriseId} />
+      )}
 
       {/* Account Security */}
       <Card>

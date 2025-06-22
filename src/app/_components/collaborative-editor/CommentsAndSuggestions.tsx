@@ -174,17 +174,20 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
     if (!userId || !selectedText) return;
 
     try {
-      await addSuggestion.execute({
+      const suggestionArgs: any = {
         documentId,
         type,
         position: selectedText.start,
         length: selectedText.end - selectedText.start,
         originalContent,
         suggestedContent,
-        reason,
         userId,
         userName: clerkUser?.fullName || clerkUser?.emailAddresses[0]?.emailAddress || 'Anonymous'
-      });
+      };
+      if (reason) {
+        suggestionArgs.reason = reason;
+      }
+      await addSuggestion.execute(suggestionArgs);
     } catch (error) {
       console.error('Error adding suggestion:', error);
     }
@@ -198,12 +201,15 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
     if (!userId) return;
 
     try {
-      await reviewSuggestion.execute({
+      const reviewArgs: any = {
         suggestionId,
         status,
-        reviewedBy: userId,
-        reviewComment: comment
-      });
+        reviewedBy: userId
+      };
+      if (comment) {
+        reviewArgs.reviewComment = comment;
+      }
+      await reviewSuggestion.execute(reviewArgs);
     } catch (error) {
       console.error('Error reviewing suggestion:', error);
     }
@@ -308,7 +314,7 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
         {comment.replies.length > 0 && (
           <div className="space-y-3 border-l-2 border-muted pl-4">
             {comment.replies.map(replyId => {
-              const reply = comments.find(c => c._id === replyId);
+              const reply = comments?.find(c => c._id === replyId);
               if (!reply) return null;
               
               return (
@@ -518,7 +524,7 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
             onClick={() => setActiveTab('comments')}
           >
             <MessageSquare className="h-4 w-4 mr-2" />
-            Comments ({comments.length})
+            Comments ({comments?.length || 0})
           </Button>
           <Button
             variant={activeTab === 'suggestions' ? 'default' : 'ghost'}
@@ -527,7 +533,7 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
             onClick={() => setActiveTab('suggestions')}
           >
             <Edit3 className="h-4 w-4 mr-2" />
-            Suggestions ({suggestions.length})
+            Suggestions ({suggestions?.length || 0})
           </Button>
         </div>
       </div>
@@ -540,7 +546,7 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary"></div>
                 </div>
-              ) : comments.length === 0 ? (
+              ) : !comments || comments.length === 0 ? (
                 <div className="text-center py-8">
                   <MessageCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">No comments yet</p>
@@ -551,7 +557,7 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
               ) : (
                 <div className="space-y-4">
                   {comments
-                    .filter(comment => !comment.parentCommentId)
+                    ?.filter(comment => !comment.parentCommentId)
                     .map(renderComment)}
                 </div>
               )}
@@ -564,7 +570,7 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary"></div>
                 </div>
-              ) : suggestions.length === 0 ? (
+              ) : !suggestions || suggestions.length === 0 ? (
                 <div className="text-center py-8">
                   <Edit3 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">No suggestions yet</p>
@@ -574,7 +580,7 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {suggestions.map(renderSuggestion)}
+                  {suggestions?.map(renderSuggestion)}
                 </div>
               )}
             </div>

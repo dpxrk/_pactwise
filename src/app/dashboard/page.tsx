@@ -15,6 +15,7 @@ interface HomeDashboardProps {
 
 const HomeDashboard: React.FC<HomeDashboardProps> = () => {
   const { isSignedIn, isLoaded } = useAuth();
+  //@ts-ignore
   const currentUser = useQuery(api.users.getCurrentUser, isLoaded ? {} : "skip");
   const isVisible = useEntranceAnimation(200);
   

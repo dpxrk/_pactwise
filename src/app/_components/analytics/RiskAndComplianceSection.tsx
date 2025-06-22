@@ -8,9 +8,9 @@ const riskDistribution = [
 ];
 
 const departmentPerformance = [
-  { department: "Legal", efficiency: 92, contracts: 150, savings: 125000 },
-  { department: "Sales", efficiency: 88, contracts: 200, savings: 180000 },
-  { department: "Procurement", efficiency: 95, contracts: 180, savings: 150000 },
+  { name: "Legal", department: "Legal", value: 92, efficiency: 92, contracts: 150, savings: 125000 },
+  { name: "Sales", department: "Sales", value: 88, efficiency: 88, contracts: 200, savings: 180000 },
+  { name: "Procurement", department: "Procurement", value: 95, efficiency: 95, contracts: 180, savings: 150000 },
 ];
 
 export const RiskAndComplianceSection = () => (
@@ -24,11 +24,11 @@ export const RiskAndComplianceSection = () => (
           <DynamicChart 
             type="pie"
             data={riskDistribution}
-            series={[{ dataKey: "value" }]}
+            series={[{ dataKey: "value" }] as any}
             pieConfig={{
               innerRadius: 60,
               outerRadius: 80,
-              paddingAngle: 5,
+              // paddingAngle: 5, // Not supported in Three.js charts
               dataKey: "value",
               nameKey: "name",
             }}
@@ -54,7 +54,7 @@ export const RiskAndComplianceSection = () => (
               dataKey: "efficiency",
               name: "Compliance Score",
               color: "#4ade80"
-            }]}
+            }] as any}
             xAxisKey="department"
             height={280}
             showGrid={true}

@@ -1,6 +1,4 @@
 import * as Sentry from '@sentry/nextjs';
-import { Replay } from '@sentry/replay';
-import { BrowserTracing } from '@sentry/tracing';
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
@@ -23,15 +21,15 @@ if (dsn) {
   debug: process.env.NODE_ENV === 'development',
 
   integrations: [
-    new Replay({
+    new (Sentry as any).Replay({
       // Mask all text content, images, and user input, except for UI text
       maskAllText: true,
       blockAllMedia: true,
       maskAllInputs: true,
     }),
-    new BrowserTracing({
+    new (Sentry as any).BrowserTracing({
       // Set up automatic route change tracking for Next.js App Router
-      routingInstrumentation: Sentry.nextRouterInstrumentation(),
+      // routingInstrumentation: Sentry.nextRouterInstrumentation(),
     }),
   ],
 

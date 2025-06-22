@@ -41,10 +41,15 @@ export async function withRateLimitCheck(
   }
   
   // Check rate limit
-  const rateLimitResult = await checkRateLimit(ctx, operation, {
-    userId,
-    cost: options.cost,
-  });
+  const rateLimitOptions: {
+    userId?: any;
+    cost?: number;
+  } = {};
+  
+  if (userId !== undefined) rateLimitOptions.userId = userId;
+  if (options.cost !== undefined) rateLimitOptions.cost = options.cost;
+  
+  const rateLimitResult = await checkRateLimit(ctx, operation, rateLimitOptions);
   
   if (!rateLimitResult.allowed) {
     throw new ConvexError(
@@ -243,8 +248,16 @@ export async function withProgressiveRateLimit(
     intensive: 15,
   };
   
-  await withRateLimitCheck(ctx, operation, {
+  const rateLimitOptions: {
+    cost?: number;
+    skipForRoles?: string[];
+  } = {
     cost: costMap[complexity],
-    skipForRoles: options.skipForRoles,
-  });
+  };
+  
+  if (options.skipForRoles !== undefined) {
+    rateLimitOptions.skipForRoles = options.skipForRoles;
+  }
+  
+  await withRateLimitCheck(ctx, operation, rateLimitOptions);
 }

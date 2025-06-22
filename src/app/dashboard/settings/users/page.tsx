@@ -142,7 +142,7 @@ const UserManagementPage = () => {
   }
 
   return (
-    <PermissionGate requiredRole="admin">
+    <PermissionGate role="admin">
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -267,7 +267,7 @@ const UserManagementPage = () => {
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                           <span className="text-sm font-semibold">
-                            {(user.firstName?.[0] || user.email[0]).toUpperCase()}
+                            {(user.firstName?.[0] || user.email[0] || '').toUpperCase()}
                             {(user.lastName?.[0] || user.email[1] || '').toUpperCase()}
                           </span>
                         </div>

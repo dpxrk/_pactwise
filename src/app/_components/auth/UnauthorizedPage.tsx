@@ -50,7 +50,14 @@ export interface UnauthorizedPageProps {
 }
 
 // Configuration for different unauthorized scenarios
-const unauthorizedConfigs = {
+const unauthorizedConfigs: Record<UnauthorizedReason, {
+  icon: typeof Shield;
+  title: string;
+  defaultDescription: string;
+  severity: 'error' | 'warning' | 'info';
+  showRequestAccess?: boolean;
+  showContactSupport?: boolean;
+}> = {
   insufficient_permissions: {
     icon: Shield,
     title: 'Access Denied',
@@ -182,7 +189,7 @@ export const UnauthorizedPage: React.FC<UnauthorizedPageProps> = ({
       const subject = `Access Request: ${resource || 'Feature'}`;
       const body = `I would like to request access to ${resource || 'this feature'}.\n\nUser: ${user?.emailAddresses[0]?.emailAddress}\nRequired Action: ${action}\nRequired Role: ${requiredRole || 'N/A'}`;
       const mailtoLink = `mailto:support@pactwise.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      window.open(mailtoLink);
+      window.open(mailtoLink, '_blank');
     }
   };
 
@@ -194,7 +201,7 @@ export const UnauthorizedPage: React.FC<UnauthorizedPageProps> = ({
       const subject = `Support Request: Access Issue`;
       const body = `I'm experiencing an access issue.\n\nUser: ${user?.emailAddresses[0]?.emailAddress}\nReason: ${reason}\nResource: ${resource || 'N/A'}\nAction: ${action}`;
       const mailtoLink = `mailto:support@pactwise.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      window.open(mailtoLink);
+      window.open(mailtoLink, '_blank');
     }
   };
 
@@ -354,66 +361,76 @@ export const InsufficientPermissions: React.FC<{
   action?: string;
   requiredRole?: string;
   onRequestAccess?: () => void;
-}> = ({ resource, action, requiredRole, onRequestAccess }) => (
-  <UnauthorizedPage
-    reason="insufficient_permissions"
-    resource={resource}
-    action={action}
-    requiredRole={requiredRole}
-    onRequestAccess={onRequestAccess}
-  />
-);
+}> = ({ resource, action, requiredRole, onRequestAccess }) => {
+  const props: UnauthorizedPageProps = {
+    reason: "insufficient_permissions"
+  };
+  if (resource !== undefined) props.resource = resource;
+  if (action !== undefined) props.action = action;
+  if (requiredRole !== undefined) props.requiredRole = requiredRole;
+  if (onRequestAccess !== undefined) props.onRequestAccess = onRequestAccess;
+  
+  return <UnauthorizedPage {...props} />;
+};
 
 export const RoleRequired: React.FC<{
   requiredRole: string;
   resource?: string;
   onRequestAccess?: () => void;
-}> = ({ requiredRole, resource, onRequestAccess }) => (
-  <UnauthorizedPage
-    reason="role_required"
-    requiredRole={requiredRole}
-    resource={resource}
-    onRequestAccess={onRequestAccess}
-  />
-);
+}> = ({ requiredRole, resource, onRequestAccess }) => {
+  const props: UnauthorizedPageProps = {
+    reason: "role_required",
+    requiredRole
+  };
+  if (resource !== undefined) props.resource = resource;
+  if (onRequestAccess !== undefined) props.onRequestAccess = onRequestAccess;
+  
+  return <UnauthorizedPage {...props} />;
+};
 
 export const EnterpriseAccessRequired: React.FC<{
   enterprise: string;
   onContactSupport?: () => void;
-}> = ({ enterprise, onContactSupport }) => (
-  <UnauthorizedPage
-    reason="enterprise_access"
-    enterprise={enterprise}
-    onContactSupport={onContactSupport}
-    showRequestAccess={false}
-  />
-);
+}> = ({ enterprise, onContactSupport }) => {
+  const props: UnauthorizedPageProps = {
+    reason: "enterprise_access",
+    enterprise,
+    showRequestAccess: false
+  };
+  if (onContactSupport !== undefined) props.onContactSupport = onContactSupport;
+  
+  return <UnauthorizedPage {...props} />;
+};
 
 export const ResourceOwnershipRequired: React.FC<{
   resource: string;
   action?: string;
   onRequestAccess?: () => void;
-}> = ({ resource, action, onRequestAccess }) => (
-  <UnauthorizedPage
-    reason="resource_ownership"
-    resource={resource}
-    action={action}
-    onRequestAccess={onRequestAccess}
-  />
-);
+}> = ({ resource, action, onRequestAccess }) => {
+  const props: UnauthorizedPageProps = {
+    reason: "resource_ownership",
+    resource
+  };
+  if (action !== undefined) props.action = action;
+  if (onRequestAccess !== undefined) props.onRequestAccess = onRequestAccess;
+  
+  return <UnauthorizedPage {...props} />;
+};
 
 export const FeatureDisabled: React.FC<{
   feature: string;
   reason?: string;
   onContactSupport?: () => void;
-}> = ({ feature, reason, onContactSupport }) => (
-  <UnauthorizedPage
-    reason="feature_disabled"
-    resource={feature}
-    customDescription={reason}
-    onContactSupport={onContactSupport}
-    showRequestAccess={false}
-  />
-);
+}> = ({ feature, reason, onContactSupport }) => {
+  const props: UnauthorizedPageProps = {
+    reason: "feature_disabled",
+    resource: feature,
+    showRequestAccess: false
+  };
+  if (reason !== undefined) props.customDescription = reason;
+  if (onContactSupport !== undefined) props.onContactSupport = onContactSupport;
+  
+  return <UnauthorizedPage {...props} />;
+};
 
 export default UnauthorizedPage;

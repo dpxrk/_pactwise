@@ -345,7 +345,7 @@ export const VendorPerformanceDashboard: React.FC<VendorPerformanceDashboardProp
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div className={cn("p-2 rounded-lg bg-muted", metric.color)}>
-                          <Icon className="h-5 w-5" />
+                          {React.createElement(Icon, { className: "h-5 w-5" })}
                         </div>
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">{metric.name}</p>
@@ -433,7 +433,7 @@ export const VendorPerformanceDashboard: React.FC<VendorPerformanceDashboardProp
                 <Card key={metric.id} className="border-border dark:border-border/50 bg-card shadow-sm">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Icon className={cn("h-5 w-5", metric.color)} />
+                      {React.createElement(Icon, { className: cn("h-5 w-5", metric.color) })}
                       {metric.name}
                     </CardTitle>
                   </CardHeader>

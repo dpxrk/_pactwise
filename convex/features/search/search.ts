@@ -3,7 +3,13 @@ import { query, QueryCtx } from "../../_generated/server";
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
 import { Id, Doc } from "../../_generated/dataModel";
-import { ContractEntity, UserEntity, VendorEntity, ContractFilters, ContractFacets, VendorFacets, UserFacets, SearchResult } from "../../shared/types";
+import { ContractEntity, UserEntity, VendorEntity, ContractFilters, ContractFacets, VendorFacets, UserFacets, SearchResult, ContractStatus, ContractType } from "../../shared/types";
+
+// Type for search results with relevance
+type SearchResultWithRelevance<T> = T & {
+  relevance?: number;
+  matchedFields?: string[];
+};
 
 // ============================================================================
 // SEARCH CONFIGURATION
@@ -177,11 +183,37 @@ export const searchContractsWithAdvancedFilters = query({
 
     // Apply filters
     if (args.filters) {
-      contracts = await applyContractFilters(ctx, contracts, args.filters as ContractFilters);
+      const filtersWithEnterprise: ContractFilters = {
+        enterpriseId: currentUser.enterpriseId,
+      };
+      
+      if (args.filters.status && args.filters.status.length > 0) {
+        filtersWithEnterprise.status = args.filters.status[0] as ContractStatus;
+      }
+      
+      if (args.filters.contractType && args.filters.contractType.length > 0) {
+        filtersWithEnterprise.contractType = args.filters.contractType[0] as ContractType;
+      }
+      
+      if (args.filters.vendorId) {
+        filtersWithEnterprise.vendorId = args.filters.vendorId;
+      }
+      
+      if (args.filters.dateRange) {
+        filtersWithEnterprise.dateRange = {
+          start: args.filters.dateRange.startDate,
+          end: args.filters.dateRange.endDate,
+        };
+      }
+      
+      if (args.filters.valueRange) {
+        filtersWithEnterprise.valueRange = args.filters.valueRange;
+      }
+      contracts = await applyContractFilters(ctx, contracts, filtersWithEnterprise);
     }
 
     // Search and score
-    let results: any[] = [];
+    let results: SearchResultWithRelevance<ContractEntity>[] = [];
     if (searchQuery.length >= SEARCH_CONFIG.minQueryLength) {
       const searchResults = await scoreContractResults(contracts, searchQuery);
       results = searchResults.map(r => ({
@@ -212,8 +244,8 @@ export const searchContractsWithAdvancedFilters = query({
           ...result,
           vendor: vendor ? {
             _id: vendor._id,
-            name: (vendor as any).name,
-            category: (vendor as any).category,
+            name: vendor.name,
+            category: vendor.category,
           } : null,
         };
       })
@@ -285,7 +317,7 @@ export const searchVendorsWithFilters = query({
     }
 
     // Search and score
-    let results: any[] = [];
+    let results: SearchResultWithRelevance<VendorEntity>[] = [];
     if (searchQuery.length >= SEARCH_CONFIG.minQueryLength) {
       const searchResults = await scoreVendorResults(vendors, searchQuery);
       results = searchResults.map(r => ({
@@ -402,7 +434,7 @@ export const searchUsersWithinEnterprise = query({
     }
 
     // Search and score
-    let results: any[] = [];
+    let results: SearchResultWithRelevance<UserEntity>[] = [];
     if (searchQuery.length >= SEARCH_CONFIG.minQueryLength) {
       const searchResults = scoreUserResults(users, searchQuery);
       results = searchResults.map(r => ({
@@ -419,7 +451,7 @@ export const searchUsersWithinEnterprise = query({
     }
 
     // Sort by relevance
-    results.sort((a, b) => b.relevance - a.relevance);
+    results.sort((a, b) => (b.relevance ?? 0) - (a.relevance ?? 0));
 
     return {
       results: results.slice(0, limit),
@@ -595,11 +627,11 @@ async function searchUsers(
 ): Promise<SearchResult<UserEntity>[]> {
   let users = await ctx.db
     .query("users")
-    .withIndex("by_enterprise", (q: any) => q.eq("enterpriseId", enterpriseId))
+    .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))
     .collect();
 
   // Only show active users by default
-  users = users.filter((u: any) => u.isActive !== false);
+  users = users.filter((u) => u.isActive !== false);
 
   return scoreUserResults(users, query).slice(0, limit);
 }
@@ -612,7 +644,7 @@ async function scoreContractResults(contracts: Doc<"contracts">[], query: string
 
       // Check each searchable field
       SEARCH_CONFIG.searchFields.contracts.forEach(field => {
-        const value = contract[field];
+        const value = (contract as Record<string, unknown>)[field];
         if (value) {
           const fieldValue = Array.isArray(value) ? value.join(' ') : String(value);
           if (fieldValue.toLowerCase().includes(query)) {
@@ -640,11 +672,11 @@ async function scoreVendorResults(vendors: Doc<"vendors">[], query: string): Pro
       const matchedFields: string[] = [];
 
       SEARCH_CONFIG.searchFields.vendors.forEach(field => {
-        const value = vendor[field];
+        const value = (vendor as Record<string, unknown>)[field];
         if (value) {
           const fieldValue = String(value);
           if (fieldValue.toLowerCase().includes(query)) {
-            const key = `contracts.${field}` as keyof typeof SEARCH_CONFIG.fieldWeights;
+            const key = `vendors.${field}` as keyof typeof SEARCH_CONFIG.fieldWeights;
             const weight = SEARCH_CONFIG.fieldWeights[key] ?? 1;
             relevance += weight;
             matchedFields.push(field);
@@ -669,11 +701,11 @@ function scoreUserResults(users: Doc<"users">[], query: string): SearchResult<Us
       const matchedFields: string[] = [];
 
       SEARCH_CONFIG.searchFields.users.forEach(field => {
-        const value = user[field];
+        const value = (user as Record<string, unknown>)[field];
         if (value) {
           const fieldValue = String(value);
           if (fieldValue.toLowerCase().includes(query)) {
-            const key = `contracts.${field}` as keyof typeof SEARCH_CONFIG.fieldWeights;
+            const key = `users.${field}` as keyof typeof SEARCH_CONFIG.fieldWeights;
             const weight = SEARCH_CONFIG.fieldWeights[key] ?? 1;
             relevance += weight;
             matchedFields.push(field);
@@ -695,18 +727,18 @@ async function applyContractFilters(ctx: QueryCtx, contracts: Doc<"contracts">[]
   let filtered = contracts;
 
   // Status filter
-  if (filters.status && filters.status.length > 0) {
-    filtered = filtered.filter(c => filters.status!.includes(c.status));
+  if (filters.status && filters.status !== "all") {
+    filtered = filtered.filter(c => c.status === filters.status);
   }
 
   // Contract type filter
-  if (filters.contractType && filters.contractType.length > 0) {
-    filtered = filtered.filter(c => c.contractType && filters.contractType!.includes(c.contractType));
+  if (filters.contractType && filters.contractType !== "all") {
+    filtered = filtered.filter(c => c.contractType === filters.contractType);
   }
 
   // Vendor filter
-  if (filters.vendorId && filters.vendorId.length > 0) {
-    filtered = filtered.filter(c => c.vendorId && filters.vendorId!.includes(c.vendorId));
+  if (filters.vendorId) {
+    filtered = filtered.filter(c => c.vendorId === filters.vendorId);
   }
 
   // Date range filter
@@ -717,7 +749,7 @@ async function applyContractFilters(ctx: QueryCtx, contracts: Doc<"contracts">[]
       
       if (!dateValue) return false;
       
-      return dateValue >= (start || '') && dateValue <= (end || '');
+      return (!start || dateValue >= start) && (!end || dateValue <= end);
     });
   }
 
@@ -725,66 +757,68 @@ async function applyContractFilters(ctx: QueryCtx, contracts: Doc<"contracts">[]
   if (filters.valueRange) {
     filtered = filtered.filter(c => {
       const value = parseFloat(c.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
-      return value >= (filters.valueRange!.min || 0) && value <= (filters.valueRange!.max || 0);
+      return (!filters.valueRange!.min || value >= filters.valueRange!.min) && 
+             (!filters.valueRange!.max || value <= filters.valueRange!.max);
     });
   }
 
   return filtered;
 }
 
-function sortResults(results: any[], sort: any): any[] {
+function sortResults<T extends Record<string, unknown>>(results: T[], sort: { field: string; order: "asc" | "desc" }): T[] {
   const sorted = [...results];
   
   sorted.sort((a, b) => {
-    let aValue: any;
-    let bValue: any;
+    let aValue: unknown;
+    let bValue: unknown;
 
     switch (sort.field) {
       case 'relevance':
-        aValue = a.relevance || 0;
-        bValue = b.relevance || 0;
+        aValue = (a as any).relevance || 0;
+        bValue = (b as any).relevance || 0;
         break;
       case 'title':
       case 'name':
-        aValue = a.title || a.name || '';
-        bValue = b.title || b.name || '';
+        aValue = (a as any).title || (a as any).name || '';
+        bValue = (b as any).title || (b as any).name || '';
         break;
       case 'createdAt':
-        aValue = a._creationTime || 0;
-        bValue = b._creationTime || 0;
+        aValue = (a as any)._creationTime || 0;
+        bValue = (b as any)._creationTime || 0;
         break;
       case 'value':
       case 'totalValue':
-        aValue = a.totalValue || parseFloat(a.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
-        bValue = b.totalValue || parseFloat(b.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
+        aValue = (a as any).totalValue || parseFloat((a as any).extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
+        bValue = (b as any).totalValue || parseFloat((b as any).extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
         break;
       case 'endDate':
-        aValue = a.extractedEndDate || '';
-        bValue = b.extractedEndDate || '';
+        aValue = (a as any).extractedEndDate || '';
+        bValue = (b as any).extractedEndDate || '';
         break;
       case 'contractCount':
-        aValue = a.contractCount || 0;
-        bValue = b.contractCount || 0;
+        aValue = (a as any).contractCount || 0;
+        bValue = (b as any).contractCount || 0;
         break;
       default:
-        aValue = a[sort.field];
-        bValue = b[sort.field];
+        aValue = (a as any)[sort.field];
+        bValue = (b as any)[sort.field];
     }
 
     if (sort.order === 'asc') {
-      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return (aValue as any) < (bValue as any) ? -1 : (aValue as any) > (bValue as any) ? 1 : 0;
     } else {
-      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      return (aValue as any) > (bValue as any) ? -1 : (aValue as any) < (bValue as any) ? 1 : 0;
     }
   });
 
   return sorted;
 }
 
-async function getContractFacets(ctx: any, contracts: any[]): Promise<any> {
-  const facets = {
-    status: {} as Record<string, number>,
-    contractType: {} as Record<string, number>,
+async function getContractFacets(ctx: QueryCtx, contracts: Doc<"contracts">[]): Promise<ContractFacets> {
+  const facets: ContractFacets = {
+    status: {} as Record<ContractStatus, number>,
+    contractType: {} as Record<ContractType, number>,
+    analysisStatus: {} as Record<string, number>,
     valueRanges: {
       '0-10k': 0,
       '10k-50k': 0,
@@ -792,6 +826,7 @@ async function getContractFacets(ctx: any, contracts: any[]): Promise<any> {
       '100k-500k': 0,
       '500k+': 0,
     },
+    dateRanges: {} as Record<string, number>,
   };
 
   contracts.forEach(contract => {
@@ -800,27 +835,32 @@ async function getContractFacets(ctx: any, contracts: any[]): Promise<any> {
 
     // Contract type facet
     const type = contract.contractType || 'other';
-    facets.contractType[type] = (facets.contractType[type] || 0) + 1;
+    facets.contractType[type as ContractType] = (facets.contractType[type as ContractType] || 0) + 1;
+
+    // Analysis status facet
+    if (contract.analysisStatus) {
+      facets.analysisStatus[contract.analysisStatus] = (facets.analysisStatus[contract.analysisStatus] || 0) + 1;
+    }
 
     // Value range facet
     const value = parseFloat(contract.extractedPricing?.replace(/[^0-9.-]/g, '') || '0');
     if (value < 10000) {
-      facets.valueRanges['0-10k']++;
+      facets.valueRanges['0-10k'] = (facets.valueRanges['0-10k'] || 0) + 1;
     } else if (value < 50000) {
-      facets.valueRanges['10k-50k']++;
+      facets.valueRanges['10k-50k'] = (facets.valueRanges['10k-50k'] || 0) + 1;
     } else if (value < 100000) {
-      facets.valueRanges['50k-100k']++;
+      facets.valueRanges['50k-100k'] = (facets.valueRanges['50k-100k'] || 0) + 1;
     } else if (value < 500000) {
-      facets.valueRanges['100k-500k']++;
+      facets.valueRanges['100k-500k'] = (facets.valueRanges['100k-500k'] || 0) + 1;
     } else {
-      facets.valueRanges['500k+']++;
+      facets.valueRanges['500k+'] = (facets.valueRanges['500k+'] || 0) + 1;
     }
   });
 
   return facets;
 }
 
-function getVendorCategoryFacets(vendors: any[]): Record<string, number> {
+function getVendorCategoryFacets(vendors: Doc<"vendors">[]): Record<string, number> {
   const facets: Record<string, number> = {};
   
   vendors.forEach(vendor => {
@@ -831,7 +871,7 @@ function getVendorCategoryFacets(vendors: any[]): Record<string, number> {
   return facets;
 }
 
-function getUserRoleFacets(users: any[]): Record<string, number> {
+function getUserRoleFacets(users: Doc<"users">[]): Record<string, number> {
   const facets: Record<string, number> = {};
   
   users.forEach(user => {
@@ -841,7 +881,7 @@ function getUserRoleFacets(users: any[]): Record<string, number> {
   return facets;
 }
 
-function getUserDepartmentFacets(users: any[]): Record<string, number> {
+function getUserDepartmentFacets(users: Doc<"users">[]): Record<string, number> {
   const facets: Record<string, number> = {};
   
   users.forEach(user => {

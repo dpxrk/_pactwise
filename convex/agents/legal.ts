@@ -640,54 +640,164 @@ async function conductLegalReview(ctx: any, contract: any): Promise<any> {
 }
 
 async function analyzeContractForClauses(contract: any, requiredClauses: string[]): Promise<any> {
-  const analysis = {
+  const analysis: {
+    missingClauses: string[];
+    problematicClauses: any[];
+    criticalMissing: number;
+    recommendations: string[];
+    overallRiskScore: number;
+  } = {
     missingClauses: [] as string[],
     problematicClauses: [] as any[],
     criticalMissing: 0,
     recommendations: [] as string[],
+    overallRiskScore: 0,
   };
 
-  // Simulate clause detection (in practice, would use AI/NLP)
+  // AI-powered clause detection and analysis
   const contractText = [
     contract.extractedScope || '',
     contract.extractedPaymentSchedule || '',
-    contract.notes || ''
-  ].join(' ').toLowerCase();
+    contract.notes || '',
+    contract.title || '',
+    contract.description || ''
+  ].join(' ');
 
-  // Check for required clauses
-  for (const clause of requiredClauses) {
-    const clauseKeywords = getClauseKeywords(clause);
-    const hasClause = clauseKeywords.some(keyword => contractText.includes(keyword));
+  try {
+    // Import AI contract analyzer
+    const { analyzeContractClauses, assessClauseRisk } = await import("../ai/contractAnalyzer");
     
-    if (!hasClause) {
-      analysis.missingClauses.push(clause);
-      if (isCriticalClause(clause)) {
-        analysis.criticalMissing++;
+    // Perform AI-powered contract analysis
+    const aiAnalysis = await analyzeContractClauses(contractText, requiredClauses);
+    
+    // Process AI results into existing format
+    for (const clause of aiAnalysis.clauses) {
+      if (!clause.present) {
+        analysis.missingClauses.push(clause.clauseType);
+        if (isCriticalClause(clause.clauseType)) {
+          analysis.criticalMissing++;
+        }
+      }
+      
+      // Add problematic clauses based on risk level
+      if (clause.present && clause.riskLevel === "high") {
+        analysis.problematicClauses.push({
+          term: clause.clauseType,
+          severity: "high",
+          concern: `High-risk ${clause.clauseType} clause detected (confidence: ${Math.round(clause.confidence * 100)}%)`,
+          recommendation: clause.recommendations.join("; "),
+          extractedText: clause.extractedText,
+          confidence: clause.confidence
+        });
       }
     }
-  }
-
-  // Check for problematic terms
-  for (const riskTerm of LEGAL_CONFIG.highRiskTerms) {
-    if (contractText.includes(riskTerm.toLowerCase())) {
-      analysis.problematicClauses.push({
-        term: riskTerm,
-        severity: "high",
-        concern: `Contains high-risk term: "${riskTerm}"`,
-        recommendation: `Review and consider modifying "${riskTerm}" clause`
-      });
+    
+    // Add AI-generated recommendations
+    analysis.recommendations.push(...aiAnalysis.recommendations);
+    
+    // Add critical issues as recommendations
+    if (aiAnalysis.criticalIssues.length > 0) {
+      analysis.recommendations.push(...aiAnalysis.criticalIssues);
     }
-  }
+    
+    // Store overall risk score for future use
+    analysis.overallRiskScore = aiAnalysis.overallRiskScore;
+    
+  } catch (error) {
+    console.error("AI clause analysis failed, falling back to keyword matching:", error);
+    
+    // Fallback to original keyword-based analysis
+    const contractTextLower = contractText.toLowerCase();
+    
+    // Check for required clauses
+    for (const clause of requiredClauses) {
+      const clauseKeywords = getClauseKeywords(clause);
+      const hasClause = clauseKeywords.some(keyword => contractTextLower.includes(keyword));
+      
+      if (!hasClause) {
+        analysis.missingClauses.push(clause);
+        if (isCriticalClause(clause)) {
+          analysis.criticalMissing++;
+        }
+      }
+    }
 
-  // Generate recommendations
-  if (analysis.criticalMissing > 0) {
-    analysis.recommendations.push("Add critical missing clauses before contract execution");
-  }
-  if (analysis.problematicClauses.length > 0) {
-    analysis.recommendations.push("Review and modify high-risk terms to reduce legal exposure");
+    // Check for problematic terms
+    for (const riskTerm of LEGAL_CONFIG.highRiskTerms) {
+      if (contractTextLower.includes(riskTerm.toLowerCase())) {
+        analysis.problematicClauses.push({
+          term: riskTerm,
+          severity: "high",
+          concern: `Contains high-risk term: "${riskTerm}"`,
+          recommendation: `Review and consider modifying "${riskTerm}" clause`
+        });
+      }
+    }
+
+    // Generate fallback recommendations
+    if (analysis.criticalMissing > 0) {
+      analysis.recommendations.push("Add critical missing clauses before contract execution");
+    }
+    if (analysis.problematicClauses.length > 0) {
+      analysis.recommendations.push("Review and modify high-risk terms to reduce legal exposure");
+    }
+    
+    analysis.recommendations.push("AI analysis unavailable - manual legal review recommended");
   }
 
   return analysis;
+}
+
+// Enhanced clause analysis with semantic search
+async function enhancedClauseAnalysis(contract: any, templateClauses: string[]): Promise<any> {
+  const contractText = [
+    contract.extractedScope || '',
+    contract.extractedPaymentSchedule || '',
+    contract.notes || '',
+    contract.title || '',
+    contract.description || ''
+  ].join(' ');
+
+  try {
+    const { findSimilarClauses, assessClauseRisk } = await import("../ai/contractAnalyzer");
+    
+    const results: any[] = [];
+    
+    // For each template clause, find similar clauses in the contract
+    for (const templateClause of templateClauses) {
+      const similarClauses = await findSimilarClauses(templateClause, contractText, 0.6);
+      
+      if (similarClauses.length > 0) {
+        // Assess risk for the most similar clause
+        const topMatch = similarClauses[0]!;
+        const riskAssessment = await assessClauseRisk(topMatch.text, "general");
+        
+        results.push({
+          templateClause,
+          matchedText: topMatch.text,
+          similarity: topMatch.similarity,
+          riskScore: riskAssessment.riskScore,
+          riskFactors: riskAssessment.riskFactors,
+          mitigationStrategies: riskAssessment.mitigationStrategies
+        });
+      }
+    }
+    
+    return {
+      matches: results,
+      avgSimilarity: results.reduce((sum, r) => sum + r.similarity, 0) / results.length || 0,
+      avgRiskScore: results.reduce((sum, r) => sum + r.riskScore, 0) / results.length || 0
+    };
+    
+  } catch (error) {
+    console.error("Enhanced clause analysis failed:", error);
+    return {
+      matches: [],
+      avgSimilarity: 0,
+      avgRiskScore: 50,
+      error: "Semantic analysis unavailable"
+    };
+  }
 }
 
 function calculateLegalDeadlines(contract: any): any[] {
@@ -1464,7 +1574,7 @@ export const getLegalInsights = internalQuery({
   handler: async (ctx, args) => {
     let query = ctx.db.query("agentInsights");
     
-    if (args.contractId) {
+    if (args.contractId) {    
       //@ts-ignore
       query = query.withIndex("by_contract", (q: any) => q.eq("contractId", args.contractId));
     }
@@ -1504,5 +1614,71 @@ export const getLegalDeadlines = internalQuery({
       .collect();
 
     return deadlineInsights;
+  },
+});
+
+// Export AI-enhanced contract analysis function
+export const analyzeContractWithAI = internalMutation({
+  args: {
+    contractId: v.id("contracts"),
+    enterpriseId: v.id("enterprises"),
+    requiredClauses: v.optional(v.array(v.string())),
+    templateClauses: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    // Verify access to contract
+    const contract = await ctx.db.get(args.contractId);
+    if (!contract || contract.enterpriseId !== args.enterpriseId) {
+      throw new Error("Contract not found or access denied");
+    }
+
+    // Perform AI-enhanced analysis
+    const requiredClauses = args.requiredClauses || [
+      "termination", "indemnification", "limitation_of_liability", 
+      "confidentiality", "intellectual_property", "payment_terms"
+    ];
+
+    // Standard clause analysis
+    const standardAnalysis = await analyzeContractForClauses(contract, requiredClauses);
+
+    // Enhanced semantic analysis if template clauses provided
+    let semanticAnalysis = null;
+    if (args.templateClauses && args.templateClauses.length > 0) {
+      semanticAnalysis = await enhancedClauseAnalysis(contract, args.templateClauses);
+    }
+
+    // Combine results
+    const combinedAnalysis = {
+      contractId: args.contractId,
+      timestamp: new Date().toISOString(),
+      standardAnalysis,
+      semanticAnalysis,
+      aiEnhanced: true,
+      summary: {
+        totalClauses: requiredClauses.length,
+        missingClauses: standardAnalysis.missingClauses.length,
+        criticalMissing: standardAnalysis.criticalMissing,
+        problematicClauses: standardAnalysis.problematicClauses.length,
+        overallRiskScore: standardAnalysis.overallRiskScore || 0,
+        recommendations: standardAnalysis.recommendations.length
+      }
+    };
+
+    // Store analysis result in agentInsights table
+    await ctx.db.insert("agentInsights", {
+      agentId: "legal_agent" as any,
+      contractId: args.contractId,
+      type: "contract_analysis",
+      title: "AI-Enhanced Legal Analysis",
+      description: `Contract analyzed with AI: ${combinedAnalysis.summary.missingClauses} missing clauses, ${combinedAnalysis.summary.problematicClauses} problematic clauses`,
+      priority: combinedAnalysis.summary.criticalMissing > 0 ? "high" : "medium",
+      data: combinedAnalysis,
+      actionRequired: combinedAnalysis.summary.criticalMissing > 0,
+      actionTaken: false,
+      isRead: false,
+      createdAt: new Date().toISOString()
+    });
+
+    return combinedAnalysis;
   },
 });

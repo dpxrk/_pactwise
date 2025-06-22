@@ -124,7 +124,7 @@ export function formatDate(dateString?: string | number | Date, format: 'short' 
           day: 'numeric' 
         });
       case 'iso':
-        return date.toISOString().split('T')[0];
+        return date.toISOString().split('T')[0]!;
       case 'short':
       default:
         return date.toLocaleDateString('en-US', {

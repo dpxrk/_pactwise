@@ -24,7 +24,7 @@ const DraftContracts = () => {
         isDraft &&
         (contract.title.toLowerCase().includes(searchLower) ||
           contract.vendor?.name.toLowerCase().includes(searchLower) ||
-          contract.contract_number.toLowerCase().includes(searchLower))
+          contract._id.toLowerCase().includes(searchLower))
       );
     });
   }, [contracts, searchQuery]);
@@ -32,7 +32,7 @@ const DraftContracts = () => {
   // Calculate draft statistics
   const stats = useMemo(() => {
     // const lastModified = draftContracts.reduce((latest, contract) => {
-    //   const modifiedDate = new Date(contract.updated_at || contract.created_at);
+    //   const modifiedDate = new Date(contract._creationTime || contract._creationTime);
     //   return modifiedDate > latest ? modifiedDate : latest;
     // }, new Date(0));
 
@@ -41,10 +41,10 @@ const DraftContracts = () => {
       recentlyModified: draftContracts.filter((contract) => {
         const lastWeek = new Date();
         lastWeek.setDate(lastWeek.getDate() - 7);
-        return new Date(contract.updated_at || contract.created_at) > lastWeek;
+        return contract._creationTime && new Date(contract._creationTime) > lastWeek;
       }).length,
       oldestDraft: draftContracts.reduce<Date | null>((oldest, contract) => {
-        const createdDate = new Date(contract.created_at);
+        const createdDate = contract._creationTime ? new Date(contract._creationTime) : new Date();
         return !oldest || createdDate < oldest ? createdDate : oldest;
       }, null),
     };
@@ -111,7 +111,7 @@ const DraftContracts = () => {
       {/* Drafts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {draftContracts.map((contract) => (
-          <Card key={contract.id} className="hover:shadow-lg transition-shadow">
+          <Card key={contract._id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex justify-between items-start">
                 <CardTitle className="text-lg font-medium">
@@ -124,9 +124,9 @@ const DraftContracts = () => {
               <div className="flex items-center text-sm text-muted-foreground">
                 <Clock className="h-4 w-4 mr-1" />
                 Last modified:{" "}
-                {new Date(
-                  contract.updated_at || contract.created_at
-                ).toLocaleDateString()}
+                {contract._creationTime 
+                  ? new Date(contract._creationTime).toLocaleDateString()
+                  : 'N/A'}
               </div>
             </CardHeader>
             <CardContent>
@@ -136,16 +136,16 @@ const DraftContracts = () => {
                     Draft #:
                   </span>
                   <span className="font-medium">
-                    {contract.contract_number}
+                    {contract._id}
                   </span>
                 </div>
-                {contract.value && (
+                {contract.extractedPricing && (
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">
-                      Estimated Value:
+                      Pricing:
                     </span>
                     <span className="font-medium">
-                      ${contract.value.toLocaleString()}
+                      {contract.extractedPricing}
                     </span>
                   </div>
                 )}
@@ -162,7 +162,9 @@ const DraftContracts = () => {
                     Created:
                   </span>
                   <span className="font-medium">
-                    {new Date(contract.created_at).toLocaleDateString()}
+                    {contract._creationTime 
+                      ? new Date(contract._creationTime).toLocaleDateString()
+                      : 'N/A'}
                   </span>
                 </div>
               </div>

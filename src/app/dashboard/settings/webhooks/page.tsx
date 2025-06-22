@@ -139,8 +139,11 @@ export default function WebhooksSettingsPage() {
       
       const webhook = {
         id: `wh_${Date.now()}`,
-        ...newWebhook,
-        lastTriggered: null,
+        name: newWebhook.name,
+        url: newWebhook.url,
+        events: newWebhook.events,
+        enabled: newWebhook.enabled,
+        lastTriggered: new Date(),
         successRate: 0,
         totalDeliveries: 0,
         created: new Date()

@@ -3,7 +3,7 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
-import { Text } from '@react-three/drei';
+import { Text, Line } from '@react-three/drei';
 import { BarChartProps, ChartDataPoint, ChartMesh } from '@/types/three-charts.types';
 import { BaseThreeChart } from './BaseThreeChart';
 import {
@@ -211,9 +211,13 @@ const BarChartContent: React.FC<{
       
       lines.push(
         <group key={`grid-${i}`}>
-          <line geometry={geometry}>
-            <lineBasicMaterial color={theme.gridColor} opacity={0.3} transparent />
-          </line>
+          <Line
+            points={points}
+            color={theme.gridColor}
+            lineWidth={1}
+            opacity={0.3}
+            transparent
+          />
           <Text
             position={[-totalWidth / 2 - 1.5, y, 0]}
             fontSize={0.2}
@@ -291,7 +295,7 @@ export const ThreeBarChart: React.FC<BarChartProps> = ({
       camera={camera}
       enableGrid={false}
       enableAxes={false}
-      className={className}
+      {...(className && { className })}
       {...props}
     >
       <BarChartContent

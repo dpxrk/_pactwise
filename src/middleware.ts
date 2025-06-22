@@ -21,14 +21,27 @@ function getClientIP(request: NextRequest): string {
   const realIP = request.headers.get('x-real-ip');
   
   if (forwarded) {
-    return forwarded.split(',')[0].trim();
+    return forwarded.split(',')[0]?.trim() || 'unknown';
   }
   
   if (realIP) {
     return realIP;
   }
   
-  return request.ip || 'unknown';
+  // Try to get IP from headers or fall back to 'unknown'
+  const xRealIp = request.headers.get('x-real-ip');
+  const xForwardedFor = request.headers.get('x-forwarded-for');
+  
+  if (xForwardedFor) {
+    return xForwardedFor.split(',')[0]?.trim() || 'unknown';
+  }
+  
+  if (xRealIp) {
+    return xRealIp;
+  }
+  
+  // NextRequest doesn't have an ip property, so we default to 'unknown'
+  return 'unknown';
 }
 
 // Rate limiting function

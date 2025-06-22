@@ -100,22 +100,26 @@ export async function logAuditEvent(
     metadata?: any;
   }
 ): Promise<void> {
-  await ctx.db.insert("auditLogs", {
+  const auditLogEntry: any = {
     userId: context.userId,
     enterpriseId: context.enterpriseId,
     operation: event.operation,
     resourceType: event.resourceType,
-    resourceId: event.resourceId,
     action: event.action,
-    changes: event.changes,
-    ipAddress: context.ipAddress,
-    userAgent: context.userAgent,
-    sessionId: context.sessionId,
     status: event.status,
-    errorMessage: event.errorMessage,
     timestamp: new Date().toISOString(),
-    metadata: event.metadata,
-  });
+  };
+
+  // Only add optional fields if they have values
+  if (event.resourceId !== undefined) auditLogEntry.resourceId = event.resourceId;
+  if (event.changes !== undefined) auditLogEntry.changes = event.changes;
+  if (context.ipAddress !== undefined) auditLogEntry.ipAddress = context.ipAddress;
+  if (context.userAgent !== undefined) auditLogEntry.userAgent = context.userAgent;
+  if (context.sessionId !== undefined) auditLogEntry.sessionId = context.sessionId;
+  if (event.errorMessage !== undefined) auditLogEntry.errorMessage = event.errorMessage;
+  if (event.metadata !== undefined) auditLogEntry.metadata = event.metadata;
+
+  await ctx.db.insert("auditLogs", auditLogEntry);
   
   // Check for suspicious patterns
   await checkSuspiciousActivity(ctx, context, event);
@@ -144,15 +148,17 @@ async function checkSuspiciousActivity(
     .collect();
   
   if (recentFailures.length >= 5) {
-    await createAuditAlert(ctx, {
+    const alertData: any = {
       enterpriseId: context.enterpriseId,
       alertType: "failed_attempts",
       severity: "high",
       description: `User has ${recentFailures.length} failed attempts in the last hour`,
       userId: context.userId,
-      ipAddress: context.ipAddress,
       metadata: { failureCount: recentFailures.length }
-    });
+    };
+    if (context.ipAddress) alertData.ipAddress = context.ipAddress;
+    
+    await createAuditAlert(ctx, alertData);
   }
   
   // Check for bulk operations
@@ -169,29 +175,33 @@ async function checkSuspiciousActivity(
       .collect();
     
     if (recentSimilar.length >= 10) {
-      await createAuditAlert(ctx, {
+      const bulkAlertData: any = {
         enterpriseId: context.enterpriseId,
         alertType: "bulk_operation",
         severity: "medium",
         description: `User performed ${recentSimilar.length} ${event.action} operations in the last hour`,
         userId: context.userId,
-        ipAddress: context.ipAddress,
         metadata: { operationCount: recentSimilar.length, action: event.action }
-      });
+      };
+      if (context.ipAddress) bulkAlertData.ipAddress = context.ipAddress;
+      
+      await createAuditAlert(ctx, bulkAlertData);
     }
   }
   
   // Check for data exports
   if (event.action === "export") {
-    await createAuditAlert(ctx, {
+    const exportAlertData: any = {
       enterpriseId: context.enterpriseId,
       alertType: "data_export",
       severity: "low",
       description: `Data export performed on ${event.resourceType}`,
       userId: context.userId,
-      ipAddress: context.ipAddress,
       metadata: { resourceType: event.resourceType, resourceId: event.resourceId }
-    });
+    };
+    if (context.ipAddress) exportAlertData.ipAddress = context.ipAddress;
+    
+    await createAuditAlert(ctx, exportAlertData);
   }
   
   // Check for permission changes
@@ -236,11 +246,21 @@ async function createAuditAlert(
     .first();
   
   if (!existingAlert) {
-    await ctx.db.insert("auditAlerts", {
-      ...alert,
+    const alertEntry: any = {
+      enterpriseId: alert.enterpriseId,
+      alertType: alert.alertType,
+      severity: alert.severity,
+      description: alert.description,
       resolved: false,
       createdAt: new Date().toISOString(),
-    });
+    };
+    
+    // Only add optional fields if they have values
+    if (alert.userId !== undefined) alertEntry.userId = alert.userId;
+    if (alert.ipAddress !== undefined) alertEntry.ipAddress = alert.ipAddress;
+    if (alert.metadata !== undefined) alertEntry.metadata = alert.metadata;
+    
+    await ctx.db.insert("auditAlerts", alertEntry);
     
     // TODO: Send notification to admins
   }
@@ -438,20 +458,24 @@ export const logEvent = mutation({
       throw new ConvexError("User not found");
     }
 
-    await ctx.db.insert("auditLogs", {
+    const logEntry: any = {
       userId: args.userId,
       enterpriseId: user.enterpriseId,
       operation: args.operation,
       resourceType: args.resourceType,
-      resourceId: args.resourceId,
       action: args.action,
       status: args.status,
-      errorMessage: args.errorMessage,
-      metadata: args.metadata,
       timestamp: new Date().toISOString(),
       ipAddress: "unknown", // Actions don't have IP info
       userAgent: "system",
       sessionId: "action-session",
-    });
+    };
+    
+    // Only add optional fields if they have values
+    if (args.resourceId !== undefined) logEntry.resourceId = args.resourceId;
+    if (args.errorMessage !== undefined) logEntry.errorMessage = args.errorMessage;
+    if (args.metadata !== undefined) logEntry.metadata = args.metadata;
+    
+    await ctx.db.insert("auditLogs", logEntry);
   },
 });

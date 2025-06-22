@@ -31,10 +31,15 @@ const CreateEnterpriseStep: React.FC<CreateEnterpriseStepProps> = ({ onStepCompl
     }
 
     try {
-      await createEnterpriseMutation.execute({ 
+      const args: any = { 
         enterpriseName: enterpriseName.trim(),
-        domain: domain.trim() || undefined,
-      });
+      };
+      
+      if (domain.trim()) {
+        args.domain = domain.trim();
+      }
+      
+      await createEnterpriseMutation.execute(args);
       onStepComplete(); // Advance to the next step in the onboarding flow
     } catch (err: any) {
       setError(err.message || 'Failed to create enterprise.');

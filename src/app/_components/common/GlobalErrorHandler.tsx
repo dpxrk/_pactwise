@@ -313,14 +313,17 @@ export const GlobalErrorHandler: React.FC<GlobalErrorHandlerProps> = ({
       {/* Error Toasts */}
       {showToasts && activeToasts.length > 0 && (
         <div className="fixed top-4 right-4 z-50 space-y-2">
-          {activeToasts.map(error => (
-            <ErrorToast
-              key={error.id}
-              error={error}
-              onDismiss={() => dismissToast(error.id)}
-              onViewDetails={showErrorDialog ? () => viewErrorDetails(error) : undefined}
-            />
-          ))}
+          {activeToasts.map(error => {
+            const toastProps: any = {
+              key: error.id,
+              error: error,
+              onDismiss: () => dismissToast(error.id),
+            };
+            if (showErrorDialog) {
+              toastProps.onViewDetails = () => viewErrorDetails(error);
+            }
+            return <ErrorToast {...toastProps} />;
+          })}
         </div>
       )}
 

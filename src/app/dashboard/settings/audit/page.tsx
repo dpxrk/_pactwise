@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
+import type { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
   Shield,
@@ -35,7 +36,7 @@ export default function AuditSettingsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState('all');
   const [selectedAction, setSelectedAction] = useState('all');
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   
   // Audit log entries
   const auditLogs = [
@@ -302,8 +303,8 @@ export default function AuditSettingsPage() {
                     <PopoverTrigger asChild>
                       <Button variant="outline" className="w-full justify-start text-left font-normal">
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateRange.from ? (
-                          dateRange.to ? (
+                        {dateRange?.from ? (
+                          dateRange?.to ? (
                             `${format(dateRange.from, 'LLL dd')} - ${format(dateRange.to, 'LLL dd')}`
                           ) : (
                             format(dateRange.from, 'LLL dd, y')
@@ -317,7 +318,7 @@ export default function AuditSettingsPage() {
                       <Calendar
                         mode="range"
                         selected={dateRange}
-                        onSelect={setDateRange}
+                        onSelect={(range) => setDateRange(range)}
                         numberOfMonths={2}
                       />
                     </PopoverContent>

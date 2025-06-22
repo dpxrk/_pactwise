@@ -246,7 +246,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
 
   // Show loading state
   if (isLoading) {
-    return loading || <LoadingSpinner />;
+    return <>{loading || <LoadingSpinner />}</>;
   }
 
   // Check enterprise access if specified
@@ -280,7 +280,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
     let resourceName = 'this resource';
     if (permission) {
       const [resourceType] = permission.split(':');
-      resourceName = resourceType;
+      resourceName = resourceType || 'this resource';
     }
 
     return <EmptyPermissions resource={resourceName} />;
@@ -305,16 +305,21 @@ export const ContractPermissionGate: React.FC<{
     approve: 'contracts:approve' as Permission,
   };
 
-  const resource = contractId ? {
-    resourceType: 'contract' as const,
-    resourceId: contractId,
-    createdBy
-  } : undefined;
-
-  return (
+  return contractId && createdBy ? (
     <PermissionGate
       permission={permissionMap[action]}
-      resource={resource}
+      resource={{
+        resourceType: 'contract' as const,
+        resourceId: contractId,
+        createdBy
+      }}
+      fallback={fallback}
+    >
+      {children}
+    </PermissionGate>
+  ) : (
+    <PermissionGate
+      permission={permissionMap[action]}
       fallback={fallback}
     >
       {children}
@@ -336,16 +341,21 @@ export const VendorPermissionGate: React.FC<{
     delete: 'vendors:delete' as Permission,
   };
 
-  const resource = vendorId ? {
-    resourceType: 'vendor' as const,
-    resourceId: vendorId,
-    createdBy
-  } : undefined;
-
-  return (
+  return vendorId && createdBy ? (
     <PermissionGate
       permission={permissionMap[action]}
-      resource={resource}
+      resource={{
+        resourceType: 'vendor' as const,
+        resourceId: vendorId,
+        createdBy
+      }}
+      fallback={fallback}
+    >
+      {children}
+    </PermissionGate>
+  ) : (
+    <PermissionGate
+      permission={permissionMap[action]}
       fallback={fallback}
     >
       {children}

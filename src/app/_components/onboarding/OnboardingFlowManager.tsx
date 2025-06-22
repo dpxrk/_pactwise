@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { useConvexQuery, useConvexMutation } from '@/lib/api-client';
 import { api } from "@/../convex/_generated/api"
-import { ONBOARDING_STEPS, OnboardingStep } from '@/../convex/onboarding';
+import { ONBOARDING_STEPS, type OnboardingStep } from '@/../convex/onboardingConstants';
 import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 
@@ -115,7 +115,7 @@ const OnboardingFlowManager = () => {
   // Render the current step
   switch (onboardingStatus.currentStep) {
     case ONBOARDING_STEPS.ACCOUNT_TYPE:
-      return <AccountTypeStep userEmail={clerkUser.primaryEmailAddress?.emailAddress} onStepComplete={advanceToStep} />;
+      return <AccountTypeStep {...(clerkUser.primaryEmailAddress?.emailAddress && { userEmail: clerkUser.primaryEmailAddress.emailAddress })} onStepComplete={advanceToStep} />;
     case ONBOARDING_STEPS.CREATE_ENTERPRISE:
       return <CreateEnterpriseStep onStepComplete={() => advanceToStep(ONBOARDING_STEPS.PROFILE_SETUP)} />;
     // JOIN_ENTERPRISE is often handled by invitation link or within AccountTypeStep logic

@@ -68,8 +68,8 @@ export const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorPr
 }) => {
   const { user: clerkUser } = useUser();
   const router = useRouter();
-  const userId = clerkUser?.id as Id<"users">;
-  const enterpriseId = clerkUser?.publicMetadata?.enterpriseId as Id<"enterprises">;
+  const userId = clerkUser?.id as Id<"users"> | undefined;
+  const enterpriseId = clerkUser?.publicMetadata?.enterpriseId as Id<"enterprises"> | undefined;
 
   // State
   const [documentId, setDocumentId] = useState<Id<"collaborativeDocuments"> | null>(existingDocumentId || null);
@@ -122,10 +122,8 @@ export const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorPr
     if (!userId || !enterpriseId) return;
 
     try {
-      const result = await createDocument.execute({
+      const params: any = {
         title,
-        contractId,
-        initialContent,
         ownerId: userId,
         collaborators: [],
         permissions: {
@@ -134,9 +132,18 @@ export const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorPr
           comment: [],
           admin: [userId]
         }
-      });
+      };
+      
+      if (contractId) {
+        params.contractId = contractId;
+      }
+      if (initialContent) {
+        params.initialContent = initialContent;
+      }
+      
+      const result = await createDocument.execute(params);
 
-      if (result.success && result.documentId) {
+      if (result && result.success && result.documentId) {
         setDocumentId(result.documentId);
       }
     } catch (error) {
@@ -375,24 +382,44 @@ export const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorPr
       <div className="flex-1 overflow-hidden flex">
         {/* Editor */}
         <div className={cn("flex-1 p-6 overflow-auto", activePanel && "w-2/3")}>
-          <CollaborativeEditor
-            documentId={documentId}
-            contractId={contractId}
-            initialContent={initialContent}
-            config={editorConfig}
-            onSave={handleSave}
-            onError={(error) => console.error('Editor error:', error)}
-          />
+          {documentId && contractId ? (
+            <CollaborativeEditor
+              documentId={documentId}
+              contractId={contractId}
+              initialContent={initialContent}
+              config={editorConfig}
+              onSave={handleSave}
+              onError={(error) => console.error('Editor error:', error)}
+            />
+          ) : documentId ? (
+            <CollaborativeEditor
+              documentId={documentId}
+              initialContent={initialContent}
+              config={editorConfig}
+              onSave={handleSave}
+              onError={(error) => console.error('Editor error:', error)}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              <p>Loading document...</p>
+            </div>
+          )}
         </div>
 
         {/* Right Panel */}
         {activePanel && (
           <div className="w-1/3 border-l">
-            {activePanel === 'comments' && (
-              <CommentsSidebar
-                documentId={documentId}
-                selectedText={selectedText}
-              />
+            {activePanel === 'comments' && documentId && (
+              selectedText ? (
+                <CommentsSidebar
+                  documentId={documentId}
+                  selectedText={selectedText}
+                />
+              ) : (
+                <CommentsSidebar
+                  documentId={documentId}
+                />
+              )
             )}
             
             {activePanel === 'history' && (
@@ -413,7 +440,7 @@ export const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorPr
         <SuggestionModal
           isOpen={isSuggestionModalOpen}
           onClose={() => setIsSuggestionModalOpen(false)}
-          selectedText={selectedText}
+          selectedText={selectedText || undefined}
           onAddSuggestion={handleAddSuggestion}
         />
       )}
@@ -448,14 +475,15 @@ export const CollaborativeEditorPage: React.FC<CollaborativeEditorPageProps> = (
     }
   };
 
-  return (
-    <CollaborativeDocumentEditor
-      documentId={documentId}
-      contractId={contractId}
-      onBack={handleBack}
-      className="min-h-screen"
-    />
-  );
+  const props: CollaborativeDocumentEditorProps = {
+    onBack: handleBack,
+    className: "min-h-screen"
+  };
+  
+  if (documentId) props.documentId = documentId;
+  if (contractId) props.contractId = contractId;
+  
+  return <CollaborativeDocumentEditor {...props} />;
 };
 
 // ============================================================================
@@ -472,7 +500,7 @@ export const ContractCollaborativeEditor: React.FC<ContractCollaborativeEditorPr
   onClose
 }) => {
   const { user: clerkUser } = useUser();
-  const enterpriseId = clerkUser?.publicMetadata?.enterpriseId as Id<"enterprises">;
+  const enterpriseId = clerkUser?.publicMetadata?.enterpriseId as Id<"enterprises"> | undefined;
 
   // Query to get or create collaborative document for contract
   const { data: document } = useConvexQuery(
@@ -482,13 +510,28 @@ export const ContractCollaborativeEditor: React.FC<ContractCollaborativeEditorPr
 
   return (
     <div className="fixed inset-0 bg-background z-50">
-      <CollaborativeDocumentEditor
-        documentId={document?._id}
-        contractId={contractId}
-        title={document?.title || `Contract Editor - ${contractId}`}
-        onBack={onClose}
-        className="h-full"
-      />
+      {document?._id ? (
+        onClose ? (
+          <CollaborativeDocumentEditor
+            documentId={document._id}
+            contractId={contractId}
+            title={document?.title || `Contract Editor - ${contractId}`}
+            onBack={onClose}
+            className="h-full"
+          />
+        ) : (
+          <CollaborativeDocumentEditor
+            documentId={document._id}
+            contractId={contractId}
+            title={document?.title || `Contract Editor - ${contractId}`}
+            className="h-full"
+          />
+        )
+      ) : (
+        <div className="flex items-center justify-center h-full">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      )}
     </div>
   );
 };

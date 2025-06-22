@@ -38,12 +38,21 @@ const EnterpriseConfigStep: React.FC<EnterpriseConfigStepProps> = ({ onStepCompl
     }
 
     try {
-      await completeConfigMutation.execute({
+      const args: any = {
         industry: industry.trim(),
         size: size as typeof companySizes[number], // Ensure type safety
-        contractVolume: contractVolume || undefined, // Optional
-        primaryUseCase: primaryUseCase.split(',').map(s => s.trim()).filter(s => s) || undefined, // Optional
-      });
+      };
+      
+      if (contractVolume) {
+        args.contractVolume = contractVolume;
+      }
+      
+      const useCases = primaryUseCase.split(',').map(s => s.trim()).filter(s => s);
+      if (useCases.length > 0) {
+        args.primaryUseCase = useCases;
+      }
+      
+      await completeConfigMutation.execute(args);
       onStepComplete();
     } catch (err: any) {
       setError(err.message || 'Failed to save enterprise configuration.');

@@ -2,7 +2,7 @@
 
 import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
-import { Text } from '@react-three/drei';
+import { Text, Line } from '@react-three/drei';
 import { AreaChartProps, ChartDataPoint, ChartSeries } from '@/types/three-charts.types';
 import { BaseThreeChart } from './BaseThreeChart';
 import {
@@ -239,7 +239,7 @@ const AreaChartContent: React.FC<{
           if (stackedAreas) {
             // For stacked areas, add to cumulative value
             cumulativeData[index] += value;
-            y = scaleValue(cumulativeData[index], min, max + Math.max(...cumulativeData), 0, maxHeight);
+            y = scaleValue(cumulativeData[index]!, min, max + Math.max(...cumulativeData), 0, maxHeight);
           } else {
             y = scaleValue(value, min, max, 0, maxHeight);
           }
@@ -293,9 +293,13 @@ const AreaChartContent: React.FC<{
       
       lines.push(
         <group key={`grid-${i}`}>
-          <line geometry={geometry}>
-            <lineBasicMaterial color={theme.gridColor} opacity={0.3} transparent />
-          </line>
+          <Line
+            points={points}
+            color={theme.gridColor}
+            lineWidth={1}
+            opacity={0.3}
+            transparent
+          />
           <Text
             position={[-totalWidth / 2 - 1.5, y, 0]}
             fontSize={0.2}
@@ -359,7 +363,7 @@ const AreaChartContent: React.FC<{
               position={[point.x, point.y, point.z + 0.1]}
               color={seriesData.color}
               size={pointSize}
-              dataPoint={seriesData.dataPoints[pointIndex]}
+              dataPoint={seriesData.dataPoints[pointIndex] || { value: 0, name: '', category: '' }}
               index={pointIndex}
               visible={seriesData.visible}
             />
@@ -421,12 +425,12 @@ export const ThreeAreaChart: React.FC<AreaChartProps> = ({
       camera={camera}
       enableGrid={false}
       enableAxes={false}
-      className={className}
+      {...(className && { className })}
       {...props}
     >
       <AreaChartContent
         data={validData}
-        series={series}
+        {...(series && { series })}
         opacity={opacity}
         showPoints={showPoints}
         pointSize={pointSize}
