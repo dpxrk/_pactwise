@@ -12,7 +12,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 215 25% 15%;
 
-    --primary: 215 30% 20%; /* Rich navy blue */
+    --primary: 180 41% 9%; /* Deep teal #0d1f1f */
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -33,15 +33,17 @@
 
     --radius: 0.25rem; /* Reduced radius for more refined look */
 
-    /* Gold accent color for luxury feel */
-    --elegant-gold: 38 55% 58%;
-    --elegant-gold-light: 38 50% 70%;
-    --elegant-gold-dark: 38 50% 45%; 
+    /* Dark teal accent colors */
+    --elegant-gold: 180 41% 9%; /* #0d1f1f */
+    --elegant-gold-light: 180 38% 14%; /* Lighter teal */
+    --elegant-gold-dark: 180 45% 7%; /* Deeper teal */
+    --teal-primary: 180 41% 9%; /* #0d1f1f */
+    --teal-secondary: 180 38% 11%; /* Slightly lighter */ 
 
     /* Chart colors */
     --chart-1: 215 70% 35%;
     --chart-2: 173 58% 39%;
-    --chart-3: 40 80% 60%; /* Gold */
+    --chart-3: 180 41% 9%; /* Dark teal */
     --chart-4: 200 70% 45%;
     --chart-5: 235 60% 50%;
 
@@ -61,8 +63,8 @@
     --popover: 215 35% 12%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%; 
-    --primary-foreground: 215 30% 10%;
+    --primary: 180 41% 9%; /* Deep teal #0d1f1f */
+    --primary-foreground: 210 40% 98%;
 
     --secondary: 215 25% 18%;
     --secondary-foreground: 210 40% 98%;
@@ -80,17 +82,19 @@
     --input: 215 25% 18%;
     --ring: 210 40% 90%;
 
-    /* Gold accent color for luxury dark theme */
-    --elegant-gold: 38 55% 58%; /* More muted, sophisticated gold */
-    --elegant-gold-light: 38 50% 70%; /* Lighter, subtle version */  
-    --elegant-gold-dark: 38 50% 45%; /* Deeper, richer version */
+    /* Dark teal accent colors for dark theme */
+    --elegant-gold: 180 41% 9%; /* #0d1f1f */
+    --elegant-gold-light: 180 38% 14%; /* Lighter teal */  
+    --elegant-gold-dark: 180 45% 7%; /* Deeper teal */
+    --teal-primary: 180 41% 9%; /* #0d1f1f */
+    --teal-secondary: 180 38% 11%; /* Slightly lighter */
 
     --navy: 215 30% 20%;
 
     /* Chart colors for dark theme */
     --chart-1: 215 70% 60%;
     --chart-2: 173 58% 50%;
-    --chart-3: 40 70% 55%; /* Gold */
+    --chart-3: 180 41% 9%; /* Dark teal */
     --chart-4: 200 70% 60%;
     --chart-5: 235 60% 65%;
 
@@ -116,15 +120,23 @@
 /* Additional classes for luxury UI elements */
 @layer utilities {
   .gold-gradient {
-    background: linear-gradient(135deg, hsl(var(--gold)) 0%, hsl(var(--gold-dark)) 100%);
+    background: linear-gradient(135deg, hsl(var(--elegant-gold)) 0%, hsl(var(--elegant-gold-dark)) 100%);
   }
   
   .text-shadow-sm {
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
   
-  .border-gold {
-    border-color: hsl(var(--gold) / 0.2);
+  .border-teal {
+    border-color: hsl(var(--elegant-gold) / 0.2);
+  }
+  
+  .border-teal-primary {
+    border-color: hsl(var(--teal-primary) / 0.2);
+  }
+  
+  .border-teal-secondary {
+    border-color: hsl(var(--teal-secondary) / 0.2);
   }
   
   .backdrop-blur-xs {
@@ -154,26 +166,26 @@
   }
 }
 
-.text-gold {
+.text-teal {
   color: hsl(var(--elegant-gold));
 }
 
-.bg-gold {
+.bg-teal {
   background-color: hsl(var(--elegant-gold));
 }
 
-.from-gold {
+.from-teal {
   --tw-gradient-from: hsl(var(--elegant-gold)) var(--tw-gradient-from-position);
   --tw-gradient-to: hsl(var(--elegant-gold) / 0) var(--tw-gradient-to-position);
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
 }
 
-.via-gold {
+.via-teal {
   --tw-gradient-to: hsl(var(--elegant-gold) / 0) var(--tw-gradient-to-position);
   --tw-gradient-stops: var(--tw-gradient-from), hsl(var(--elegant-gold)) var(--tw-gradient-via-position), var(--tw-gradient-to);
 }
 
-.to-gold {
+.to-teal {
   --tw-gradient-to: hsl(var(--elegant-gold)) var(--tw-gradient-to-position);
 }
 
@@ -240,4 +252,20 @@ select,
 
 .stagger-children > * {
   opacity: 0; 
+}
+
+.text-teal-primary {
+  color: hsl(var(--teal-primary));
+}
+
+.text-teal-secondary {
+  color: hsl(var(--teal-secondary));
+}
+
+.bg-teal-primary {
+  background-color: hsl(var(--teal-primary));
+}
+
+.bg-teal-secondary {
+  background-color: hsl(var(--teal-secondary));
 }

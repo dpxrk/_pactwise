@@ -50,10 +50,12 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        gold: {
+        teal: {
           light: "hsl(var(--elegant-gold-light))",
           DEFAULT: "hsl(var(--elegant-gold))",
           dark: "hsl(var(--elegant-gold-dark))",
+          primary: "hsl(var(--teal-primary))",
+          secondary: "hsl(var(--teal-secondary))",
         },
         navy: {
           light: "#1E3A8A",
@@ -80,14 +82,14 @@ module.exports = {
       },
       boxShadow: {
         "luxury-sm":
-          "0 2px 4px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(197, 165, 114, 0.15)",
+          "0 2px 4px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(13, 38, 38, 0.15)",
         luxury:
-          "0 4px 6px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(197, 165, 114, 0.15)",
+          "0 4px 6px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(13, 38, 38, 0.15)",
         "luxury-lg":
-          "0 10px 15px rgba(0, 0, 0, 0.05), 0 4px 6px rgba(197, 165, 114, 0.15)",
+          "0 10px 15px rgba(0, 0, 0, 0.05), 0 4px 6px rgba(13, 38, 38, 0.15)",
         "glass": "0 4px 30px rgba(0, 0, 0, 0.05)",
         "elegant": "0 10px 30px -5px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03)",
-        "card-hover-gold": "0 12px 28px -8px hsla(var(--elegant-gold), 0.3), 0 4px 10px -5px hsla(var(--elegant-gold), 0.2)",
+        "card-hover-teal": "0 12px 28px -8px hsla(var(--elegant-gold), 0.3), 0 4px 10px -5px hsla(var(--elegant-gold), 0.2)",
       },
       keyframes: {
         "accordion-down": {
@@ -248,11 +250,11 @@ module.exports = {
       },
       backgroundImage: {
        
-        "text-gradient-gold": "linear-gradient(to right, hsl(var(--elegant-gold-light)), hsl(var(--elegant-gold)), hsl(var(--elegant-gold-dark)))",
+        "text-gradient-teal": "linear-gradient(to right, hsl(var(--elegant-gold-light)), hsl(var(--elegant-gold)), hsl(var(--elegant-gold-dark)))",
        
-        "gold-gradient": "linear-gradient(135deg, hsl(var(--gold)) 0%, hsl(var(--gold-dark)) 100%)",
-        "gold-shine": "linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)",
-        "luxury-gradient": "linear-gradient(to right, hsl(var(--primary)), hsl(var(--gold)), hsl(var(--primary)))",
+        "teal-gradient": "linear-gradient(135deg, hsl(var(--elegant-gold)) 0%, hsl(var(--elegant-gold-dark)) 100%)",
+        "teal-shine": "linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)",
+        "luxury-gradient": "linear-gradient(to right, hsl(var(--primary)), hsl(var(--elegant-gold)), hsl(var(--primary)))",
       },
     },
   },
@@ -273,8 +275,8 @@ module.exports = {
         ".subtle-shadow": {
           "box-shadow": "0 4px 20px -2px rgba(0, 0, 0, 0.05)",
         },
-        ".text-gradient-gold": {
-          "background-image": theme('backgroundImage.text-gradient-gold'),
+        ".text-gradient-teal": {
+          "background-image": theme('backgroundImage.text-gradient-teal'),
           "-webkit-background-clip": "text",
           "background-clip": "text",
           color: "transparent",
