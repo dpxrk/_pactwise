@@ -18,7 +18,7 @@ export const Navigation = () => {
   const router = useRouter();
   
   return (
-    <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <nav className="sticky top-0 z-50 w-full border-b border-emerald-900/30 bg-[#0d1f1f]/80 backdrop-blur-xl supports-[backdrop-filter]:bg-[#0d1f1f]/60">
       <Container>
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
@@ -31,7 +31,7 @@ export const Navigation = () => {
               <a
               key={item.href}          
                 href={item.href}
-                className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+                className="text-sm font-medium text-gray-300 hover:text-emerald-400 transition-colors"
               >
                 {item.label}
               </a>
@@ -41,7 +41,7 @@ export const Navigation = () => {
               <div className="flex items-center space-x-4">
                 <Button 
                   variant="outline"
-                  className="border-gold/50 text-primary hover:bg-gold/5" 
+                  className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-400" 
                   onClick={() => router.push('/dashboard')}
                 >
                   Dashboard
@@ -55,7 +55,7 @@ export const Navigation = () => {
                   forceRedirectUrl="/dashboard"
                   fallbackRedirectUrl="/dashboard"
                 >
-                  <Button variant="outline" className="border-gold/50 text-primary hover:bg-gold/5">
+                  <Button variant="outline" className="border-emerald-500/50 text-white hover:bg-emerald-500/10 hover:border-emerald-400">
                     Sign In
                   </Button>
                 </SignInButton>
@@ -64,7 +64,7 @@ export const Navigation = () => {
                   forceRedirectUrl="/dashboard"
                   fallbackRedirectUrl="/dashboard"
                 >
-                  <Button variant="outline" className="border-gold/50 text-primary hover:bg-gold/5 w-half">
+                  <Button variant="outline" className="border-emerald-500/50 text-white hover:bg-emerald-500/10 hover:border-emerald-400 w-half">
                     Sign Up
                   </Button>
                 </SignUpButton>
@@ -114,7 +114,7 @@ export const Navigation = () => {
                           forceRedirectUrl="/dashboard"
                           fallbackRedirectUrl="/dashboard"
                         >
-                          <Button variant="outline" className="border-gold/50 text-primary hover:bg-gold/5 w-full">
+                          <Button variant="outline" className="border-emerald-500/50 text-white hover:bg-emerald-500/10 hover:border-emerald-400 w-full">
                             Sign In
                           </Button>
                         </SignInButton>
@@ -123,7 +123,7 @@ export const Navigation = () => {
                           forceRedirectUrl="/dashboard"
                           fallbackRedirectUrl="/dashboard"
                         >
-                          <Button variant="outline" className="border-gold/50 text-primary hover:bg-gold/5 w-full">
+                          <Button variant="outline" className="border-emerald-500/50 text-white hover:bg-emerald-500/10 hover:border-emerald-400 w-full">
                             Sign Up
                           </Button>
                         </SignUpButton>

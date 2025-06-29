@@ -1,0 +1,855 @@
+
+> pactwise-fork@0.1.0 test
+> jest
+
+FAIL __tests__/backend/security/authentication.test.ts
+  ● Authentication and Security › Security Features › inputValidation › should sanitize user inputs
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "etcpasswd"
+    Received: "..&#x2F;..&#x2F;..&#x2F;etc&#x2F;passwd"
+
+      383 |           for (const test of maliciousInputs) {
+      384 |             const sanitized = await simulateSanitizeInput(test.input);
+    > 385 |             expect(sanitized).toBe(test.expected);
+          |                               ^
+      386 |           }
+      387 |         });
+      388 |       });
+
+      at __tests__/backend/security/authentication.test.ts:385:31
+      at Object.<anonymous> (__tests__/backend/security/authentication.test.ts:363:9)
+
+FAIL __tests__/backend/features/analytics.test.ts
+  ● Analytics Functions › Vendor Analytics › getVendorPerformanceMetrics › should calculate vendor performance scores
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+    @@ -11,11 +11,11 @@
+          "paymentTermsCompliance": Any<Number>,
+          "totalSpend": 175000,
+        },
+        "overall": Object {
+          "activeContracts": 1,
+    -     "contractCount": 2,
+    +     "contractCount": 3,
+          "rating": "Good",
+          "score": 4.25,
+          "totalValue": 175000,
+        },
+        "quality": Object {
+
+      287 |           const result = await simulateGetVendorPerformanceMetrics(ctx, mockVendor._id);
+      288 |           
+    > 289 |           expect(result).toEqual({
+          |                          ^
+      290 |             overall: {
+      291 |               score: 4.25,
+      292 |               rating: 'Good',
+
+      at __tests__/backend/features/analytics.test.ts:289:26
+      at Object.<anonymous> (__tests__/backend/features/analytics.test.ts:253:9)
+
+  ● Analytics Functions › Vendor Analytics › getVendorSpendAnalysis › should analyze vendor spending patterns
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+    @@ -1,8 +1,8 @@
+      Object {
+        "concentration": Object {
+    -     "herfindahlIndex": 0.573,
+    +     "herfindahlIndex": 0.57,
+          "top1": 72.73,
+          "top3": 100,
+          "top5": 100,
+        },
+        "recommendations": ArrayContaining [
+
+      417 |           const result = await simulateGetVendorSpendAnalysis(ctx);
+      418 |           
+    > 419 |           expect(result).toEqual({
+          |                          ^
+      420 |             totalSpend: 1100000,
+      421 |             vendorCount: 3,
+      422 |             topVendors: [
+
+      at __tests__/backend/features/analytics.test.ts:419:26
+      at Object.<anonymous> (__tests__/backend/features/analytics.test.ts:388:9)
+
+FAIL __tests__/backend/features/search.test.ts
+  ● Search Functionality › Faceted Search › getFacets › should support hierarchical facets
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 2
+
+    @@ -12,11 +12,11 @@
+            "training": Object {
+              "children": Object {},
+              "count": 0,
+            },
+          },
+    -     "count": 4,
+    +     "count": 3,
+        },
+        "technology": Object {
+          "children": Object {
+            "cloud": Object {
+              "children": Object {},
+    @@ -34,8 +34,8 @@
+                },
+              },
+              "count": 1,
+            },
+          },
+    -     "count": 4,
+    +     "count": 3,
+        },
+      }
+
+      408 |           });
+      409 |           
+    > 410 |           expect(result).toEqual({
+          |                          ^
+      411 |             technology: {
+      412 |               count: 4,
+      413 |               children: {
+
+      at __tests__/backend/features/search.test.ts:410:26
+      at Object.<anonymous> (__tests__/backend/features/search.test.ts:384:9)
+
+  ● Search Functionality › Search Optimization › searchPerformance › should cache frequent searches
+
+    TypeError: ctx.db.query(...).withIndex is not a function
+
+      1105 |   
+      1106 |   const user = await ctx.db.query('users')
+    > 1107 |     .withIndex('by_clerkId', (q: any) => q.eq('clerkId', identity.subject))
+           |      ^
+      1108 |     .first();
+      1109 |     
+      1110 |   if (!user) throw new Error('User not found');
+
+      at simulateCachedSearch (__tests__/backend/features/search.test.ts:1107:6)
+      at __tests__/backend/features/search.test.ts:541:27
+
+  ● Search Functionality › Search Analytics › trackSearchMetrics › should identify popular searches
+
+    TypeError: ctx.db.query(...).withIndex is not a function
+
+      1197 |   
+      1198 |   const user = await ctx.db.query('users')
+    > 1199 |     .withIndex('by_clerkId', (q: any) => q.eq('clerkId', identity.subject))
+           |      ^
+      1200 |     .first();
+      1201 |     
+      1202 |   if (!user) throw new Error('User not found');
+
+      at simulateGetPopularSearches (__tests__/backend/features/search.test.ts:1199:6)
+      at __tests__/backend/features/search.test.ts:677:26
+
+FAIL __tests__/backend/agents/secretary.test.ts
+  ● Secretary Agent › Document Processing › extractDocumentMetadata › should extract comprehensive metadata
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+    @@ -9,12 +9,12 @@
+          "currency": "USD",
+          "paymentTerms": "Net 30 days",
+          "totalValue": 50000,
+        },
+        "keyTerms": Array [
+    -     "software development services",
+          "Net 30 days",
+    +     "software development services",
+        ],
+        "parties": Array [
+          Object {
+            "name": "Acme Corporation",
+            "role": "Service Provider",
+
+      132 |           const result = await simulateExtractDocumentMetadata(documentContent);
+      133 |           
+    > 134 |           expect(result).toEqual({
+          |                          ^
+      135 |             parties: [
+      136 |               { name: 'Acme Corporation', role: 'Service Provider' },
+      137 |               { name: 'Beta Industries', role: 'Client' }
+
+      at __tests__/backend/agents/secretary.test.ts:134:26
+
+  ● Secretary Agent › Document Processing › extractDocumentMetadata › should handle partial metadata extraction
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+    @@ -6,11 +6,11 @@
+        "keyTerms": Array [
+          "CONFIDENTIALITY",
+        ],
+        "parties": Array [
+          Object {
+    -       "name": "XYZ Company",
+    +       "name": "X",
+            "role": "Party",
+          },
+        ],
+        "signatories": Array [],
+      }
+
+      168 |           const result = await simulateExtractDocumentMetadata(documentContent);
+      169 |           
+    > 170 |           expect(result).toEqual({
+          |                          ^
+      171 |             parties: [
+      172 |               { name: 'XYZ Company', role: 'Party' }
+      173 |             ],
+
+      at __tests__/backend/agents/secretary.test.ts:170:26
+
+  ● Secretary Agent › Document Processing › classifyDocument › should classify documents accurately
+
+    expect(received).toBeGreaterThanOrEqual(expected)
+
+    Expected: >= 0.97
+    Received:    0.9
+
+      213 |             
+      214 |             expect(result.type).toBe(testCase.expectedType);
+    > 215 |             expect(result.confidence).toBeGreaterThanOrEqual(testCase.expectedConfidence);
+          |                                       ^
+      216 |             expect(result.alternativeTypes).toBeDefined();
+      217 |           }
+      218 |         });
+
+      at __tests__/backend/agents/secretary.test.ts:215:39
+      at Object.<anonymous> (__tests__/backend/agents/secretary.test.ts:187:9)
+
+  ● Secretary Agent › Document Processing › classifyDocument › should handle ambiguous documents
+
+    expect(received).toBeGreaterThan(expected)
+
+    Expected: > 0
+    Received:   0
+
+      226 |           
+      227 |           expect(result.confidence).toBeLessThan(0.8);
+    > 228 |           expect(result.alternativeTypes.length).toBeGreaterThan(0);
+          |                                                  ^
+      229 |           expect(result.requiresManualReview).toBe(true);
+      230 |         });
+      231 |       });
+
+      at __tests__/backend/agents/secretary.test.ts:228:50
+
+  ● Secretary Agent › Template Management › identifyTemplateOpportunities › should identify common patterns for templates
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+    @@ -1,10 +1,10 @@
+      Object {
+        "insights": Object {
+          "mostCommonType": "service",
+          "potentialEfficiencyGain": "60%",
+    -     "templateCoverage": "80%",
+    +     "templateCoverage": "100%",
+        },
+        "recommendedTemplates": Array [
+          Object {
+            "commonClauses": Any<Array>,
+            "count": 3,
+
+      391 |           const result = await simulateIdentifyTemplateOpportunities(ctx);
+      392 |           
+    > 393 |           expect(result).toEqual({
+          |                          ^
+      394 |             recommendedTemplates: [
+      395 |               {
+      396 |                 type: 'service',
+
+      at __tests__/backend/agents/secretary.test.ts:393:26
+      at Object.<anonymous> (__tests__/backend/agents/secretary.test.ts:365:9)
+
+FAIL __tests__/backend/realtime/presence.test.ts
+  ● Real-time Presence System › Collaborative Editing › joinEditingSession › should join document editing session
+
+    TypeError: ctx.db.query(...).filter is not a function
+
+      349 |           
+      350 |           // Mock existing session
+    > 351 |           ctx.db.query().filter().first.mockResolvedValue({
+          |                          ^
+      352 |             _id: 'session123' as any,
+      353 |             documentId: mockContract._id,
+      354 |             participants: ['user456' as any]
+
+      at __tests__/backend/realtime/presence.test.ts:351:26
+      at withMockContext (__tests__/backend/utils/convex-test-helpers.ts:191:10)
+      at Object.<anonymous> (__tests__/backend/realtime/presence.test.ts:317:30)
+
+FAIL __tests__/backend/agents/manager.test.ts
+  ● Manager Agent › processAgentTask › should handle task failure
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "task123", ObjectContaining {"attempts": 3, "lastError": "Processing failed", "status": "pending"}
+    Received: "task123", {"failedAt": "2025-06-27T01:09:00.596Z", "lastError": "Processing failed", "status": "failed"}
+
+    Number of calls: 1
+
+      260 |         
+      261 |         expect(result.success).toBe(false);
+    > 262 |         expect(ctx.db.patch).toHaveBeenCalledWith(mockTask._id, expect.objectContaining({
+          |                              ^
+      263 |           status: 'pending', // Should retry
+      264 |           attempts: 3,
+      265 |           lastError: error.message
+
+      at __tests__/backend/agents/manager.test.ts:262:30
+      at Object.<anonymous> (__tests__/backend/agents/manager.test.ts:242:7)
+
+  ● Manager Agent › Agent System Coordination › should handle agent health monitoring
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 11
+    + Received  + 11
+
+      Object {
+    -   "agents": ArrayContaining [
+    -     ObjectContaining {
+    +   "agents": Array [
+    +     Object {
+            "agentId": "agent1",
+    +       "issues": Array [],
+            "status": "healthy",
+          },
+    -     ObjectContaining {
+    +     Object {
+            "agentId": "agent2",
+    -       "issues": ArrayContaining [
+    -         "High error count",
+    -       ],
+    -       "status": "warning",
+    +       "issues": Array [],
+    +       "status": "healthy",
+          },
+    -     ObjectContaining {
+    +     Object {
+            "agentId": "agent3",
+    -       "issues": ArrayContaining [
+    +       "issues": Array [
+              "Agent in error state",
+    +         "High error count",
+              "Health check overdue",
+            ],
+            "status": "unhealthy",
+          },
+        ],
+    -   "healthy": 1,
+    +   "healthy": 2,
+        "unhealthy": 1,
+    -   "warning": 1,
+    +   "warning": 0,
+      }
+
+      525 |         const healthReport = await simulateCheckAgentHealth(ctx);
+      526 |         
+    > 527 |         expect(healthReport).toEqual({
+          |                              ^
+      528 |           healthy: 1,
+      529 |           warning: 1,
+      530 |           unhealthy: 1,
+
+      at __tests__/backend/agents/manager.test.ts:527:30
+      at Object.<anonymous> (__tests__/backend/agents/manager.test.ts:498:7)
+
+FAIL __tests__/backend/core/vendors.test.ts
+  ● Vendor Management › Mutations › createVendor › should create a new vendor with valid data
+
+    ConvexError: User not found
+
+      887 |     
+      888 |   if (!user) {
+    > 889 |     throw new ConvexError('User not found');
+          |           ^
+      890 |   }
+      891 |   
+      892 |   // Check permissions
+
+      at simulateCreateVendor (__tests__/backend/core/vendors.test.ts:889:11)
+      at __tests__/backend/core/vendors.test.ts:54:26
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:17:9)
+
+  ● Vendor Management › Mutations › createVendor › should prevent duplicate vendors
+
+    expect(received).rejects.toThrow(expected)
+
+    Expected substring: "Vendor with this name already exists"
+    Received message:   "Insufficient permissions. Admin or owner role required"
+
+          892 |   // Check permissions
+          893 |   if (user.role !== 'admin' && user.role !== 'owner') {
+        > 894 |     throw new ConvexError('Insufficient permissions. Admin or owner role required');
+              |           ^
+          895 |   }
+          896 |   
+          897 |   // Validate required fields
+
+      at simulateCreateVendor (__tests__/backend/core/vendors.test.ts:894:11)
+      at __tests__/backend/core/vendors.test.ts:86:11
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:70:9)
+      at Object.toThrow (node_modules/expect/build/index.js:218:22)
+      at __tests__/backend/core/vendors.test.ts:89:23
+      at withMockContext (__tests__/backend/utils/convex-test-helpers.ts:191:10)
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:70:30)
+
+  ● Vendor Management › Mutations › createVendor › should validate email format
+
+    expect(received).rejects.toThrow(expected)
+
+    Expected substring: "Invalid email format"
+    Received message:   "User not found"
+
+          887 |     
+          888 |   if (!user) {
+        > 889 |     throw new ConvexError('User not found');
+              |           ^
+          890 |   }
+          891 |   
+          892 |   // Check permissions
+
+      at simulateCreateVendor (__tests__/backend/core/vendors.test.ts:889:11)
+      at __tests__/backend/core/vendors.test.ts:126:11
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:117:9)
+      at Object.toThrow (node_modules/expect/build/index.js:218:22)
+      at __tests__/backend/core/vendors.test.ts:130:23
+      at withMockContext (__tests__/backend/utils/convex-test-helpers.ts:191:10)
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:117:30)
+
+  ● Vendor Management › Mutations › createVendor › should normalize vendor names for duplicate detection
+
+    expect(received).rejects.toThrow(expected)
+
+    Expected substring: "Vendor with this name already exists"
+    Received message:   "Insufficient permissions. Admin or owner role required"
+
+          892 |   // Check permissions
+          893 |   if (user.role !== 'admin' && user.role !== 'owner') {
+        > 894 |     throw new ConvexError('Insufficient permissions. Admin or owner role required');
+              |           ^
+          895 |   }
+          896 |   
+          897 |   // Validate required fields
+
+      at simulateCreateVendor (__tests__/backend/core/vendors.test.ts:894:11)
+      at __tests__/backend/core/vendors.test.ts:167:11
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:151:9)
+      at Object.toThrow (node_modules/expect/build/index.js:218:22)
+      at __tests__/backend/core/vendors.test.ts:170:23
+      at withMockContext (__tests__/backend/utils/convex-test-helpers.ts:191:10)
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:151:30)
+
+  ● Vendor Management › Mutations › updateVendor › should update vendor with valid changes
+
+    ConvexError: Another vendor with this name already exists
+
+      961 |       
+      962 |     if (duplicate) {
+    > 963 |       throw new ConvexError('Another vendor with this name already exists');
+          |             ^
+      964 |     }
+      965 |     
+      966 |     updates.normalizedName = normalizedName;
+
+      at simulateUpdateVendor (__tests__/backend/core/vendors.test.ts:963:13)
+      at __tests__/backend/core/vendors.test.ts:197:11
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:177:9)
+
+  ● Vendor Management › Mutations › deleteVendor › should delete vendor without contracts
+
+    ConvexError: User not found
+
+      984 |     
+      985 |   if (!user) {
+    > 986 |     throw new ConvexError('User not found');
+          |           ^
+      987 |   }
+      988 |   
+      989 |   if (user.role !== 'owner') {
+
+      at simulateDeleteVendor (__tests__/backend/core/vendors.test.ts:986:11)
+      at __tests__/backend/core/vendors.test.ts:301:11
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:285:9)
+
+  ● Vendor Management › Mutations › deleteVendor › should prevent deleting vendor with active contracts
+
+    expect(received).rejects.toThrow(expected)
+
+    Expected substring: "Cannot delete vendor with existing contracts"
+    Received message:   "Only owners can delete vendors"
+
+          988 |   
+          989 |   if (user.role !== 'owner') {
+        > 990 |     throw new ConvexError('Only owners can delete vendors');
+              |           ^
+          991 |   }
+          992 |   
+          993 |   const vendor = await ctx.db.get(vendorId);
+
+      at simulateDeleteVendor (__tests__/backend/core/vendors.test.ts:990:11)
+      at __tests__/backend/core/vendors.test.ts:328:11
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:308:9)
+      at Object.toThrow (node_modules/expect/build/index.js:218:22)
+      at __tests__/backend/core/vendors.test.ts:329:22
+      at withMockContext (__tests__/backend/utils/convex-test-helpers.ts:191:10)
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:308:30)
+
+  ● Vendor Management › Queries › getVendors › should return paginated vendors with filters
+
+    ReferenceError: Cannot access 'mockFilter' before initialization
+
+      452 |           const mockOrder = jest.fn().mockReturnValue({ paginate: mockPaginate });
+      453 |           const mockFilter = jest.fn().mockReturnValue({ 
+    > 454 |             filter: mockFilter,
+          |                     ^
+      455 |             order: mockOrder 
+      456 |           });
+      457 |           
+
+      at __tests__/backend/core/vendors.test.ts:454:21
+      at withMockContext (__tests__/backend/utils/convex-test-helpers.ts:191:10)
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:426:30)
+
+  ● Vendor Management › Queries › getVendors › should search vendors by name
+
+    ReferenceError: Cannot access 'mockFilter' before initialization
+
+      502 |           const mockOrder = jest.fn().mockReturnValue({ paginate: mockPaginate });
+      503 |           const mockFilter = jest.fn().mockReturnValue({ 
+    > 504 |             filter: mockFilter,
+          |                     ^
+      505 |             order: mockOrder 
+      506 |           });
+      507 |           
+
+      at __tests__/backend/core/vendors.test.ts:504:21
+      at withMockContext (__tests__/backend/utils/convex-test-helpers.ts:191:10)
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:473:30)
+
+  ● Vendor Management › Queries › getVendors › should sort vendors by different fields
+
+    TypeError: ctx.db.query(...).filter(...).first is not a function
+
+      1050 |   const user = await ctx.db.query('users')
+      1051 |     .filter((q: any) => q.eq(q.field('clerkId'), identity.subject))
+    > 1052 |     .first();
+           |      ^
+      1053 |     
+      1054 |   if (!user) {
+      1055 |     throw new ConvexError('User not found');
+
+      at simulateGetVendors (__tests__/backend/core/vendors.test.ts:1052:6)
+      at __tests__/backend/core/vendors.test.ts:543:11
+
+  ● Vendor Management › Queries › getVendorCategories › should return unique categories with counts
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 2
+
+    @@ -3,12 +3,12 @@
+          "count": 3,
+          "name": "technology",
+        },
+        Object {
+          "count": 1,
+    -     "name": "consulting",
+    +     "name": "software",
+        },
+        Object {
+          "count": 1,
+    -     "name": "software",
+    +     "name": "consulting",
+        },
+      ]
+
+      713 |           const categories = await simulateGetVendorCategories(ctx);
+      714 |           
+    > 715 |           expect(categories).toEqual([
+          |                              ^
+      716 |             { name: 'technology', count: 3 },
+      717 |             { name: 'consulting', count: 1 },
+      718 |             { name: 'software', count: 1 }
+
+      at __tests__/backend/core/vendors.test.ts:715:30
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:689:9)
+
+  ● Vendor Management › Vendor Agent Functions › processUnassignedContracts › should match contracts to existing vendors
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+      744 |           const result = await simulateProcessUnassignedContracts(ctx);
+      745 |           
+    > 746 |           expect(result.matched).toBe(1);
+          |                                  ^
+      747 |           expect(ctx.db.patch).toHaveBeenCalledWith(mockContract._id, {
+      748 |             vendorId: mockVendor._id,
+      749 |             updatedAt: expect.any(Number)
+
+      at __tests__/backend/core/vendors.test.ts:746:34
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:728:9)
+
+  ● Vendor Management › Vendor Agent Functions › processUnassignedContracts › should create new vendor when no match found
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+      773 |           const result = await simulateProcessUnassignedContracts(ctx);
+      774 |           
+    > 775 |           expect(result.created).toBe(1);
+          |                                  ^
+      776 |           expect(ctx.db.insert).toHaveBeenCalledWith('vendors', expect.objectContaining({
+      777 |             name: 'New Vendor Inc',
+      778 |             status: 'active',
+
+      at __tests__/backend/core/vendors.test.ts:775:34
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:755:9)
+
+  ● Vendor Management › Vendor Agent Functions › processUnassignedContracts › should use fuzzy matching for vendor names
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+      801 |           const result = await simulateProcessUnassignedContracts(ctx);
+      802 |           
+    > 803 |           expect(result.matched).toBe(1);
+          |                                  ^
+      804 |           expect(ctx.db.patch).toHaveBeenCalledWith(mockContract._id, {
+      805 |             vendorId: mockVendor._id,
+      806 |             updatedAt: expect.any(Number)
+
+      at __tests__/backend/core/vendors.test.ts:803:34
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:785:9)
+
+  ● Vendor Management › Vendor Agent Functions › mergeDuplicateVendors › should identify and merge duplicate vendors
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+      835 |           const result = await simulateMergeDuplicateVendors(ctx);
+      836 |           
+    > 837 |           expect(result.merged).toBe(1);
+          |                                 ^
+      838 |           expect(ctx.db.patch).toHaveBeenCalledTimes(2); // Update 2 contracts
+      839 |           expect(ctx.db.delete).toHaveBeenCalledWith(vendor2._id); // Delete newer duplicate
+      840 |         });
+
+      at __tests__/backend/core/vendors.test.ts:837:33
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:814:9)
+
+  ● Vendor Management › Vendor Agent Functions › mergeDuplicateVendors › should keep vendor with most contracts
+
+    TypeError: Cannot read properties of undefined (reading 'toLowerCase')
+
+      1272 |   // Group potential duplicates
+      1273 |   vendors.forEach((vendor: any) => {
+    > 1274 |     const normalizedName = vendor.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+           |                                        ^
+      1275 |     const existing = duplicateGroups.get(normalizedName) || [];
+      1276 |     existing.push(vendor);
+      1277 |     duplicateGroups.set(normalizedName, existing);
+
+      at __tests__/backend/core/vendors.test.ts:1274:40
+          at Array.forEach (<anonymous>)
+      at simulateMergeDuplicateVendors (__tests__/backend/core/vendors.test.ts:1273:11)
+      at __tests__/backend/core/vendors.test.ts:867:26
+
+FAIL __tests__/backend/core/users.test.ts
+  ● User Management › Mutations › upsertUser › should handle invitation flow
+
+    TypeError: ctx.db.query(...).withIndex(...).first is not a function
+
+      786 |     .query("users")
+      787 |     .withIndex("by_clerkId", (q: any) => q.eq("clerkId", identity.subject))
+    > 788 |     .first();
+          |      ^
+      789 |     
+      790 |   if (existingUser) {
+      791 |     const updateData: any = {
+
+      at simulateUpsertUser (__tests__/backend/core/users.test.ts:788:6)
+      at __tests__/backend/core/users.test.ts:314:26
+
+  ● User Management › Mutations › upsertUser › should handle domain-based enterprise matching
+
+    ConvexError: Enterprise not found. Please create an enterprise or use a valid invitation.
+
+      844 |   
+      845 |   if (!resolvedEnterpriseId) {
+    > 846 |     throw new ConvexError(
+          |           ^
+      847 |       "Enterprise not found. Please create an enterprise or use a valid invitation."
+      848 |     );
+      849 |   }
+
+      at simulateUpsertUser (__tests__/backend/core/users.test.ts:846:11)
+      at __tests__/backend/core/users.test.ts:341:26
+      at Object.<anonymous> (__tests__/backend/core/users.test.ts:328:9)
+
+  ● User Management › Mutations › updateUserRole › should enforce owner demotion restrictions
+
+    expect(received).rejects.toThrow(expected)
+
+    Expected substring: "Only an Owner can change another Owner's role to a non-Owner role"
+    Received message:   "Admins cannot modify the roles of Owners."
+
+          899 |   
+          900 |   if (targetUser.role === "owner" && currentUser.role === "admin") {
+        > 901 |     throw new ConvexError("Admins cannot modify the roles of Owners.");
+              |           ^
+          902 |   }
+          903 |   
+          904 |   if (targetUser.role === "owner" && newRole !== "owner" && currentUser.role !== "owner") {
+
+      at simulateUpdateUserRole (__tests__/backend/core/users.test.ts:901:11)
+      at __tests__/backend/core/users.test.ts:481:11
+      at Object.<anonymous> (__tests__/backend/core/users.test.ts:465:9)
+      at Object.toThrow (node_modules/expect/build/index.js:218:22)
+      at __tests__/backend/core/users.test.ts:482:22
+      at withMockContext (__tests__/backend/utils/convex-test-helpers.ts:191:10)
+      at Object.<anonymous> (__tests__/backend/core/users.test.ts:465:30)
+
+  ● User Management › Mutations › updateUserProfile › should handle empty string fields by removing them
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      540 |           
+      541 |           // Since our mock doesn't handle deletions properly, we'll check the logic
+    > 542 |           expect(ctx.db.patch).toHaveBeenCalled();
+          |                                ^
+      543 |         });
+      544 |       });
+      545 |
+
+      at __tests__/backend/core/users.test.ts:542:32
+      at Object.<anonymous> (__tests__/backend/core/users.test.ts:521:9)
+
+PASS __tests__/backend/core/enterprises.test.ts
+FAIL __tests__/backend/core/contracts.test.ts
+  ● Contract Management › Mutations › createContract › should create a new contract with valid data
+
+    ConvexError: Vendor not found or does not belong to your enterprise
+
+      632 |     const vendor = await ctx.db.get(args.vendorId);
+      633 |     if (!vendor || vendor.enterpriseId !== user.enterpriseId) {
+    > 634 |       throw new ConvexError('Vendor not found or does not belong to your enterprise');
+          |             ^
+      635 |     }
+      636 |   }
+      637 |   
+
+      at simulateCreateContract (__tests__/backend/core/contracts.test.ts:634:13)
+      at __tests__/backend/core/contracts.test.ts:49:26
+      at Object.<anonymous> (__tests__/backend/core/contracts.test.ts:21:9)
+
+  ● Contract Management › Queries › getContracts › should filter contracts by status
+
+    TypeError: ctx.db.query(...).filter(...).first is not a function
+
+      752 |   const user = await ctx.db.query('users')
+      753 |     .filter((q: any) => q.eq(q.field('clerkId'), identity.subject))
+    > 754 |     .first();
+          |      ^
+      755 |     
+      756 |   if (!user) {
+      757 |     throw new ConvexError('User not found');
+
+      at simulateGetContracts (__tests__/backend/core/contracts.test.ts:754:6)
+      at __tests__/backend/core/contracts.test.ts:381:11
+
+  ● Contract Management › Queries › getContracts › should filter contracts by vendor
+
+    TypeError: ctx.db.query(...).filter(...).first is not a function
+
+      752 |   const user = await ctx.db.query('users')
+      753 |     .filter((q: any) => q.eq(q.field('clerkId'), identity.subject))
+    > 754 |     .first();
+          |      ^
+      755 |     
+      756 |   if (!user) {
+      757 |     throw new ConvexError('User not found');
+
+      at simulateGetContracts (__tests__/backend/core/contracts.test.ts:754:6)
+      at __tests__/backend/core/contracts.test.ts:415:11
+
+  ● Contract Management › Security Features › should enforce rate limiting
+
+    expect(received).rejects.toThrow()
+
+    Received promise resolved instead of rejected
+    Resolved to value: "mock-id"
+
+      562 |         });
+      563 |         
+    > 564 |         await expect(simulateCreateContract(ctx, {
+          |               ^
+      565 |           title: 'Test Contract',
+      566 |           type: 'service' as const
+      567 |         })).rejects.toThrow('Rate limit exceeded');
+
+      at expect (node_modules/expect/build/index.js:113:15)
+      at __tests__/backend/core/contracts.test.ts:564:15
+      at withMockContext (__tests__/backend/utils/convex-test-helpers.ts:191:10)
+      at Object.<anonymous> (__tests__/backend/core/contracts.test.ts:549:28)
+
+FAIL __tests__/backend/core/contracts-analysis.test.ts
+  ● Contract Analysis › Contract Export › should respect filters when exporting
+
+    TypeError: ctx.db.query(...).filter(...).first is not a function
+
+      456 |   const user = await ctx.db.query('users')
+      457 |     .filter((q: any) => q.eq(q.field('clerkId'), identity.subject))
+    > 458 |     .first();
+          |      ^
+      459 |     
+      460 |   if (!user) {
+      461 |     throw new ConvexError('User not found');
+
+      at simulateExportContracts (__tests__/backend/core/contracts-analysis.test.ts:458:6)
+      at __tests__/backend/core/contracts-analysis.test.ts:332:9
+
+Test Suites: 10 failed, 1 passed, 11 total
+Tests:       39 failed, 189 passed, 228 total
+Snapshots:   0 total
+Time:        6.486 s
+Ran all test suites.

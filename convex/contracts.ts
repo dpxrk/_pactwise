@@ -370,7 +370,7 @@ export const getContractById = query({
 
     // Security check: ensure contract belongs to the enterprise
     if (contract.enterpriseId !== args.enterpriseId) {
-      console.warn(`User attempted to access contract ${args.contractId} not belonging to their enterprise ${args.enterpriseId}.`);
+      // User attempted to access contract not belonging to their enterprise
       return null;
     }
 
@@ -524,7 +524,7 @@ export const deleteContract = mutation({
     try {
       await ctx.storage.delete(existingContract.storageId);
     } catch (error) {
-      console.warn(`Failed to delete file for contract ${args.contractId}:`, error);
+      // Failed to delete file for contract
       // Continue with contract deletion even if file deletion fails
     }
 

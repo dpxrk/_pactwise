@@ -54,8 +54,8 @@ const AgentDashboard = () => {
       if (result?.success) {
         setMessage({ type: 'success', text: result.message });
       }
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Failed to initialize' });
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to initialize' });
     }
   };
 
@@ -65,8 +65,8 @@ const AgentDashboard = () => {
       if (result?.success) {
         setMessage({ type: 'success', text: result.message });
       }
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Failed to start system' });
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to start system' });
     }
   };
 
@@ -76,17 +76,17 @@ const AgentDashboard = () => {
       if (result?.success) {
         setMessage({ type: 'success', text: result.message });
       }
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Failed to stop system' });
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to stop system' });
     }
   };
 
   const handleToggleAgent = async (agentId: string, enabled: boolean) => {
     try {
-      await toggleAgent.execute({ agentId: agentId as any, enabled });
+      await toggleAgent.execute({ agentId: agentId as Id<"agents">, enabled });
       setMessage({ type: 'success', text: `Agent ${enabled ? 'enabled' : 'disabled'} successfully` });
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Failed to toggle agent' });
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to toggle agent' });
     }
   };
 
@@ -94,16 +94,16 @@ const AgentDashboard = () => {
     try {
       await createTestInsight.execute({});
       setMessage({ type: 'success', text: 'Test insight created successfully' });
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Failed to create test insight' });
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to create test insight' });
     }
   };
 
   const handleMarkAsRead = async (insightId: string) => {
     try {
-      await markInsightAsRead.execute({ insightId: insightId as any });
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Failed to mark insight as read' });
+      await markInsightAsRead.execute({ insightId: insightId as Id<"insights"> });
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to mark insight as read' });
     }
   };
 
@@ -116,7 +116,7 @@ const AgentDashboard = () => {
     try {
       await new Promise(resolve => setTimeout(resolve, 500)); // Brief loading
       setMessage({ type: 'success', text: 'Status refreshed successfully' });
-    } catch (err: any) {
+    } catch (err) {
       setMessage({ type: 'error', text: 'Failed to refresh status' });
     } finally {
       setIsRefreshing(false);
@@ -202,7 +202,7 @@ const AgentDashboard = () => {
               <h3 className="text-lg font-semibold">Recent Agent Activity</h3>
               {systemStatus?.agents && systemStatus.agents.length > 0 ? (
                 <div className="space-y-3">
-                  {systemStatus.agents.slice(0, 3).map((agent: any) => (
+                  {systemStatus.agents.slice(0, 3).map((agent) => (
                     <AgentCard
                       key={agent._id}
                       agent={agent}
@@ -221,7 +221,7 @@ const AgentDashboard = () => {
               <h3 className="text-lg font-semibold">Latest Insights</h3>
               {recentInsights && recentInsights.length > 0 ? (
                 <div className="space-y-3">
-                  {recentInsights.slice(0, 3).map((insight: any) => (
+                  {recentInsights.slice(0, 3).map((insight) => (
                     <InsightCard
                       key={insight._id}
                       insight={insight}
@@ -241,7 +241,7 @@ const AgentDashboard = () => {
         <TabsContent value="agents" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {systemStatus?.agents && systemStatus.agents.length > 0 ? (
-              systemStatus.agents.map((agent: any) => (
+              systemStatus.agents.map((agent) => (
                 <AgentCard
                   key={agent._id}
                   agent={agent}
@@ -267,7 +267,7 @@ const AgentDashboard = () => {
         <TabsContent value="insights" className="space-y-4">
           {recentInsights && recentInsights.length > 0 ? (
             <div className="space-y-4">
-              {recentInsights.map((insight: any) => (
+              {recentInsights.map((insight) => (
                 <InsightCard
                   key={insight._id}
                   insight={insight}

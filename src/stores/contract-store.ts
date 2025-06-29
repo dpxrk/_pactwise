@@ -144,18 +144,14 @@ const useContractStore = create<ContractStoreState>()(
       vendorSearchPerformed: false,
       setVendorName: (name) => set({ vendorName: name }),
       
-      // Check if vendor exists - placeholder for real implementation
+      // Mark that vendor search has been performed
       checkVendorExists: () => {
         const vendorName = get().vendorName;
         if (!vendorName.trim()) return;
         
         set({ vendorSearchPerformed: true });
-        
-        // TODO: Replace with real API call to check vendor existence
-        setTimeout(() => {
-          // Placeholder - always returns false for now
-          set({ vendorExists: false });
-        }, 600);
+        // The actual vendor existence check is now handled by the useVendorExistence hook
+        // This method is kept for backward compatibility
       },
       
       // Vendor creation dialog

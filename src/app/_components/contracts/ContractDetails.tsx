@@ -121,7 +121,7 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
       if (isNaN(date.getTime())) return dateString; // Return original if invalid
       return format(date, 'PPP'); // e.g., Jun 20, 2023
     } catch (e) {
-      console.warn("Error formatting date:", dateString, e);
+      // Error formatting date
       return dateString; // Fallback to original string if formatting fails
     }
   };

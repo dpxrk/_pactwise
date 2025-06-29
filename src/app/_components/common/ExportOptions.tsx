@@ -196,7 +196,7 @@ export const ExportOptions = ({
 
   // Prepare export data
   const prepareExportData = () => {
-    let sourceData: any[] = [];
+    let sourceData: unknown[] = [];
     
     switch (data) {
       case 'contracts':
@@ -211,7 +211,7 @@ export const ExportOptions = ({
 
     // Filter by entityIds if provided
     if (entityIds.length > 0) {
-      sourceData = sourceData.filter(item => entityIds.includes(item._id));
+      sourceData = sourceData.filter(item => entityIds.includes((item as any)._id));
     }
 
     // Apply date range filter if specified
@@ -220,14 +220,14 @@ export const ExportOptions = ({
       const endDate = new Date(exportConfig.dateRange.end);
       
       sourceData = sourceData.filter(item => {
-        const itemDate = new Date(item._creationTime || item.createdAt);
+        const itemDate = new Date((item as any)._creationTime || (item as any).createdAt);
         return itemDate >= startDate && itemDate <= endDate;
       });
     }
 
     // Select only requested fields
     return sourceData.map(item => {
-      const exportItem: any = {};
+      const exportItem: Record<string, unknown> = {};
       
       exportConfig.includeFields.forEach(field => {
         if (field === 'vendor' && item.vendor) {
@@ -246,7 +246,7 @@ export const ExportOptions = ({
   };
 
   // Convert data to format
-  const convertToFormat = (data: any[]): string => {
+  const convertToFormat = (data: unknown[]): string => {
     switch (exportConfig.format) {
       case 'csv':
         return convertToCSV(data);
@@ -291,7 +291,7 @@ export const ExportOptions = ({
     return convertToCSV(data);
   };
 
-  const convertToPDF = (data: any[]): string => {
+  const convertToPDF = (data: unknown[]): string => {
     // In a real implementation, you'd use a library like jsPDF
     // For now, return a simple text format
     return data.map(item => Object.values(item).join(' | ')).join('\n');

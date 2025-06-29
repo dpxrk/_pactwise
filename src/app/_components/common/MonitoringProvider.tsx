@@ -53,7 +53,7 @@ export const MonitoringProvider: React.FC<MonitoringProviderProps> = ({ children
               userAgent: navigator.userAgent,
             });
           } catch (error) {
-            console.warn('Failed to log analytics event:', error);
+            // Failed to log analytics event
           }
         },
         
@@ -70,7 +70,7 @@ export const MonitoringProvider: React.FC<MonitoringProviderProps> = ({ children
             }));
             await logAnalyticsEventBatch({ events: formattedEvents });
           } catch (error) {
-            console.warn('Failed to log analytics batch:', error);
+            // Failed to log analytics batch
           }
         },
         
@@ -87,7 +87,7 @@ export const MonitoringProvider: React.FC<MonitoringProviderProps> = ({ children
               context: errorData.context,
             });
           } catch (error) {
-            console.warn('Failed to report error:', error);
+            // Failed to report error
           }
         },
         

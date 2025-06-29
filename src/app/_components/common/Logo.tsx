@@ -23,7 +23,7 @@ export const Logo = ({ size = "md" }: LogoProps) => {
     >
       <span className={`font-sans font-bold ${sizeClass.text}`}>
         <span style={{ 
-          backgroundImage: "linear-gradient(to right, #0A192F, #B8A369, #0A192F)", 
+          backgroundImage: "linear-gradient(to right, #0A192F, #10b981, #0A192F)", 
           WebkitBackgroundClip: "text",
           backgroundClip: "text",
           color: "transparent",
@@ -32,7 +32,7 @@ export const Logo = ({ size = "md" }: LogoProps) => {
           Pact
         </span>
         <span style={{ 
-          backgroundImage: "linear-gradient(to right, #B8A369, #0A192F, #B8A369)", 
+          backgroundImage: "linear-gradient(to right, #14b8a6, #0A192F, #14b8a6)", 
           WebkitBackgroundClip: "text",
           backgroundClip: "text",
           color: "transparent",
@@ -45,7 +45,7 @@ export const Logo = ({ size = "md" }: LogoProps) => {
       <div 
         className={`rounded-full ${sizeClass.dot}`} 
         style={{ 
-          backgroundColor: "rgba(184, 163, 105, 0.8)", 
+          backgroundColor: "rgba(16, 185, 129, 0.8)", 
           animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" 
         }} 
       />

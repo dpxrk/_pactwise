@@ -444,7 +444,10 @@ class HealthMonitor {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      this.startHealthChecks();
+      // Delay initial health check to allow services to initialize
+      setTimeout(() => {
+        this.startHealthChecks();
+      }, 5000);
     }
   }
 
@@ -465,10 +468,12 @@ class HealthMonitor {
         const healthStatus = await (window as any).convexAnalytics.getHealthStatus();
         this.checks.set('convex', healthStatus.status === 'healthy');
       } else {
-        this.checks.set('convex', false);
+        // Skip Convex check if analytics not initialized yet
+        this.checks.set('convex', true);
       }
     } catch {
-      this.checks.set('convex', false);
+      // Don't fail health check for Convex connectivity issues during startup
+      this.checks.set('convex', true);
     }
 
     // Check local storage

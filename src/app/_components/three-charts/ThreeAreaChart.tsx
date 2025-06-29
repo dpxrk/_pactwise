@@ -4,6 +4,7 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { Text, Line } from '@react-three/drei';
 import { AreaChartProps, ChartDataPoint, ChartSeries } from '@/types/three-charts.types';
+import { ChartTheme } from '@/types/common.types';
 import { BaseThreeChart } from './BaseThreeChart';
 import {
   getColorFromPalette,
@@ -209,7 +210,7 @@ const AreaChartContent: React.FC<{
   smoothCurve: boolean;
   stackedAreas: boolean;
   maxHeight: number;
-  theme: any;
+  theme: ChartTheme;
 }> = ({ 
   data, 
   series,
@@ -393,7 +394,7 @@ export const ThreeAreaChart: React.FC<AreaChartProps> = ({
   // Validate and prepare data
   const validData = useMemo(() => {
     if (!Array.isArray(data) || data.length === 0) {
-      console.warn('Area chart data must be a non-empty array');
+      // Area chart data must be a non-empty array
       return [];
     }
     return data.filter(item => 

@@ -33,7 +33,18 @@ const ArchivedContracts = () => {
   // Calculate archive statistics
   const stats = useMemo(() => {
     const totalValue = archivedContracts.reduce(
-      (sum, contract) => sum + 0, // TODO: Add value field
+      (sum, contract) => {
+        // Parse value from extractedPricing field
+        if (contract.extractedPricing) {
+          const priceMatch = contract.extractedPricing.match(/[\d,]+\.?\d*/);
+          if (priceMatch) {
+            const value = parseFloat(priceMatch[0].replace(/,/g, ''));
+            return sum + (isNaN(value) ? 0 : value);
+          }
+        }
+        // Fallback to value field if it exists
+        return sum + (contract.value || 0);
+      },
       0
     );
     const lastThirtyDays = new Date();

@@ -15,7 +15,7 @@ import { api } from "../_generated/api";
  * If you need to validate external tokens, use Convex's HTTP endpoints instead.
  */
 async function validateClerkToken(token: string): Promise<{ sub: string } | null> {
-  console.warn('Direct JWT validation in actions is deprecated. Use Convex auth system instead.');
+  // Direct JWT validation in actions is deprecated. Use Convex auth system instead.
   return null;
 }
 
@@ -248,7 +248,7 @@ export function createSecureAction<Args extends { userId: string; enterpriseId: 
       if (options.rateLimit) {
         // For actions, we'll implement a simpler rate limiting approach
         // In a production system, you might use Redis or external storage
-        console.warn("Rate limiting not fully implemented for actions yet");
+        // Rate limiting not fully implemented for actions yet
       }
       
       // Check permission

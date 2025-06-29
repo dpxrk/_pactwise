@@ -208,7 +208,7 @@ async function processNewContracts(
         .first();
 
       if (!financialAgent) {
-        console.warn("Financial agent not found. Cannot create analysis task.");
+        // Financial agent not found. Cannot create analysis task.
         // Optionally, log this as a system warning or create a placeholder task
         continue; 
       }
@@ -353,7 +353,7 @@ async function checkExpiringContracts(
           createdAt: new Date().toISOString(),
         });
       } else {
-        console.warn("Notifications agent not found. Cannot create notification task for expiring contract.");
+        // Notifications agent not found. Cannot create notification task for expiring contract.
       }
     }
   }
@@ -498,7 +498,7 @@ function determineContractPriority(contract: any): "low" | "medium" | "high" | "
         return "high";
       }
     } catch (e) {
-      console.warn("Could not parse contract extractedEndDate:", contract.extractedEndDate);
+      // Could not parse contract extractedEndDate
     }
   }
 
@@ -524,7 +524,7 @@ async function getAgentId(ctx: any, type: string): Promise<Id<"agents">> {
         .withIndex("by_type", (q: any) => q.eq(q.field("type"), type))
         .first();
     if (anyAgentOfType) {
-        console.warn(`Agent of type ${type} found but is not enabled. Using it anyway or consider erroring.`);
+        // Agent found but is not enabled
         return anyAgentOfType._id;
     }
     throw new Error(`No agent (enabled or otherwise) of type '${type}' found.`);

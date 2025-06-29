@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
 import { PieChartProps, ChartDataPoint } from '@/types/three-charts.types';
+import { ChartTheme } from '@/types/common.types';
 import { BaseThreeChart } from './BaseThreeChart';
 import {
   getColorFromPalette,
@@ -248,7 +249,7 @@ const PieChartContent: React.FC<{
   endAngle: number;
   showLabels: boolean;
   labelDistance: number;
-  theme: any;
+  theme: ChartTheme;
 }> = ({ 
   data, 
   innerRadius, 
@@ -358,7 +359,7 @@ export const ThreePieChart: React.FC<PieChartProps> = ({
   // Validate and prepare data
   const validData = useMemo(() => {
     if (!Array.isArray(data) || data.length === 0) {
-      console.warn('Pie chart data must be a non-empty array');
+      // Pie chart data must be a non-empty array
       return [];
     }
     return data.filter(item => 

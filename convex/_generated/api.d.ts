@@ -38,6 +38,7 @@ import type * as enterprises from "../enterprises.js";
 import type * as events from "../events.js";
 import type * as features_analytics_analytics from "../features/analytics/analytics.js";
 import type * as features_collaborative_collaborativeDocuments from "../features/collaborative/collaborativeDocuments.js";
+import type * as features_demo from "../features/demo.js";
 import type * as features_index from "../features/index.js";
 import type * as features_search_search from "../features/search/search.js";
 import type * as memoryConsolidation from "../memoryConsolidation.js";
@@ -71,6 +72,7 @@ import type * as schemas_memory_sharing_schema from "../schemas/memory_sharing_s
 import type * as schemas_notification_schema from "../schemas/notification_schema.js";
 import type * as search from "../search.js";
 import type * as security_applyRateLimit from "../security/applyRateLimit.js";
+import type * as security_inputSanitization from "../security/inputSanitization.js";
 import type * as security_monitoring from "../security/monitoring.js";
 import type * as security_rateLimitedExamples from "../security/rateLimitedExamples.js";
 import type * as security_rateLimitedWrapper from "../security/rateLimitedWrapper.js";
@@ -125,6 +127,7 @@ declare const fullApi: ApiFromModules<{
   events: typeof events;
   "features/analytics/analytics": typeof features_analytics_analytics;
   "features/collaborative/collaborativeDocuments": typeof features_collaborative_collaborativeDocuments;
+  "features/demo": typeof features_demo;
   "features/index": typeof features_index;
   "features/search/search": typeof features_search_search;
   memoryConsolidation: typeof memoryConsolidation;
@@ -158,6 +161,7 @@ declare const fullApi: ApiFromModules<{
   "schemas/notification_schema": typeof schemas_notification_schema;
   search: typeof search;
   "security/applyRateLimit": typeof security_applyRateLimit;
+  "security/inputSanitization": typeof security_inputSanitization;
   "security/monitoring": typeof security_monitoring;
   "security/rateLimitedExamples": typeof security_rateLimitedExamples;
   "security/rateLimitedWrapper": typeof security_rateLimitedWrapper;

@@ -291,7 +291,7 @@ export const optimizeGeometry = (geometry: THREE.BufferGeometry): THREE.BufferGe
 // Validation utilities
 export const validateChartData = (data: ChartDataPoint[]): boolean => {
   if (!Array.isArray(data) || data.length === 0) {
-    console.warn('Chart data must be a non-empty array');
+    // Chart data must be a non-empty array
     return false;
   }
   
@@ -303,7 +303,7 @@ export const validateChartData = (data: ChartDataPoint[]): boolean => {
   );
   
   if (!isValid) {
-    console.warn('Chart data items must have name and value properties');
+    // Chart data items must have name and value properties
     return false;
   }
   

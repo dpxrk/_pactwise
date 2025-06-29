@@ -1,0 +1,1050 @@
+
+> pactwise-fork@0.1.0 test
+> jest
+
+ts-jest[ts-jest-transformer] (WARN) Define `ts-jest` config under `globals` is deprecated. Please do
+transform: {
+    <transform_regex>: ['ts-jest', { /* ts-jest config goes here in Jest */ }],
+},
+See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/presets#advanced
+ts-jest[ts-jest-transformer] (WARN) Define `ts-jest` config under `globals` is deprecated. Please do
+transform: {
+    <transform_regex>: ['ts-jest', { /* ts-jest config goes here in Jest */ }],
+},
+See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/presets#advanced
+ts-jest[ts-jest-transformer] (WARN) Define `ts-jest` config under `globals` is deprecated. Please do
+transform: {
+    <transform_regex>: ['ts-jest', { /* ts-jest config goes here in Jest */ }],
+},
+See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/presets#advanced
+ts-jest[ts-jest-transformer] (WARN) Define `ts-jest` config under `globals` is deprecated. Please do
+transform: {
+    <transform_regex>: ['ts-jest', { /* ts-jest config goes here in Jest */ }],
+},
+See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/presets#advanced
+ts-jest[config] (WARN) 
+    The "ts-jest" config option "isolatedModules" is deprecated and will be removed in v30.0.0. Please use "isolatedModules: true" in /home/dpxrk/pactwise-fork/tsconfig.json instead, see https://www.typescriptlang.org/tsconfig/#isolatedModules
+  
+ts-jest[config] (WARN) 
+    The "ts-jest" config option "isolatedModules" is deprecated and will be removed in v30.0.0. Please use "isolatedModules: true" in /home/dpxrk/pactwise-fork/tsconfig.json instead, see https://www.typescriptlang.org/tsconfig/#isolatedModules
+  
+ts-jest[config] (WARN) 
+    The "ts-jest" config option "isolatedModules" is deprecated and will be removed in v30.0.0. Please use "isolatedModules: true" in /home/dpxrk/pactwise-fork/tsconfig.json instead, see https://www.typescriptlang.org/tsconfig/#isolatedModules
+  
+ts-jest[config] (WARN) 
+    The "ts-jest" config option "isolatedModules" is deprecated and will be removed in v30.0.0. Please use "isolatedModules: true" in /home/dpxrk/pactwise-fork/tsconfig.json instead, see https://www.typescriptlang.org/tsconfig/#isolatedModules
+  
+FAIL __tests__/backend/features/search.test.ts
+  ● Search Functionality › Full-Text Search › globalSearch › should search across multiple entity types
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 32
+    + Received  +  4
+
+      Object {
+        "facets": Object {
+    -     "status": Object {
+    -       "active": 2,
+    -       "draft": 1,
+    +     "status": Object {},
+    +     "type": Object {},
+        },
+    -     "type": Object {
+    -       "contract": 2,
+    -       "vendor": 1,
+    -     },
+    -   },
+    -   "results": Array [
+    -     Object {
+    -       "_id": "contract1",
+    -       "_score": 0.95,
+    -       "snippet": "...annual software license renewal...",
+    -       "title": "Software License Agreement",
+    -       "type": "contract",
+    -     },
+    -     Object {
+    -       "_id": "contract2",
+    -       "_score": 0.85,
+    -       "snippet": "...custom software development services...",
+    -       "title": "Software Development Contract",
+    -       "type": "contract",
+    -     },
+    -     Object {
+    -       "_id": "vendor1",
+    -       "_score": 0.75,
+    -       "name": "Software Solutions Inc",
+    -       "snippet": "...leading software vendor...",
+    -       "type": "vendor",
+    -     },
+    -   ],
+    +   "results": Array [],
+        "suggestions": Array [
+          "software licensing",
+          "software agreements",
+        ],
+    -   "totalCount": 3,
+    +   "totalCount": 0,
+      }
+
+      57 |           });
+      58 |           
+    > 59 |           expect(result).toEqual({
+         |                          ^
+      60 |             results: [
+      61 |               ...contractResults,
+      62 |               ...vendorResults
+
+      at __tests__/backend/features/search.test.ts:59:26
+      at Object.<anonymous> (__tests__/backend/features/search.test.ts:14:9)
+
+  ● Search Functionality › Full-Text Search › advancedSearch › should support boolean operators
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "Must contain software but not trial"
+    Received: "Must contain first but not second"
+
+      205 |             
+      206 |             expect(result.queryParsed).toBeDefined();
+    > 207 |             expect(result.searchStrategy).toBe(test.expectedBehavior);
+          |                                           ^
+      208 |           }
+      209 |         });
+      210 |       });
+
+      at __tests__/backend/features/search.test.ts:207:43
+      at Object.<anonymous> (__tests__/backend/features/search.test.ts:171:9)
+
+  ● Search Functionality › Faceted Search › getFacets › should calculate facet counts
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  4
+    + Received  + 12
+
+    @@ -5,17 +5,17 @@
+            "label": "Active",
+            "value": "active",
+          },
+          Object {
+            "count": 1,
+    -       "label": "Expired",
+    -       "value": "expired",
+    +       "label": "Draft",
+    +       "value": "draft",
+          },
+          Object {
+            "count": 1,
+    -       "label": "Draft",
+    -       "value": "draft",
+    +       "label": "Expired",
+    +       "value": "expired",
+          },
+        ],
+        "type": Array [
+          Object {
+            "count": 3,
+    @@ -35,24 +35,32 @@
+        ],
+        "valueRange": Array [
+          Object {
+            "count": 1,
+            "label": "$0 - $25K",
+    +       "max": 25000,
+    +       "min": 0,
+            "value": "0-25000",
+          },
+          Object {
+            "count": 1,
+            "label": "$25K - $50K",
+    +       "max": 50000,
+    +       "min": 25001,
+            "value": "25001-50000",
+          },
+          Object {
+            "count": 3,
+            "label": "$50K - $100K",
+    +       "max": 100000,
+    +       "min": 50001,
+            "value": "50001-100000",
+          },
+          Object {
+            "count": 0,
+            "label": "$100K+",
+    +       "max": Infinity,
+    +       "min": 100001,
+            "value": "100001+",
+          },
+        ],
+      }
+
+      360 |           });
+      361 |           
+    > 362 |           expect(result).toEqual({
+          |                          ^
+      363 |             type: [
+      364 |               { value: 'service', count: 3, label: 'Service Agreement' },
+      365 |               { value: 'software', count: 1, label: 'Software License' },
+
+      at __tests__/backend/features/search.test.ts:362:26
+      at Object.<anonymous> (__tests__/backend/features/search.test.ts:339:9)
+
+  ● Search Functionality › Faceted Search › getFacets › should support hierarchical facets
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  2
+    + Received  + 10
+
+    @@ -7,15 +7,23 @@
+            },
+            "support": Object {
+              "children": Object {},
+              "count": 1,
+            },
+    +       "training": Object {
+    +         "children": Object {},
+    +         "count": 0,
+    +       },
+          },
+    -     "count": 2,
+    +     "count": 4,
+        },
+        "technology": Object {
+          "children": Object {
+    +       "cloud": Object {
+    +         "children": Object {},
+    +         "count": 0,
+    +       },
+            "hardware": Object {
+              "children": Object {},
+              "count": 1,
+            },
+            "software": Object {
+    @@ -25,8 +33,8 @@
+                },
+              },
+              "count": 1,
+            },
+          },
+    -     "count": 2,
+    +     "count": 4,
+        },
+      }
+
+      408 |           });
+      409 |           
+    > 410 |           expect(result).toEqual({
+          |                          ^
+      411 |             technology: {
+      412 |               count: 2,
+      413 |               children: {
+
+      at __tests__/backend/features/search.test.ts:410:26
+      at Object.<anonymous> (__tests__/backend/features/search.test.ts:384:9)
+
+  ● Search Functionality › Search Optimization › searchPerformance › should cache frequent searches
+
+    User not found
+
+      1022 |     .first();
+      1023 |     
+    > 1024 |   if (!user) throw new Error('User not found');
+           |                    ^
+      1025 |   
+      1026 |   const cacheKey = `search:${user.enterpriseId}:${args.query}`;
+      1027 |   
+
+      at simulateCachedSearch (__tests__/backend/features/search.test.ts:1024:20)
+      at __tests__/backend/features/search.test.ts:530:27
+      at Object.<anonymous> (__tests__/backend/features/search.test.ts:515:9)
+
+  ● Search Functionality › Search Analytics › trackSearchMetrics › should identify popular searches
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 8
+    + Received  + 8
+
+      Array [
+        Object {
+    -     "avgDuration": 200,
+    -     "count": 50,
+    +     "avgDuration": NaN,
+    +     "count": 1,
+          "query": "software license",
+        },
+        Object {
+    -     "avgDuration": 180,
+    -     "count": 35,
+    +     "avgDuration": NaN,
+    +     "count": 1,
+          "query": "vendor contracts",
+        },
+        Object {
+    -     "avgDuration": 220,
+    -     "count": 30,
+    +     "avgDuration": NaN,
+    +     "count": 1,
+          "query": "expiring contracts",
+        },
+        Object {
+    -     "avgDuration": 150,
+    -     "count": 25,
+    +     "avgDuration": NaN,
+    +     "count": 1,
+          "query": "payment terms",
+        },
+      ]
+
+      647 |           });
+      648 |           
+    > 649 |           expect(result.popularSearches).toEqual(mockMetrics);
+          |                                          ^
+      650 |           expect(result.insights).toMatchObject({
+      651 |             mostSearched: 'software license',
+      652 |             fastestSearch: 'payment terms',
+
+      at __tests__/backend/features/search.test.ts:649:42
+      at Object.<anonymous> (__tests__/backend/features/search.test.ts:627:9)
+
+FAIL __tests__/backend/features/analytics.test.ts
+  ● Analytics Functions › Contract Analytics › getContractAnalytics › should calculate comprehensive contract metrics
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 4
+    + Received  + 5
+
+    @@ -1,10 +1,11 @@
+      Object {
+    -   "alerts": ArrayContaining [
+    -     ObjectContaining {
+    +   "alerts": Array [
+    +     Object {
+            "count": 1,
+    -       "message": StringContaining "1 contract expiring",
+    +       "message": "1 contract(s) expiring in the next 30 days",
+    +       "severity": "high",
+            "type": "expiring_soon",
+          },
+        ],
+        "byType": Object {
+          "nda": Object {
+    @@ -30,11 +31,11 @@
+          "totalValue": 250000,
+        },
+        "timeline": Object {
+          "expiringIn30Days": 1,
+          "expiringIn60Days": 1,
+    -     "expiringIn90Days": 2,
+    +     "expiringIn90Days": 1,
+          "recentlyCreated": Any<Number>,
+          "recentlyExpired": 1,
+        },
+        "trends": Object {
+          "averageValueTrend": Any<String>,
+
+      57 |           });
+      58 |           
+    > 59 |           expect(result).toEqual({
+         |                          ^
+      60 |             overview: {
+      61 |               total: 4,
+      62 |               active: 2,
+
+      at __tests__/backend/features/analytics.test.ts:59:26
+      at Object.<anonymous> (__tests__/backend/features/analytics.test.ts:15:9)
+
+  ● Analytics Functions › Contract Analytics › getContractValueDistribution › should analyze contract value distribution
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 2
+
+    @@ -1,11 +1,11 @@
+      Object {
+        "percentiles": Object {
+          "p25": 15000,
+          "p50": 75000,
+    -     "p75": 150000,
+    -     "p90": 500000,
+    +     "p75": 500000,
+    +     "p90": 1200000,
+          "p95": 1200000,
+        },
+        "ranges": Object {
+          "enterprise": Object {
+            "count": 1,
+
+      220 |           const result = await simulateGetContractValueDistribution(ctx);
+      221 |           
+    > 222 |           expect(result).toEqual({
+          |                          ^
+      223 |             ranges: {
+      224 |               small: { min: 0, max: 25000, count: 2, totalValue: 20000 },
+      225 |               medium: { min: 25001, max: 100000, count: 2, totalValue: 120000 },
+
+      at __tests__/backend/features/analytics.test.ts:222:26
+      at Object.<anonymous> (__tests__/backend/features/analytics.test.ts:200:9)
+
+  ● Analytics Functions › Vendor Analytics › getVendorPerformanceMetrics › should calculate vendor performance scores
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 8
+    + Received  + 8
+
+    @@ -4,27 +4,27 @@
+          "delayedDeliverables": 1,
+          "onTimeRate": 66.67,
+          "totalDeliverables": 3,
+        },
+        "financial": Object {
+    -     "averageContractValue": 87500,
+    +     "averageContractValue": 0,
+          "costSavings": Any<Number>,
+          "paymentTermsCompliance": Any<Number>,
+    -     "totalSpend": 175000,
+    +     "totalSpend": 0,
+        },
+        "overall": Object {
+    -     "activeContracts": 1,
+    -     "contractCount": 2,
+    -     "rating": "Good",
+    -     "score": 4.25,
+    -     "totalValue": 175000,
+    +     "activeContracts": 0,
+    +     "contractCount": 3,
+    +     "rating": "Unknown",
+    +     "score": 0,
+    +     "totalValue": 0,
+        },
+        "quality": Object {
+          "excellentRate": 33.33,
+          "goodRate": 66.67,
+          "poorRate": 0,
+    -     "qualityScore": 4.17,
+    +     "qualityScore": 3.6666666666666665,
+        },
+        "trends": Object {
+          "performanceTrend": "stable",
+          "riskLevel": "low",
+          "volumeTrend": "growing",
+
+      286 |           const result = await simulateGetVendorPerformanceMetrics(ctx, mockVendor._id);
+      287 |           
+    > 288 |           expect(result).toEqual({
+          |                          ^
+      289 |             overall: {
+      290 |               score: 4.25,
+      291 |               rating: 'Good',
+
+      at __tests__/backend/features/analytics.test.ts:288:26
+      at Object.<anonymous> (__tests__/backend/features/analytics.test.ts:252:9)
+
+  ● Analytics Functions › Vendor Analytics › getVendorSpendAnalysis › should analyze vendor spending patterns
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+    @@ -1,8 +1,8 @@
+      Object {
+        "concentration": Object {
+    -     "herfindahlIndex": 0.573,
+    +     "herfindahlIndex": 0.57027934,
+          "top1": 72.73,
+          "top3": 100,
+          "top5": 100,
+        },
+        "recommendations": ArrayContaining [
+
+      416 |           const result = await simulateGetVendorSpendAnalysis(ctx);
+      417 |           
+    > 418 |           expect(result).toEqual({
+          |                          ^
+      419 |             totalSpend: 1100000,
+      420 |             vendorCount: 3,
+      421 |             topVendors: [
+
+      at __tests__/backend/features/analytics.test.ts:418:26
+      at Object.<anonymous> (__tests__/backend/features/analytics.test.ts:387:9)
+
+  ● Analytics Functions › Trend Analysis › getContractTrends › should detect seasonal patterns
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected value: 12
+    Received array: [6]
+
+      541 |           
+      542 |           expect(result.hasSeasonality).toBe(true);
+    > 543 |           expect(result.peaks).toContain(12); // December
+          |                                ^
+      544 |           expect(result.troughs).toContain(1); // January
+      545 |           expect(result.pattern).toBe('Q4 peak');
+      546 |         });
+
+      at __tests__/backend/features/analytics.test.ts:543:32
+
+FAIL __tests__/backend/agents/secretary.test.ts
+  ● Secretary Agent › Document Processing › extractDocumentMetadata › should extract comprehensive metadata
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 7
+    + Received  + 2
+
+    @@ -1,29 +1,24 @@
+      Object {
+        "dates": Object {
+    -     "effective": "2024-01-01",
+          "end": "2024-12-31",
+          "start": "2024-01-01",
+        },
+        "documentType": "SERVICE AGREEMENT",
+        "financials": Object {
+          "currency": "USD",
+    -     "paymentTerms": "Net 30 days",
+    +     "paymentTerms": "Total contract value: $50,000",
+          "totalValue": 50000,
+        },
+        "keyTerms": Array [
+    +     "Net 30 days",
+          "software development services",
+    -     "Net 30 days",
+        ],
+        "parties": Array [
+          Object {
+            "name": "Acme Corporation",
+            "role": "Service Provider",
+    -     },
+    -     Object {
+    -       "name": "Beta Industries",
+    -       "role": "Client",
+          },
+        ],
+        "signatories": Array [
+          Object {
+            "name": "John Doe",
+
+      132 |           const result = await simulateExtractDocumentMetadata(documentContent);
+      133 |           
+    > 134 |           expect(result).toEqual({
+          |                          ^
+      135 |             parties: [
+      136 |               { name: 'Acme Corporation', role: 'Service Provider' },
+      137 |               { name: 'Beta Industries', role: 'Client' }
+
+      at __tests__/backend/agents/secretary.test.ts:134:26
+
+  ● Secretary Agent › Document Processing › extractDocumentMetadata › should handle partial metadata extraction
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 4
+
+      Object {
+        "dates": Object {
+          "effective": "2024-03-15",
+        },
+        "documentType": "CONFIDENTIALITY AGREEMENT",
+    -   "keyTerms": Array [],
+    +   "keyTerms": Array [
+    +     "CONFIDENTIALITY",
+    +   ],
+        "parties": Array [
+          Object {
+            "name": "XYZ Company",
+            "role": "Party",
+          },
+        ],
+    +   "signatories": Array [],
+      }
+
+      168 |           const result = await simulateExtractDocumentMetadata(documentContent);
+      169 |           
+    > 170 |           expect(result).toEqual({
+          |                          ^
+      171 |             parties: [
+      172 |               { name: 'XYZ Company', role: 'Party' }
+      173 |             ],
+
+      at __tests__/backend/agents/secretary.test.ts:170:26
+
+  ● Secretary Agent › Document Processing › classifyDocument › should classify documents accurately
+
+    expect(received).toBeGreaterThanOrEqual(expected)
+
+    Expected: >= 0.95
+    Received:    0.3333333333333333
+
+      212 |             
+      213 |             expect(result.type).toBe(testCase.expectedType);
+    > 214 |             expect(result.confidence).toBeGreaterThanOrEqual(testCase.expectedConfidence);
+          |                                       ^
+      215 |             expect(result.alternativeTypes).toBeDefined();
+      216 |           }
+      217 |         });
+
+      at __tests__/backend/agents/secretary.test.ts:214:39
+
+  ● Secretary Agent › Document Processing › classifyDocument › should handle ambiguous documents
+
+    expect(received).toBeGreaterThan(expected)
+
+    Expected: > 0
+    Received:   0
+
+      225 |           
+      226 |           expect(result.confidence).toBeLessThan(0.8);
+    > 227 |           expect(result.alternativeTypes.length).toBeGreaterThan(0);
+          |                                                  ^
+      228 |           expect(result.requiresManualReview).toBe(true);
+      229 |         });
+      230 |       });
+
+      at __tests__/backend/agents/secretary.test.ts:227:50
+
+  ● Secretary Agent › Template Management › identifyTemplateOpportunities › should identify common patterns for templates
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+    @@ -1,10 +1,10 @@
+      Object {
+        "insights": Object {
+          "mostCommonType": "service",
+          "potentialEfficiencyGain": "60%",
+    -     "templateCoverage": "80%",
+    +     "templateCoverage": "100%",
+        },
+        "recommendedTemplates": Array [
+          Object {
+            "commonClauses": Any<Array>,
+            "count": 3,
+
+      390 |           const result = await simulateIdentifyTemplateOpportunities(ctx);
+      391 |           
+    > 392 |           expect(result).toEqual({
+          |                          ^
+      393 |             recommendedTemplates: [
+      394 |               {
+      395 |                 type: 'service',
+
+      at __tests__/backend/agents/secretary.test.ts:392:26
+      at Object.<anonymous> (__tests__/backend/agents/secretary.test.ts:364:9)
+
+FAIL __tests__/backend/security/authentication.test.ts
+  ● Authentication and Security › Authentication Flow › sessionManagement › should handle concurrent session limit
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 3
+
+      190 |           const result = await simulateCreateSessionWithLimit(ctx, mockUser._id, 3);
+      191 |           
+    > 192 |           expect(result.sessionsRevoked).toBe(2);
+          |                                          ^
+      193 |           expect(ctx.db.patch).toHaveBeenCalledTimes(2); // Revoked 2 oldest sessions
+      194 |         });
+      195 |       });
+
+      at __tests__/backend/security/authentication.test.ts:192:42
+      at Object.<anonymous> (__tests__/backend/security/authentication.test.ts:179:9)
+
+  ● Authentication and Security › Authorization › apiKeyAuthentication › should rate limit API key usage
+
+    TypeError: Cannot read properties of undefined (reading 'mockResolvedValue')
+
+      344 |           
+      345 |           // Mock rate limit check
+    > 346 |           ctx.db.query().filter().filter().count.mockResolvedValue(105); // Over limit
+          |                                                 ^
+      347 |           
+      348 |           await expect(simulateAuthenticateApiKeyWithRateLimit(ctx, apiKey))
+      349 |             .rejects.toThrow('API rate limit exceeded');
+
+      at __tests__/backend/security/authentication.test.ts:346:49
+      at withMockContext (__tests__/backend/utils/convex-test-helpers.ts:191:10)
+      at Object.<anonymous> (__tests__/backend/security/authentication.test.ts:342:30)
+
+  ● Authentication and Security › Security Features › inputValidation › should sanitize user inputs
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "&lt;script&gt;alert(\"XSS\")&lt;/script&gt;"
+    Received: "&lt;script&gt;alert(&quot;XSS&quot;)&lt;&#x2F;script&gt;"
+
+      378 |           for (const test of maliciousInputs) {
+      379 |             const sanitized = await simulateSanitizeInput(test.input);
+    > 380 |             expect(sanitized).toBe(test.expected);
+          |                               ^
+      381 |           }
+      382 |         });
+      383 |       });
+
+      at __tests__/backend/security/authentication.test.ts:380:31
+
+  ● Authentication and Security › Compliance and Privacy › dataPrivacy › should anonymize user data for analytics
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+      Object {
+        "_id": StringMatching /^anon_[a-f0-9]+$/,
+    -   "email": "j***.d**@example.com",
+    +   "email": "j***.doe@example.com",
+        "name": "J*** D**",
+        "phone": "+1234***890",
+        "ssn": "***-**-6789",
+      }
+
+      599 |           const anonymized = await simulateAnonymizeUserData(userData);
+      600 |           
+    > 601 |           expect(anonymized).toEqual({
+          |                              ^
+      602 |             _id: expect.stringMatching(/^anon_[a-f0-9]+$/),
+      603 |             email: 'j***.d**@example.com',
+      604 |             name: 'J*** D**',
+
+      at __tests__/backend/security/authentication.test.ts:601:30
+
+  ● Authentication and Security › Compliance and Privacy › regulatoryCompliance › should enforce data retention policies
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 10
+    Received number of calls: 20
+
+      662 |             
+      663 |             expect(result.deletedCount).toBe(10);
+    > 664 |             expect(ctx.db.delete).toHaveBeenCalledTimes(10);
+          |                                   ^
+      665 |           }
+      666 |         });
+      667 |       });
+
+      at __tests__/backend/security/authentication.test.ts:664:35
+      at Object.<anonymous> (__tests__/backend/security/authentication.test.ts:644:9)
+
+FAIL __tests__/backend/core/vendors.test.ts
+  ● Test suite failed to run
+
+    Configuration error:
+
+    Could not locate module convex/values mapped as:
+    /home/dpxrk/pactwise-fork/convex/$1.
+
+    Please check your configuration for these entries:
+    {
+      "moduleNameMapper": {
+        "/^convex\/(.*)$/": "/home/dpxrk/pactwise-fork/convex/$1"
+      },
+      "resolver": undefined
+    }
+
+    > 1 | import { ConvexError } from 'convex/values';
+        | ^
+      2 | import { 
+      3 |   createMockConvexContext, 
+      4 |   createMockVendor, 
+
+      at createNoMappedModuleFoundError (node_modules/jest-resolve/build/resolver.js:759:17)
+      at Object.<anonymous> (__tests__/backend/core/vendors.test.ts:1:1)
+
+FAIL __tests__/backend/core/users.test.ts
+  ● Test suite failed to run
+
+    Configuration error:
+
+    Could not locate module convex/values mapped as:
+    /home/dpxrk/pactwise-fork/convex/$1.
+
+    Please check your configuration for these entries:
+    {
+      "moduleNameMapper": {
+        "/^convex\/(.*)$/": "/home/dpxrk/pactwise-fork/convex/$1"
+      },
+      "resolver": undefined
+    }
+
+    > 1 | import { ConvexError } from 'convex/values';
+        | ^
+      2 | import { 
+      3 |   createMockConvexContext, 
+      4 |   createMockUser,
+
+      at createNoMappedModuleFoundError (node_modules/jest-resolve/build/resolver.js:759:17)
+      at Object.<anonymous> (__tests__/backend/core/users.test.ts:1:1)
+
+FAIL __tests__/backend/realtime/presence.test.ts
+  ● Real-time Presence System › User Presence Management › updatePresence › should create presence if not exists
+
+    User not found
+
+      705 |     .first();
+      706 |     
+    > 707 |   if (!user) throw new Error('User not found');
+          |                    ^
+      708 |   
+      709 |   const existingPresence = await ctx.db.query('presence')
+      710 |     .filter((q: any) => q.eq(q.field('userId'), user._id))
+
+      at simulateUpdatePresence (__tests__/backend/realtime/presence.test.ts:707:20)
+      at __tests__/backend/realtime/presence.test.ts:60:26
+      at Object.<anonymous> (__tests__/backend/realtime/presence.test.ts:48:9)
+
+  ● Real-time Presence System › User Presence Management › getActiveUsers › should filter by document
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 1
+    Received length: 0
+    Received array:  []
+
+      182 |           
+      183 |           expect(mockFilter2).toHaveBeenCalled();
+    > 184 |           expect(result).toHaveLength(1);
+          |                          ^
+      185 |         });
+      186 |       });
+      187 |
+
+      at __tests__/backend/realtime/presence.test.ts:184:26
+      at Object.<anonymous> (__tests__/backend/realtime/presence.test.ts:156:9)
+
+  ● Real-time Presence System › User Presence Management › getActiveUsers › should exclude inactive users
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 1
+    Received length: 0
+    Received array:  []
+
+      217 |           
+      218 |           // Should filter out inactive users
+    > 219 |           expect(result).toHaveLength(1);
+          |                          ^
+      220 |           expect(result[0].userId).toBe('user1');
+      221 |         });
+      222 |       });
+
+      at __tests__/backend/realtime/presence.test.ts:219:26
+      at Object.<anonymous> (__tests__/backend/realtime/presence.test.ts:189:9)
+
+  ● Real-time Presence System › Collaborative Editing › joinEditingSession › should join document editing session
+
+    Access denied
+
+      822 |   const document = await ctx.db.get(documentId);
+      823 |   if (!document || document.enterpriseId !== user.enterpriseId) {
+    > 824 |     throw new Error('Access denied');
+          |           ^
+      825 |   }
+      826 |   
+      827 |   let session = await ctx.db.query('editingSessions')
+
+      at simulateJoinEditingSession (__tests__/backend/realtime/presence.test.ts:824:11)
+      at __tests__/backend/realtime/presence.test.ts:302:26
+      at Object.<anonymous> (__tests__/backend/realtime/presence.test.ts:283:9)
+
+  ● Real-time Presence System › Collaborative Editing › joinEditingSession › should create new session if none exists
+
+    User not found
+
+      817 |     .first();
+      818 |     
+    > 819 |   if (!user) throw new Error('User not found');
+          |                    ^
+      820 |   
+      821 |   // Check document access
+      822 |   const document = await ctx.db.get(documentId);
+
+      at simulateJoinEditingSession (__tests__/backend/realtime/presence.test.ts:819:20)
+      at __tests__/backend/realtime/presence.test.ts:330:26
+      at Object.<anonymous> (__tests__/backend/realtime/presence.test.ts:316:9)
+
+  ● Real-time Presence System › Real-time Notifications › subscribeToUpdates › should manage real-time subscriptions
+
+    TypeError: existing.events is not iterable
+
+      1017 |   if (existing) {
+      1018 |     // Merge events
+    > 1019 |     const allEvents = new Set([...existing.events, ...subscription.events]);
+           |                                            ^
+      1020 |     await ctx.db.patch(existing._id, {
+      1021 |       events: Array.from(allEvents)
+      1022 |     });
+
+      at simulateSubscribeToUpdates (__tests__/backend/realtime/presence.test.ts:1019:44)
+      at __tests__/backend/realtime/presence.test.ts:601:26
+      at Object.<anonymous> (__tests__/backend/realtime/presence.test.ts:585:9)
+
+FAIL __tests__/backend/agents/manager.test.ts
+  ● Manager Agent › processAgentTask › should handle task failure
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "task123", ObjectContaining {"attempts": 3, "lastError": "Processing failed", "status": "pending"}
+    Received: "task123", {"failedAt": "2025-06-27T00:53:44.757Z", "lastError": "Processing failed", "status": "failed"}
+
+    Number of calls: 1
+
+      260 |         
+      261 |         expect(result.success).toBe(false);
+    > 262 |         expect(ctx.db.patch).toHaveBeenCalledWith(mockTask._id, expect.objectContaining({
+          |                              ^
+      263 |           status: 'pending', // Should retry
+      264 |           attempts: 3,
+      265 |           lastError: error.message
+
+      at __tests__/backend/agents/manager.test.ts:262:30
+      at Object.<anonymous> (__tests__/backend/agents/manager.test.ts:242:7)
+
+  ● Manager Agent › Agent System Coordination › should handle agent health monitoring
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 11
+    + Received  + 11
+
+      Object {
+    -   "agents": ArrayContaining [
+    -     ObjectContaining {
+    +   "agents": Array [
+    +     Object {
+            "agentId": "agent1",
+    +       "issues": Array [],
+            "status": "healthy",
+          },
+    -     ObjectContaining {
+    +     Object {
+            "agentId": "agent2",
+    -       "issues": ArrayContaining [
+    -         "High error count",
+    -       ],
+    -       "status": "warning",
+    +       "issues": Array [],
+    +       "status": "healthy",
+          },
+    -     ObjectContaining {
+    +     Object {
+            "agentId": "agent3",
+    -       "issues": ArrayContaining [
+    +       "issues": Array [
+              "Agent in error state",
+    +         "High error count",
+              "Health check overdue",
+            ],
+            "status": "unhealthy",
+          },
+        ],
+    -   "healthy": 1,
+    +   "healthy": 2,
+        "unhealthy": 1,
+    -   "warning": 1,
+    +   "warning": 0,
+      }
+
+      525 |         const healthReport = await simulateCheckAgentHealth(ctx);
+      526 |         
+    > 527 |         expect(healthReport).toEqual({
+          |                              ^
+      528 |           healthy: 1,
+      529 |           warning: 1,
+      530 |           unhealthy: 1,
+
+      at __tests__/backend/agents/manager.test.ts:527:30
+      at Object.<anonymous> (__tests__/backend/agents/manager.test.ts:498:7)
+
+FAIL __tests__/backend/core/enterprises.test.ts
+  ● Test suite failed to run
+
+    Configuration error:
+
+    Could not locate module convex/values mapped as:
+    /home/dpxrk/pactwise-fork/convex/$1.
+
+    Please check your configuration for these entries:
+    {
+      "moduleNameMapper": {
+        "/^convex\/(.*)$/": "/home/dpxrk/pactwise-fork/convex/$1"
+      },
+      "resolver": undefined
+    }
+
+    > 1 | import { ConvexError } from 'convex/values';
+        | ^
+      2 | import { 
+      3 |   createMockConvexContext, 
+      4 |   createMockUser,
+
+      at createNoMappedModuleFoundError (node_modules/jest-resolve/build/resolver.js:759:17)
+      at Object.<anonymous> (__tests__/backend/core/enterprises.test.ts:1:1)
+
+FAIL __tests__/backend/core/contracts-analysis.test.ts
+  ● Test suite failed to run
+
+    Configuration error:
+
+    Could not locate module convex/values mapped as:
+    /home/dpxrk/pactwise-fork/convex/$1.
+
+    Please check your configuration for these entries:
+    {
+      "moduleNameMapper": {
+        "/^convex\/(.*)$/": "/home/dpxrk/pactwise-fork/convex/$1"
+      },
+      "resolver": undefined
+    }
+
+    > 1 | import { ConvexError } from 'convex/values';
+        | ^
+      2 | import { 
+      3 |   createMockConvexContext, 
+      4 |   createMockContract, 
+
+      at createNoMappedModuleFoundError (node_modules/jest-resolve/build/resolver.js:759:17)
+      at Object.<anonymous> (__tests__/backend/core/contracts-analysis.test.ts:1:1)
+
+FAIL __tests__/backend/core/contracts.test.ts
+  ● Test suite failed to run
+
+    Configuration error:
+
+    Could not locate module convex/values mapped as:
+    /home/dpxrk/pactwise-fork/convex/$1.
+
+    Please check your configuration for these entries:
+    {
+      "moduleNameMapper": {
+        "/^convex\/(.*)$/": "/home/dpxrk/pactwise-fork/convex/$1"
+      },
+      "resolver": undefined
+    }
+
+    > 1 | import { ConvexError } from 'convex/values';
+        | ^
+      2 | import { 
+      3 |   createMockConvexContext, 
+      4 |   createMockContract, 
+
+      at createNoMappedModuleFoundError (node_modules/jest-resolve/build/resolver.js:759:17)
+      at Object.<anonymous> (__tests__/backend/core/contracts.test.ts:1:1)
+
+Test Suites: 11 failed, 11 total
+Tests:       29 failed, 85 passed, 114 total
+Snapshots:   0 total
+Time:        1.8 s, estimated 3 s
+Ran all test suites.

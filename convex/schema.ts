@@ -132,6 +132,7 @@ export default defineSchema({
   vendors: defineTable({
     enterpriseId: v.id("enterprises"),
     name: v.string(),
+    contactName: v.optional(v.string()),
     contactEmail: v.optional(v.string()),
     contactPhone: v.optional(v.string()),
     address: v.optional(v.string()),
@@ -143,10 +144,15 @@ export default defineSchema({
       )
     ),
     status: v.optional(v.union(v.literal("active"), v.literal("inactive"))),
+    performanceScore: v.optional(v.number()),
+    totalContractValue: v.optional(v.number()),
+    activeContracts: v.optional(v.number()),
+    complianceScore: v.optional(v.number()),
     createdBy: v.optional(v.string()), // User ID or "system" for auto-created
     metadata: v.optional(v.any()), // Additional data for vendor agent
     createdAt: v.string(),
     updatedAt: v.optional(v.number()), // Track last update
+    isDemo: v.optional(v.boolean()), // Flag for demo data
   })
   // Basic indexes
   .index("by_name", ["name"])
@@ -197,6 +203,7 @@ export default defineSchema({
     lastModifiedBy: v.optional(v.id("users")), // User who last modified
     createdAt: v.string(),
     updatedAt: v.optional(v.number()), // Added for tracking updates
+    isDemo: v.optional(v.boolean()), // Flag for demo data
   })
   // Basic indexes
   .index("by_enterprise", ["enterpriseId"])

@@ -200,7 +200,7 @@ export const deleteSecureContract = createSecureMutation(
     try {
       await ctx.storage.delete(contract.storageId);
     } catch (error) {
-      console.warn(`Failed to delete file for contract ${(args as any).contractId}:`, error);
+      // Failed to delete file for contract
     }
     
     // Delete contract

@@ -173,7 +173,7 @@ export const upsertUser = mutation({
         });
       } else {
         // Optional: Handle invalid/expired token explicitly, or let it fall through
-        console.warn(`Invalid or expired invitation token: ${args.invitationToken} for email ${identity.email}`);
+        // Invalid or expired invitation token
       }
     }
 

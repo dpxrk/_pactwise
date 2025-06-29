@@ -12,6 +12,12 @@ const vendorCategoryOptions = [
   "facilities", "logistics", "manufacturing", "consulting", "other"
 ] as const;
 
+// Helper function to validate email format
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
 // ============================================================================
 // CREATE
 // ============================================================================
@@ -19,17 +25,24 @@ export const createVendor = mutation({
   args: {
     enterpriseId: v.id("enterprises"),
     name: v.string(),   
-    contactEmail: v.optional(v.string()),
-    contactPhone: v.optional(v.string()),
+    contact: v.optional(v.object({
+      name: v.optional(v.string()),
+      email: v.string(),
+      phone: v.optional(v.string()),
+    })),
     address: v.optional(v.string()),
-    notes: v.optional(v.string()),
+    description: v.optional(v.string()),
     website: v.optional(v.string()),
     category: v.optional(
       v.union(
         ...vendorCategoryOptions.map(option => v.literal(option))
       )
     ),
-    createdAt: v.string(),
+    status: v.optional(v.union(v.literal("active"), v.literal("inactive"))),
+    performanceScore: v.optional(v.number()),
+    totalContractValue: v.optional(v.number()),
+    activeContracts: v.optional(v.number()),
+    complianceScore: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -68,27 +81,35 @@ export const createVendor = mutation({
     }
 
     // Validate email format if provided
-    if (args.contactEmail && !isValidEmail(args.contactEmail)) {
+    if (args.contact?.email && !isValidEmail(args.contact.email)) {
       throw new ConvexError("Invalid email format.");
     }
 
     const vendorData: any = {
       enterpriseId: args.enterpriseId,
       name: args.name.trim(),
-      createdAt: args.createdAt,
+      createdAt: new Date().toISOString(),
+      status: args.status || "active",
+      performanceScore: args.performanceScore || 0,
+      totalContractValue: args.totalContractValue || 0,
+      activeContracts: args.activeContracts || 0,
+      complianceScore: args.complianceScore || 100,
     };
     
     // Only add optional fields if they have values
-    if (args.contactEmail) vendorData.contactEmail = args.contactEmail.toLowerCase();
-    if (args.contactPhone) vendorData.contactPhone = args.contactPhone;
+    if (args.contact) {
+      if (args.contact.email) vendorData.contactEmail = args.contact.email.toLowerCase();
+      if (args.contact.name) vendorData.contactName = args.contact.name;
+      if (args.contact.phone) vendorData.contactPhone = args.contact.phone;
+    }
     if (args.address) vendorData.address = args.address;
-    if (args.notes) vendorData.notes = args.notes;
+    if (args.description) vendorData.notes = args.description;
     if (args.website) vendorData.website = args.website;
     if (args.category) vendorData.category = args.category;
     
     const vendorId = await ctx.db.insert("vendors", vendorData);
 
-    console.log(`Vendor created with ID: ${vendorId} for enterprise ${args.enterpriseId}`);
+    // Vendor created successfully
     return vendorId;
   },
 });
@@ -284,7 +305,7 @@ export const getVendorById = query({
 
     // --- Security Check: Ensure the fetched vendor belongs to the specified enterprise ---
     if (vendor.enterpriseId !== args.enterpriseId) {
-      console.warn(`User attempted to access vendor ${args.vendorId} not belonging to their enterprise ${args.enterpriseId}.`);
+      // User attempted to access vendor not belonging to their enterprise
       return null;
     }
 
@@ -330,6 +351,47 @@ export const getVendorById = query({
   },
 });
 
+/**
+ * Check if a vendor exists by name (case-insensitive)
+ */
+export const checkVendorExists = query({
+  args: {
+    name: v.string(),
+    enterpriseId: v.id("enterprises"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required.");
+    }
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!currentUser || currentUser.enterpriseId !== args.enterpriseId) {
+      throw new ConvexError("Access denied.");
+    }
+
+    // Search for vendors with matching name (case-insensitive)
+    const vendors = await ctx.db
+      .query("vendors")
+      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", args.enterpriseId))
+      .collect();
+
+    const normalizedSearchName = args.name.trim().toLowerCase();
+    const existingVendor = vendors.find(
+      vendor => vendor.name.trim().toLowerCase() === normalizedSearchName
+    );
+
+    return {
+      exists: !!existingVendor,
+      vendor: existingVendor || null,
+    };
+  },
+});
+
 // ============================================================================
 // UPDATE
 // ============================================================================
@@ -338,19 +400,24 @@ export const updateVendor = mutation({
     vendorId: v.id("vendors"),
     // --- REQUIRED: enterpriseId for permission check ---
     enterpriseId: v.id("enterprises"),
-    // Optional fields to update (matching schema)
-    name: v.optional(v.string()),
-    contactEmail: v.optional(v.string()),
-    contactPhone: v.optional(v.string()),
-    address: v.optional(v.string()),
-    notes: v.optional(v.string()),
-    website: v.optional(v.string()),
-    // --- NEW: Allow updating category ---
-    category: v.optional(
-      v.union(
-        ...vendorCategoryOptions.map(option => v.literal(option))
-      )
-    ),
+    // Updates object containing optional fields
+    updates: v.object({
+      name: v.optional(v.string()),
+      contactName: v.optional(v.string()),
+      contactEmail: v.optional(v.string()),
+      contactPhone: v.optional(v.string()),
+      address: v.optional(v.string()),
+      notes: v.optional(v.string()),
+      website: v.optional(v.string()),
+      category: v.optional(
+        v.union(
+          ...vendorCategoryOptions.map(option => v.literal(option))
+        )
+      ),
+      status: v.optional(v.union(v.literal("active"), v.literal("inactive"))),
+      performanceScore: v.optional(v.number()),
+      complianceScore: v.optional(v.number()),
+    }),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -382,18 +449,21 @@ export const updateVendor = mutation({
       throw new ConvexError("Permission denied: You do not have permission to update this vendor.");
     }
 
-    const { vendorId, enterpriseId: _enterpriseId, ...updates } = args;
+    const { updates } = args;
 
     if (updates.name !== undefined && updates.name.trim() === "") {
         throw new ConvexError("Validation Error: Vendor name cannot be empty.");
     }
+    
+    const updatesToApply: any = {};
+    
     if(updates.name) {
-      updates.name = updates.name.trim();
+      updatesToApply.name = updates.name.trim();
       
       // Check for duplicate names
       const duplicateVendor = await ctx.db
         .query("vendors")
-        .withIndex("by_name", (q) => q.eq("name", updates.name!))
+        .withIndex("by_name", (q) => q.eq("name", updatesToApply.name))
         .filter((q) => 
           q.and(
             q.eq(q.field("enterpriseId"), existingVendor.enterpriseId),
@@ -411,25 +481,30 @@ export const updateVendor = mutation({
     if (updates.contactEmail !== undefined && updates.contactEmail && !isValidEmail(updates.contactEmail)) {
       throw new ConvexError("Invalid email format.");
     }
-    if (updates.contactEmail) {
-      updates.contactEmail = updates.contactEmail.toLowerCase();
-    }
+    
+    // Copy all defined fields to updatesToApply
+    if (updates.contactEmail !== undefined) updatesToApply.contactEmail = updates.contactEmail ? updates.contactEmail.toLowerCase() : updates.contactEmail;
+    if (updates.contactName !== undefined) updatesToApply.contactName = updates.contactName;
+    if (updates.contactPhone !== undefined) updatesToApply.contactPhone = updates.contactPhone;
+    if (updates.address !== undefined) updatesToApply.address = updates.address;
+    if (updates.notes !== undefined) updatesToApply.notes = updates.notes;
+    if (updates.website !== undefined) updatesToApply.website = updates.website;
+    if (updates.category !== undefined) updatesToApply.category = updates.category;
+    if (updates.status !== undefined) updatesToApply.status = updates.status;
+    if (updates.performanceScore !== undefined) updatesToApply.performanceScore = updates.performanceScore;
+    if (updates.complianceScore !== undefined) updatesToApply.complianceScore = updates.complianceScore;
 
-    // Remove undefined values so patch only applies provided fields
-    (Object.keys(updates) as Array<keyof typeof updates>).forEach(key => {
-      if (updates[key] === undefined) {
-        delete updates[key];
-      }
-    });
-
-    if (Object.keys(updates).length === 0) {
-        console.log("No fields provided to update for vendor:", vendorId);
+    if (Object.keys(updatesToApply).length === 0) {
+        // No fields provided to update
         return { success: true, message: "No fields provided to update." };
     }
 
-    await ctx.db.patch(args.vendorId, updates);
+    await ctx.db.patch(args.vendorId, {
+      ...updatesToApply,
+      updatedAt: Date.now(),
+    });
 
-    console.log(`Vendor updated with ID: ${args.vendorId}. Updates applied:`, updates);
+    // Vendor updated successfully
     return { success: true };
   },
 });
@@ -759,8 +834,3 @@ export const bulkUpdateCategories = mutation({
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
-function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}

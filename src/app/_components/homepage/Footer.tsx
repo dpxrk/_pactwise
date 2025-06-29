@@ -26,10 +26,10 @@ export const Footer = () => {
   // };
 
   return (
-    <footer className="bg-background border-t">
+    <footer className="bg-[#0d1f1f] border-t border-emerald-900/30">
       <div className="container px-4 py-8 mx-auto">
         {/* Newsletter Section */}
-        <div className="mb-8 pb-8 border-b">
+        <div className="mb-8 pb-8 border-b border-emerald-900/30">
           {/* <div className="max-w-xl mx-auto text-center">
             <h3 className="text-xl font-semibold mb-3">Stay Updated</h3>
             <p className="text-sm text-muted-foreground mb-4">
@@ -63,13 +63,13 @@ export const Footer = () => {
         {/* Main Categories */}
         <div className="grid grid-cols-3 gap-8 mb-6 text-center">
           <div>
-            <h3 className="text-sm font-semibold">Solutions</h3>
+            <h3 className="text-sm font-semibold text-white">Solutions</h3>
           </div>
           <div>
-            <h3 className="text-sm font-semibold">Resources</h3>
+            <h3 className="text-sm font-semibold text-white">Resources</h3>
           </div>
           <div>
-            <h3 className="text-sm font-semibold">Contact</h3>
+            <h3 className="text-sm font-semibold text-white">Contact</h3>
           </div>
         </div>
 
@@ -81,7 +81,7 @@ export const Footer = () => {
               <li>
                 <a
                   // href="#"
-                  className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                  className="text-xs text-gray-300 hover:text-emerald-400 transition-colors"
                 >
                   Contract Management
                 </a>
@@ -89,7 +89,7 @@ export const Footer = () => {
               <li>
                 <a
                   href="#"
-                  className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                  className="text-xs text-gray-300 hover:text-emerald-400 transition-colors"
                 >
                   Document Analytics
                 </a>
@@ -97,7 +97,7 @@ export const Footer = () => {
               <li>
                 <a
                   // href="#"
-                  className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                  className="text-xs text-gray-300 hover:text-emerald-400 transition-colors"
                 >
                   E-Signature Platform
                 </a>
@@ -105,7 +105,7 @@ export const Footer = () => {
               <li>
                 <a
                   // href="#"
-                  className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                  className="text-xs text-gray-300 hover:text-emerald-400 transition-colors"
                 >
                   Template Library
                 </a>
@@ -119,7 +119,7 @@ export const Footer = () => {
               <li>
                 <a
                   href="#"
-                  className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                  className="text-xs text-gray-300 hover:text-emerald-400 transition-colors"
                 >
                   Documentation
                 </a>
@@ -128,7 +128,7 @@ export const Footer = () => {
               {/* <li>
                 <a
                   href="#"
-                  className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                  className="text-xs text-gray-300 hover:text-emerald-400 transition-colors"
                 >
                   Customer Stories
                 </a>
@@ -136,7 +136,7 @@ export const Footer = () => {
               <li>
                 <a
                   href="#"
-                  className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                  className="text-xs text-gray-300 hover:text-emerald-400 transition-colors"
                 >
                   Support Center
                 </a>
@@ -148,20 +148,20 @@ export const Footer = () => {
           <div className="flex justify-center">
             <ul className="space-y-1.5 text-center">
               <li className="flex items-center justify-center space-x-2">
-                <Mail className="h-3 w-3 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">
+                <Mail className="h-3 w-3 text-emerald-400" />
+                <span className="text-xs text-gray-300">
                   danielpark0503@gmail.com
                 </span>
               </li>
               <li className="flex items-center justify-center space-x-2">
-                <Phone className="h-3 w-3 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">
+                <Phone className="h-3 w-3 text-emerald-400" />
+                <span className="text-xs text-gray-300">
                   +1 (908) 239 4019
                 </span>
               </li>
               <li className="flex items-center justify-center space-x-2">
-                <MapPin className="h-3 w-3 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">
+                <MapPin className="h-3 w-3 text-emerald-400" />
+                <span className="text-xs text-gray-300">
                   New York
                 </span>
               </li>
@@ -169,7 +169,7 @@ export const Footer = () => {
           </div>
         </div>
 
-        <Separator className="my-6" />
+        <Separator className="my-6 bg-emerald-900/30" />
 
         {/* Company Info and Social */}
         {/* <div className="flex flex-col items-center mb-6 space-y-4">
@@ -203,13 +203,13 @@ export const Footer = () => {
         </div> */}
 
         {/* Footer Bottom */}
-        <div className="flex flex-col-reverse md:flex-row md:justify-between items-center space-y-4 md:space-y-0 text-xs text-muted-foreground">
+        <div className="flex flex-col-reverse md:flex-row md:justify-between items-center space-y-4 md:space-y-0 text-xs text-gray-300">
           <div className="flex items-center space-x-4 mt-4 md:mt-0">
             <span>© {currentYear} PactWise</span>
-            <Separator orientation="vertical" className="h-3" />
+            <Separator orientation="vertical" className="h-3 bg-emerald-900/30" />
             <div className="flex items-center space-x-1">
-              <Globe className="h-3 w-3" />
-              <select className="bg-transparent border-none cursor-pointer hover:text-primary transition-colors focus:outline-none text-xs">
+              <Globe className="h-3 w-3 text-emerald-400" />
+              <select className="bg-transparent border-none cursor-pointer hover:text-emerald-400 transition-colors focus:outline-none text-xs text-gray-300">
                 <option value="en">English</option>
                 <option value="es">Español</option>
                 <option value="fr">Français</option>
@@ -217,13 +217,13 @@ export const Footer = () => {
             </div>
           </div>
           <div className="flex flex-wrap justify-center gap-4">
-            <a href="#" className="hover:text-primary transition-colors">
+            <a href="#" className="hover:text-emerald-400 transition-colors">
               Privacy
             </a>
-            <a href="#" className="hover:text-primary transition-colors">
+            <a href="#" className="hover:text-emerald-400 transition-colors">
               Terms
             </a>
-            <a href="#" className="hover:text-primary transition-colors">
+            <a href="#" className="hover:text-emerald-400 transition-colors">
               Cookies
             </a>
           </div>

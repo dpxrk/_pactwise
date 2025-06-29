@@ -134,7 +134,7 @@ export function formatDate(dateString?: string | number | Date, format: 'short' 
         });
     }
   } catch (error) {
-    console.warn('Error formatting date:', dateString, error);
+    // Error formatting date
     return typeof dateString === 'string' ? dateString : 'N/A';
   }
 }
@@ -176,7 +176,7 @@ export function formatRelativeTime(dateString?: string | number | Date): string 
       return 'Just now';
     }
   } catch (error) {
-    console.warn('Error formatting relative time:', dateString, error);
+    // Error formatting relative time
     return 'N/A';
   }
 }

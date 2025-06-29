@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Text, Line as DreiLine } from '@react-three/drei';
 import { LineChartProps, ChartDataPoint, ChartSeries } from '@/types/three-charts.types';
+import { ChartTheme } from '@/types/common.types';
 import { BaseThreeChart } from './BaseThreeChart';
 import {
   getColorFromPalette,
@@ -213,7 +214,7 @@ const LineChartContent: React.FC<{
   showArea: boolean;
   areaOpacity: number;
   maxHeight: number;
-  theme: any;
+  theme: ChartTheme;
 }> = ({ 
   data, 
   series,
@@ -400,7 +401,7 @@ export const ThreeLineChart: React.FC<LineChartProps> = ({
   // Validate and prepare data
   const validData = useMemo(() => {
     if (!Array.isArray(data) || data.length === 0) {
-      console.warn('Line chart data must be a non-empty array');
+      // Line chart data must be a non-empty array
       return [];
     }
     return data.filter(item => 

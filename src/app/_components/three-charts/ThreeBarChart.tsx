@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Text, Line } from '@react-three/drei';
 import { BarChartProps, ChartDataPoint, ChartMesh } from '@/types/three-charts.types';
+import { ChartTheme } from '@/types/common.types';
 import { BaseThreeChart } from './BaseThreeChart';
 import {
   getColorFromPalette,
@@ -152,7 +153,7 @@ const BarChartContent: React.FC<{
   maxHeight: number;
   showGrid: boolean;
   showAxes: boolean;
-  theme: any;
+  theme: ChartTheme;
 }> = ({ 
   data, 
   barWidth, 
@@ -263,7 +264,7 @@ export const ThreeBarChart: React.FC<BarChartProps> = ({
   // Validate and prepare data
   const validData = useMemo(() => {
     if (!Array.isArray(data) || data.length === 0) {
-      console.warn('Bar chart data must be a non-empty array');
+      // Bar chart data must be a non-empty array
       return [];
     }
     return data.filter(item => 

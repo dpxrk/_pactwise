@@ -328,7 +328,7 @@ export class PresenceManager {
         selectionEl.style.opacity = '0';
       }
     } catch (error) {
-      console.warn('Failed to update cursor visual:', error);
+      // Failed to update cursor visual
     }
   }
 
@@ -361,7 +361,7 @@ export class PresenceManager {
         selectionEl.style.opacity = '0';
       }
     } catch (error) {
-      console.warn('Failed to update selection visual:', error);
+      // Failed to update selection visual
     }
   }
 
@@ -405,7 +405,7 @@ export class PresenceManager {
       range.collapse(false);
       return range;
     } catch (error) {
-      console.warn('Failed to create range at position:', error);
+      // Failed to create range at position
       return null;
     }
   }

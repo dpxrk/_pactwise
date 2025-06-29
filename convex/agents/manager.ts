@@ -166,7 +166,7 @@ export const startAgentSystem = mutation({
         category: "system_lifecycle",
       });
     } else {
-        console.warn("StartAgentSystem: Manager agent not found during startup.");
+        // StartAgentSystem: Manager agent not found during startup.
          await ctx.db.insert("agentLogs", {
             agentId: system._id as unknown as Id<"agents">, // This cast might be problematic if agentSystem._id can't be an agentId
                                                  // Consider a dedicated system/log agent ID or null if schema allows

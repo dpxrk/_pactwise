@@ -21,13 +21,12 @@ export function DemoDataManager({ enterpriseId }: DemoDataManagerProps) {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Queries
-  // TODO: Fix api.demo references after regenerating API
-  const demoDataExists = null; // useQuery(api.demo.checkDemoDataExists, { enterpriseId });
-  const demoStats = null; // useQuery(api.demo.getDemoDataStats, { enterpriseId });
+  const demoDataExists = useQuery(api.features.demo.checkDemoDataExists, { enterpriseId: enterpriseId as any });
+  const demoStats = useQuery(api.features.demo.getDemoDataStats, { enterpriseId: enterpriseId as any });
 
   // Mutations
-  const setupDemoAccount = null as any; // useMutation(api.demo.setupDemoAccount);
-  const cleanupDemoData = null as any; // useMutation(api.demo.cleanupDemoData);
+  const setupDemoAccount = useMutation(api.features.demo.setupDemoAccount);
+  const cleanupDemoData = useMutation(api.features.demo.cleanupDemoData);
 
   const handleSetupDemo = async (cleanupFirst: boolean = false) => {
     setIsProcessing(true);

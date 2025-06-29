@@ -36,6 +36,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { VendorCreateDialog } from '@/app/_components/vendors/VendorCreateDialog';
 
 // Icons
 import {
@@ -103,6 +104,7 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
   const [success, setSuccess] = useState<string | null>(null);
   const [showVendorSearch, setShowVendorSearch] = useState(false);
   const [vendorSearchQuery, setVendorSearchQuery] = useState('');
+  const [showVendorCreate, setShowVendorCreate] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
@@ -539,8 +541,8 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
           </div>
         </div>
         <DialogFooter className="flex-col sm:flex-row sm:justify-between gap-2">
-          <Button variant="outline" onClick={() => { console.log("TODO: Implement New Vendor Form/Modal"); setShowVendorSearch(false); }}>
-            <Plus className="mr-2 h-4 w-4" /> New Vendor (Not Implemented)
+          <Button variant="outline" onClick={() => { setShowVendorSearch(false); setShowVendorCreate(true); }}>
+            <Plus className="mr-2 h-4 w-4" /> New Vendor
           </Button>
           <Button variant="ghost" onClick={() => setShowVendorSearch(false)}>Close</Button>
         </DialogFooter>
@@ -575,6 +577,17 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
         )}
         {!initialDataLoading && formContent}
         {vendorSearchDialog}
+        {enterpriseIdFromClerk && (
+          <VendorCreateDialog
+            open={showVendorCreate}
+            onOpenChange={setShowVendorCreate}
+            enterpriseId={enterpriseIdFromClerk}
+            onVendorCreated={(vendorId) => {
+              setFormState(prev => ({ ...prev, vendorId: vendorId.toString() }));
+              setShowVendorCreate(false);
+            }}
+          />
+        )}
       </>
     );
   }
@@ -603,6 +616,17 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
         </CardContent>
       </Card>
       {vendorSearchDialog}
+      {enterpriseIdFromClerk && (
+        <VendorCreateDialog
+          open={showVendorCreate}
+          onOpenChange={setShowVendorCreate}
+          enterpriseId={enterpriseIdFromClerk}
+          onVendorCreated={(vendorId) => {
+            setFormState(prev => ({ ...prev, vendorId: vendorId.toString() }));
+            setShowVendorCreate(false);
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -53,8 +53,22 @@ describe('Real-time Presence System', () => {
             email: mockUser.email
           });
           
-          ctx.db.query().withIndex().first.mockResolvedValue(mockUser);
-          ctx.db.query().filter().first.mockResolvedValue(null); // No existing presence
+          // Set up proper mock chain for user query
+          const mockFirst = jest.fn().mockResolvedValue(mockUser);
+          const mockWithIndex = jest.fn().mockReturnValue({ first: mockFirst });
+          const mockQuery = jest.fn().mockReturnValue({ withIndex: mockWithIndex });
+          
+          // Set up filter query for presence
+          const mockPresenceFirst = jest.fn().mockResolvedValue(null); // No existing presence
+          const mockFilter = jest.fn().mockReturnValue({ first: mockPresenceFirst });
+          const mockPresenceQuery = jest.fn().mockReturnValue({ filter: mockFilter });
+          
+          ctx.db.query.mockImplementation((table: string) => {
+            if (table === 'users') return mockQuery();
+            if (table === 'presence') return mockPresenceQuery();
+            return mockQuery();
+          });
+          
           ctx.db.insert.mockResolvedValue('new-presence-id');
           
           const result = await simulateUpdatePresence(ctx, {
@@ -111,7 +125,7 @@ describe('Real-time Presence System', () => {
             {
               _id: 'presence1' as any,
               userId: 'user1' as any,
-              user: createMockUser({ _id: 'user1' as any }),
+              enterpriseId: mockUser.enterpriseId,
               status: 'online',
               currentDocument: 'contract123',
               lastActivity: Date.now()
@@ -119,7 +133,7 @@ describe('Real-time Presence System', () => {
             {
               _id: 'presence2' as any,
               userId: 'user2' as any,
-              user: createMockUser({ _id: 'user2' as any }),
+              enterpriseId: mockUser.enterpriseId,
               status: 'away',
               lastActivity: Date.now() - 5 * 60 * 1000 // 5 minutes ago
             }
@@ -130,12 +144,26 @@ describe('Real-time Presence System', () => {
             email: mockUser.email
           });
           
-          ctx.db.query().withIndex().first.mockResolvedValue(mockUser);
-          ctx.db.query().filter().filter().collect.mockResolvedValue(activeUsers);
+          // Set up proper mock chain
+          const mockFirst = jest.fn().mockResolvedValue(mockUser);
+          const mockWithIndex = jest.fn().mockReturnValue({ first: mockFirst });
+          const mockCollect = jest.fn().mockResolvedValue(activeUsers);
+          const mockFilter2 = jest.fn().mockReturnValue({ collect: mockCollect });
+          const mockFilter1 = jest.fn().mockReturnValue({ filter: mockFilter2 });
+          
+          ctx.db.query.mockImplementation((table: string) => {
+            if (table === 'users') return { withIndex: mockWithIndex };
+            if (table === 'presence') return { filter: mockFilter1 };
+            return { withIndex: mockWithIndex };
+          });
           
           // Mock user lookups
           ctx.db.get.mockImplementation((id) => {
-            return activeUsers.find(p => p.userId === id)?.user;
+            const user1 = createMockUser({ _id: 'user1' as any, email: 'user1@example.com', name: 'User One' });
+            const user2 = createMockUser({ _id: 'user2' as any, email: 'user2@example.com', name: 'User Two' });
+            if (id === 'user1') return user1;
+            if (id === 'user2') return user2;
+            return null;
           });
           
           const result = await simulateGetActiveUsers(ctx);
@@ -160,8 +188,10 @@ describe('Real-time Presence System', () => {
             {
               _id: 'presence1' as any,
               userId: 'user1' as any,
+              enterpriseId: mockUser.enterpriseId,
               currentDocument: documentId,
-              status: 'online'
+              status: 'online',
+              lastActivity: Date.now()
             }
           ];
           
@@ -170,13 +200,26 @@ describe('Real-time Presence System', () => {
             email: mockUser.email
           });
           
-          ctx.db.query().withIndex().first.mockResolvedValue(mockUser);
-          
-          // Mock filtered query
+          // Set up proper mock chain
+          const mockFirst = jest.fn().mockResolvedValue(mockUser);
+          const mockWithIndex = jest.fn().mockReturnValue({ first: mockFirst });
           const mockCollect = jest.fn().mockResolvedValue(usersInDocument);
-          const mockFilter2 = jest.fn().mockReturnValue({ collect: mockCollect });
+          const mockFilter3 = jest.fn().mockReturnValue({ collect: mockCollect });
+          const mockFilter2 = jest.fn().mockReturnValue({ filter: mockFilter3 });
           const mockFilter1 = jest.fn().mockReturnValue({ filter: mockFilter2 });
-          ctx.db.query().filter.mockReturnValue({ filter: mockFilter1 });
+          
+          ctx.db.query.mockImplementation((table: string) => {
+            if (table === 'users') return { withIndex: mockWithIndex };
+            if (table === 'presence') return { filter: mockFilter1 };
+            return { withIndex: mockWithIndex };
+          });
+          
+          // Mock user lookup
+          ctx.db.get.mockResolvedValue({
+            _id: 'user1',
+            email: 'user1@example.com',
+            name: 'User One'
+          });
           
           const result = await simulateGetActiveUsers(ctx, { documentId });
           
@@ -194,12 +237,14 @@ describe('Real-time Presence System', () => {
             {
               _id: 'presence1' as any,
               userId: 'user1' as any,
+              enterpriseId: mockUser.enterpriseId,
               status: 'online',
               lastActivity: Date.now() - 5 * 60 * 1000 // Active
             },
             {
               _id: 'presence2' as any,
               userId: 'user2' as any,
+              enterpriseId: mockUser.enterpriseId,
               status: 'online',
               lastActivity: Date.now() - 20 * 60 * 1000 // Inactive
             }
@@ -210,8 +255,31 @@ describe('Real-time Presence System', () => {
             email: mockUser.email
           });
           
-          ctx.db.query().withIndex().first.mockResolvedValue(mockUser);
-          ctx.db.query().filter().filter().collect.mockResolvedValue(presenceRecords);
+          // Set up proper mock chain
+          const mockFirst = jest.fn().mockResolvedValue(mockUser);
+          const mockWithIndex = jest.fn().mockReturnValue({ first: mockFirst });
+          const mockCollect = jest.fn().mockResolvedValue(presenceRecords);
+          const mockFilter2 = jest.fn().mockReturnValue({ collect: mockCollect });
+          const mockFilter1 = jest.fn().mockReturnValue({ filter: mockFilter2 });
+          
+          ctx.db.query.mockImplementation((table: string) => {
+            if (table === 'users') return { withIndex: mockWithIndex };
+            if (table === 'presence') return { filter: mockFilter1 };
+            return { withIndex: mockWithIndex };
+          });
+          
+          // Mock user lookups - only return data for active user
+          ctx.db.get.mockImplementation((userId) => {
+            if (userId === 'user1') {
+              return Promise.resolve({
+                _id: 'user1',
+                email: 'user1@example.com',
+                firstName: 'User',
+                lastName: 'One'
+              });
+            }
+            return Promise.resolve(null);
+          });
           
           const result = await simulateGetActiveUsers(ctx, { includeInactive: false });
           
@@ -282,22 +350,36 @@ describe('Real-time Presence System', () => {
       it('should join document editing session', async () => {
         await withMockContext(async (ctx) => {
           const mockUser = createMockUser();
-          const mockContract = createMockContract();
+          const mockContract = createMockContract({
+            enterpriseId: mockUser.enterpriseId // Ensure same enterprise
+          });
           
           ctx.auth.getUserIdentity.mockResolvedValue({
             subject: mockUser.clerkId,
             email: mockUser.email
           });
           
-          ctx.db.query().withIndex().first.mockResolvedValue(mockUser);
-          ctx.db.get.mockResolvedValue(mockContract);
+          // Set up proper mock chain for user query
+          const mockFirst = jest.fn().mockResolvedValue(mockUser);
+          const mockWithIndex = jest.fn().mockReturnValue({ first: mockFirst });
+          const mockUserQuery = jest.fn().mockReturnValue({ withIndex: mockWithIndex });
           
-          // Mock existing session
-          ctx.db.query().filter().first.mockResolvedValue({
+          // Set up filter query for session
+          const mockSessionFirst = jest.fn().mockResolvedValue({
             _id: 'session123' as any,
             documentId: mockContract._id,
             participants: ['user456' as any]
           });
+          const mockFilter = jest.fn().mockReturnValue({ first: mockSessionFirst });
+          const mockSessionQuery = jest.fn().mockReturnValue({ filter: mockFilter });
+          
+          ctx.db.query.mockImplementation((table: string) => {
+            if (table === 'users') return mockUserQuery();
+            if (table === 'editingSessions') return mockSessionQuery();
+            return mockUserQuery();
+          });
+          
+          ctx.db.get.mockResolvedValue(mockContract);
           
           const result = await simulateJoinEditingSession(ctx, mockContract._id);
           
@@ -315,16 +397,32 @@ describe('Real-time Presence System', () => {
       it('should create new session if none exists', async () => {
         await withMockContext(async (ctx) => {
           const mockUser = createMockUser();
-          const mockContract = createMockContract();
+          const mockContract = createMockContract({
+            enterpriseId: mockUser.enterpriseId // Ensure same enterprise
+          });
           
           ctx.auth.getUserIdentity.mockResolvedValue({
             subject: mockUser.clerkId,
             email: mockUser.email
           });
           
-          ctx.db.query().withIndex().first.mockResolvedValue(mockUser);
+          // Set up proper mock chain for user query
+          const mockFirst = jest.fn().mockResolvedValue(mockUser);
+          const mockWithIndex = jest.fn().mockReturnValue({ first: mockFirst });
+          const mockUserQuery = jest.fn().mockReturnValue({ withIndex: mockWithIndex });
+          
+          // Set up filter query for session
+          const mockSessionFirst = jest.fn().mockResolvedValue(null); // No existing session
+          const mockFilter = jest.fn().mockReturnValue({ first: mockSessionFirst });
+          const mockSessionQuery = jest.fn().mockReturnValue({ filter: mockFilter });
+          
+          ctx.db.query.mockImplementation((table: string) => {
+            if (table === 'users') return mockUserQuery();
+            if (table === 'editingSessions') return mockSessionQuery();
+            return mockUserQuery();
+          });
+          
           ctx.db.get.mockResolvedValue(mockContract);
-          ctx.db.query().filter().first.mockResolvedValue(null); // No existing session
           ctx.db.insert.mockResolvedValue('new-session-id');
           
           const result = await simulateJoinEditingSession(ctx, mockContract._id);
@@ -596,6 +694,19 @@ describe('Real-time Presence System', () => {
           });
           
           ctx.db.query().withIndex().first.mockResolvedValue(mockUser);
+          
+          // Mock query for existing subscription check
+          const mockSubFirst = jest.fn().mockResolvedValue(null);
+          const mockSubFilter3 = jest.fn().mockReturnValue({ first: mockSubFirst });
+          const mockSubFilter2 = jest.fn().mockReturnValue({ filter: mockSubFilter3 });
+          const mockSubFilter1 = jest.fn().mockReturnValue({ filter: mockSubFilter2 });
+          const mockSubQuery = jest.fn().mockReturnValue({ filter: mockSubFilter1 });
+          
+          ctx.db.query.mockImplementation((table: string) => {
+            if (table === 'subscriptions') return mockSubQuery();
+            return { withIndex: () => ({ first: () => mockUser }) };
+          });
+          
           ctx.db.insert.mockResolvedValue('subscription123');
           
           const result = await simulateSubscribeToUpdates(ctx, subscription);
@@ -765,7 +876,7 @@ async function simulateGetActiveUsers(ctx: any, options?: any) {
         ...presence,
         user: {
           email: userData.email,
-          name: userData.name || userData.firstName + ' ' + userData.lastName
+          name: userData.name || (userData.firstName && userData.lastName ? `${userData.firstName} ${userData.lastName}` : 'Unknown User')
         }
       });
     }
@@ -830,9 +941,11 @@ async function simulateJoinEditingSession(ctx: any, documentId: any) {
     
   if (session) {
     if (!session.participants.includes(user._id)) {
+      const updatedParticipants = [...session.participants, user._id];
       await ctx.db.patch(session._id, {
-        participants: [...session.participants, user._id]
+        participants: updatedParticipants
       });
+      session.participants = updatedParticipants;
     }
   } else {
     const sessionId = await ctx.db.insert('editingSessions', {
@@ -1015,8 +1128,9 @@ async function simulateSubscribeToUpdates(ctx: any, subscription: any) {
     .first();
     
   if (existing) {
-    // Merge events
-    const allEvents = new Set([...existing.events, ...subscription.events]);
+    // Merge events - ensure existing.events is an array
+    const existingEvents = Array.isArray(existing.events) ? existing.events : [];
+    const allEvents = new Set([...existingEvents, ...subscription.events]);
     await ctx.db.patch(existing._id, {
       events: Array.from(allEvents)
     });
