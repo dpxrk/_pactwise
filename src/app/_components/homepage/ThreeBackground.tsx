@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useRef, useMemo, useEffect, useState } from 'react';
+import React, { useRef, useMemo, useEffect, useState, Suspense } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { Float } from '@react-three/drei';
+import { Float, OrbitControls } from '@react-three/drei';
 
-// Animated particle system with standard materials
+// Animated particle system with drifting motion
 function AnimatedParticles() {
   const points = useRef<THREE.Points>(null);
-  const particleCount = 1500;
+  const particleCount = 300;
+  const initialPositions = useRef<Float32Array>();
   
   const [positions, colors, sizes] = useMemo(() => {
     const positions = new Float32Array(particleCount * 3);
@@ -43,29 +44,29 @@ function AnimatedParticles() {
         colors[i3 + 2] = 0.913;
       }
       
-      sizes[i] = Math.random() * 2 + 0.5;
+      sizes[i] = Math.random() * 1.5 + 0.3;
     }
     
+    initialPositions.current = positions.slice();
     return [positions, colors, sizes];
   }, []);
   
   useFrame((state) => {
-    if (points.current) {
-      points.current.rotation.y = state.clock.elapsedTime * 0.02;
-      points.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.01) * 0.1;
-      
-      // Animate individual particle positions
+    if (points.current && initialPositions.current) {
+      // Animate individual particle positions with drift
       const positions = points.current.geometry.attributes.position.array as Float32Array;
       const time = state.clock.elapsedTime;
       
       for (let i = 0; i < particleCount; i++) {
         const i3 = i * 3;
-        const x = positions[i3];
-        const y = positions[i3 + 1];
-        const z = positions[i3 + 2];
+        const baseX = initialPositions.current[i3];
+        const baseY = initialPositions.current[i3 + 1];
+        const baseZ = initialPositions.current[i3 + 2];
         
-        // Add wave motion
-        positions[i3 + 1] = y + Math.sin(time * 0.5 + x * 0.01) * 0.02;
+        // Add drifting motion
+        positions[i3] = baseX + Math.sin(time * 0.3 + i * 0.1) * 5;
+        positions[i3 + 1] = baseY + Math.sin(time * 0.2 + i * 0.05) * 3;
+        positions[i3 + 2] = baseZ + Math.cos(time * 0.25 + i * 0.08) * 4;
       }
       
       points.current.geometry.attributes.position.needsUpdate = true;
@@ -80,10 +81,10 @@ function AnimatedParticles() {
         <bufferAttribute attach="attributes-size" count={particleCount} array={sizes} itemSize={1} />
       </bufferGeometry>
       <pointsMaterial
-        size={1}
+        size={0.8}
         vertexColors
         transparent
-        opacity={0.8}
+        opacity={0.3}
         sizeAttenuation
         blending={THREE.AdditiveBlending}
         depthWrite={false}
@@ -92,125 +93,268 @@ function AnimatedParticles() {
   );
 }
 
-// Dynamic floating geometries
-function FloatingGeometries() {
+// Dynamic floating cubes with orbital motion
+function FloatingCubes({ onCubeRef }: { onCubeRef: (ref: THREE.Mesh, index: number) => void }) {
   const groupRef = useRef<THREE.Group>(null);
+  const cubeRefs = useRef<(THREE.Mesh | null)[]>([]);
+  
+  // Create an array of cube positions and properties with orbital paths
+  const cubes = useMemo(() => [
+    { 
+      position: [-25, 10, -30], 
+      scale: 3, 
+      speed: 0.3, 
+      color: "#10b981",
+      orbitRadius: 10,
+      orbitSpeed: 0.5,
+      orbitOffset: 0
+    },
+    { 
+      position: [20, -5, -25], 
+      scale: 4, 
+      speed: 0.4, 
+      color: "#14b8a6",
+      orbitRadius: 15,
+      orbitSpeed: 0.3,
+      orbitOffset: Math.PI / 3
+    },
+    { 
+      position: [-15, -15, -35], 
+      scale: 2.5, 
+      speed: 0.2, 
+      color: "#0ea5e9",
+      orbitRadius: 8,
+      orbitSpeed: 0.7,
+      orbitOffset: Math.PI / 2
+    },
+    { 
+      position: [30, 15, -40], 
+      scale: 3.5, 
+      speed: 0.5, 
+      color: "#10b981",
+      orbitRadius: 12,
+      orbitSpeed: 0.4,
+      orbitOffset: Math.PI
+    },
+    { 
+      position: [0, 20, -45], 
+      scale: 2, 
+      speed: 0.3, 
+      color: "#14b8a6",
+      orbitRadius: 20,
+      orbitSpeed: 0.2,
+      orbitOffset: Math.PI * 1.5
+    },
+    { 
+      position: [-30, 0, -30], 
+      scale: 3, 
+      speed: 0.35, 
+      color: "#0ea5e9",
+      orbitRadius: 18,
+      orbitSpeed: 0.6,
+      orbitOffset: Math.PI / 4
+    },
+  ], []);
   
   useFrame((state) => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y = state.clock.elapsedTime * 0.01;
-    }
+    cubes.forEach((cube, index) => {
+      if (cubeRefs.current[index]) {
+        const time = state.clock.elapsedTime;
+        const mesh = cubeRefs.current[index];
+        
+        // Smoother orbital motion
+        const orbitAngle = time * cube.orbitSpeed * 0.3 + cube.orbitOffset;
+        const x = cube.position[0] + Math.cos(orbitAngle) * cube.orbitRadius;
+        const z = cube.position[2] + Math.sin(orbitAngle) * cube.orbitRadius * 0.8;
+        const y = cube.position[1] + Math.sin(time * cube.speed * 0.5) * 2;
+        
+        mesh!.position.set(x, y, z);
+        
+        // Slower rotation
+        mesh!.rotation.x += 0.01 * cube.speed;
+        mesh!.rotation.y += 0.008 * cube.speed;
+      }
+    });
   });
   
   return (
     <group ref={groupRef}>
-      {/* Floating torus knot */}
-      <Float speed={2} rotationIntensity={0.3} floatIntensity={0.5}>
-        <mesh position={[-20, 5, -20]} scale={4}>
-          <torusKnotGeometry args={[1, 0.3, 128, 16]} />
+      {cubes.map((cube, index) => (
+        <mesh 
+          key={index}
+          position={cube.position} 
+          scale={cube.scale}
+          ref={(ref) => {
+            cubeRefs.current[index] = ref;
+            if (ref) onCubeRef(ref, index);
+          }}
+        >
+          <boxGeometry args={[1, 1, 1]} />
           <meshBasicMaterial 
-            color="#10b981" 
+            color={cube.color} 
             wireframe 
             transparent 
-            opacity={0.2}
+            opacity={0.4}
           />
         </mesh>
-      </Float>
-      
-      {/* Floating dodecahedron */}
-      <Float speed={3} rotationIntensity={0.4} floatIntensity={0.6}>
-        <mesh position={[25, -10, -25]} scale={6}>
-          <dodecahedronGeometry args={[1, 0]} />
-          <meshBasicMaterial 
-            color="#14b8a6" 
-            wireframe 
-            transparent 
-            opacity={0.15}
-          />
-        </mesh>
-      </Float>
-      
-      {/* Floating icosahedron */}
-      <Float speed={2.5} rotationIntensity={0.5} floatIntensity={0.4}>
-        <mesh position={[0, 15, -30]} scale={5}>
-          <icosahedronGeometry args={[1, 0]} />
-          <meshBasicMaterial 
-            color="#0ea5e9" 
-            wireframe 
-            transparent 
-            opacity={0.1}
-          />
-        </mesh>
-      </Float>
-    </group>
-  );
-}
-
-// Connection lines between particles
-function ConnectionLines() {
-  const linesRef = useRef<THREE.Group>(null);
-  const lineCount = 50;
-  
-  const lines = useMemo(() => {
-    const temp = [];
-    for (let i = 0; i < lineCount; i++) {
-      const points = [
-        new THREE.Vector3(
-          (Math.random() - 0.5) * 40,
-          (Math.random() - 0.5) * 40,
-          (Math.random() - 0.5) * 40
-        ),
-        new THREE.Vector3(
-          (Math.random() - 0.5) * 40,
-          (Math.random() - 0.5) * 40,
-          (Math.random() - 0.5) * 40
-        ),
-      ];
-      temp.push(points);
-    }
-    return temp;
-  }, []);
-  
-  useFrame((state) => {
-    if (linesRef.current) {
-      linesRef.current.rotation.z = state.clock.elapsedTime * 0.005;
-    }
-  });
-  
-  return (
-    <group ref={linesRef}>
-      {lines.map((points, index) => (
-        <line key={index}>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              count={2}
-              array={new Float32Array(points.flatMap(p => [p.x, p.y, p.z]))}
-              itemSize={3}
-            />
-          </bufferGeometry>
-          <lineBasicMaterial 
-            color="#0ea5e9" 
-            transparent 
-            opacity={0.1}
-            blending={THREE.AdditiveBlending}
-          />
-        </line>
       ))}
     </group>
   );
 }
 
-// Background sphere with distortion
+// Small floating cube particles with drift motion
+function SmallCubeParticles({ onCubeRef }: { onCubeRef: (ref: THREE.Mesh, index: number) => void }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const cubeRefs = useRef<(THREE.Mesh | null)[]>([]);
+  
+  // Create small white/light colored cubes with drift motion
+  const smallCubes = useMemo(() => {
+    const cubes = [];
+    for (let i = 0; i < 8; i++) {
+      cubes.push({
+        startPosition: [
+          (Math.random() - 0.5) * 60,
+          (Math.random() - 0.5) * 40,
+          (Math.random() - 0.5) * 50 - 20
+        ],
+        scale: Math.random() * 0.5 + 0.3,
+        rotationSpeed: Math.random() * 0.02 + 0.01,
+        driftSpeed: {
+          x: (Math.random() - 0.5) * 0.5,
+          y: (Math.random() - 0.5) * 0.3,
+          z: (Math.random() - 0.5) * 0.4
+        },
+        color: Math.random() > 0.5 ? "#ffffff" : "#e0f2fe"
+      });
+    }
+    return cubes;
+  }, []);
+  
+  useFrame((state) => {
+    const time = state.clock.elapsedTime;
+    
+    smallCubes.forEach((cube, index) => {
+      if (cubeRefs.current[index]) {
+        const mesh = cubeRefs.current[index];
+        
+        // Gentler drift motion
+        const x = cube.startPosition[0] + Math.sin(time * cube.driftSpeed.x * 0.5) * 5;
+        const y = cube.startPosition[1] + Math.sin(time * cube.driftSpeed.y * 0.5) * 4;
+        const z = cube.startPosition[2] + Math.cos(time * cube.driftSpeed.z * 0.5) * 6;
+        
+        mesh!.position.set(x, y, z);
+        
+        // Slower rotation
+        mesh!.rotation.x += cube.rotationSpeed * 0.5;
+        mesh!.rotation.y += cube.rotationSpeed * 0.7;
+      }
+    });
+  });
+  
+  return (
+    <group ref={groupRef}>
+      {smallCubes.map((cube, index) => (
+        <mesh 
+          key={`small-${index}`}
+          position={cube.startPosition} 
+          scale={cube.scale}
+          ref={(ref) => {
+            cubeRefs.current[index] = ref;
+            if (ref) onCubeRef(ref, index + 6);
+          }}
+        >
+          <boxGeometry args={[1, 1, 1]} />
+          <meshBasicMaterial
+            color={cube.color}
+            transparent
+            opacity={0.15}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// Dynamic connection lines based on cube proximity
+function DynamicConnectionLines({ cubeRefs }: { cubeRefs: React.MutableRefObject<THREE.Mesh[]> }) {
+  const linesRef = useRef<THREE.Group>(null);
+  const frameCount = useRef(0);
+  const [connections, setConnections] = useState<Array<[THREE.Vector3, THREE.Vector3]>>([]);
+  const maxDistance = 12; // Maximum distance for connections
+  
+  useFrame(() => {
+    frameCount.current++;
+    
+    // Only update connections every 10 frames for performance
+    if (frameCount.current % 10 !== 0) return;
+    
+    if (!cubeRefs.current || cubeRefs.current.length === 0) return;
+    
+    const newConnections: Array<[THREE.Vector3, THREE.Vector3]> = [];
+    const cubes = cubeRefs.current.filter(cube => cube !== null);
+    
+    // Limit connections to prevent performance issues
+    let connectionCount = 0;
+    const maxConnections = 10;
+    
+    // Check distances between all cube pairs
+    for (let i = 0; i < cubes.length && connectionCount < maxConnections; i++) {
+      for (let j = i + 1; j < cubes.length && connectionCount < maxConnections; j++) {
+        if (cubes[i] && cubes[j]) {
+          const pos1 = new THREE.Vector3();
+          const pos2 = new THREE.Vector3();
+          cubes[i].getWorldPosition(pos1);
+          cubes[j].getWorldPosition(pos2);
+          
+          const distance = pos1.distanceTo(pos2);
+          
+          if (distance < maxDistance) {
+            newConnections.push([pos1.clone(), pos2.clone()]);
+            connectionCount++;
+          }
+        }
+      }
+    }
+    
+    setConnections(newConnections);
+  });
+  
+  return (
+    <group ref={linesRef}>
+      {connections.map((points, index) => {
+        const positions = new Float32Array([
+          points[0].x, points[0].y, points[0].z,
+          points[1].x, points[1].y, points[1].z
+        ]);
+        
+        return (
+          <line key={index}>
+            <bufferGeometry>
+              <bufferAttribute
+                attach="attributes-position"
+                count={2}
+                array={positions}
+                itemSize={3}
+              />
+            </bufferGeometry>
+            <lineBasicMaterial 
+              color="#0ea5e9" 
+              transparent 
+              opacity={0.3}
+              blending={THREE.AdditiveBlending}
+            />
+          </line>
+        );
+      })}
+    </group>
+  );
+}
+
+// Background sphere - stationary
 function BackgroundSphere() {
   const meshRef = useRef<THREE.Mesh>(null);
   
-  useFrame((state) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.x = state.clock.elapsedTime * 0.005;
-      meshRef.current.rotation.y = state.clock.elapsedTime * 0.003;
-    }
-  });
+  // No rotation - keeping perspective stable
   
   return (
     <mesh ref={meshRef} scale={60} position={[0, 0, -60]}>
@@ -219,29 +363,46 @@ function BackgroundSphere() {
         color="#051515"
         side={THREE.BackSide}
         transparent
-        opacity={0.8}
+        opacity={0.95}
       />
     </mesh>
   );
 }
 
-// Camera movement
+// Static grid to show we're not moving
+function StaticGrid() {
+  return (
+    <gridHelper 
+      args={[100, 20, "#0a4f4f", "#0a2a2a"]} 
+      position={[0, -20, 0]}
+      rotation={[0, 0, 0]}
+    />
+  );
+}
+
+// Camera is now stationary
 function CameraRig() {
-  useFrame((state, delta) => {
-    state.camera.position.x = Math.sin(state.clock.elapsedTime * 0.1) * 2;
-    state.camera.position.y = Math.cos(state.clock.elapsedTime * 0.05) * 1;
-    state.camera.lookAt(0, 0, 0);
-  });
-  
+  // No camera movement - we want to appear stationary
   return null;
 }
 
 export const ThreeBackground = () => {
   const [mounted, setMounted] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const cubeRefs = useRef<THREE.Mesh[]>([]);
+  
+  const handleCubeRef = (ref: THREE.Mesh, index: number) => {
+    if (ref) {
+      cubeRefs.current[index] = ref;
+    }
+  };
   
   useEffect(() => {
     setMounted(true);
+    return () => {
+      // Cleanup
+      cubeRefs.current = [];
+    };
   }, []);
   
   if (!mounted) {
@@ -253,14 +414,14 @@ export const ThreeBackground = () => {
       <Canvas
         camera={{
           position: [0, 0, 40],
-          fov: 75,
+          fov: 60,
           near: 0.1,
           far: 1000,
         }}
         gl={{
-          antialias: true,
+          antialias: false,
           alpha: true,
-          powerPreference: "high-performance",
+          powerPreference: "default",
         }}
         style={{
           position: 'absolute',
@@ -271,25 +432,26 @@ export const ThreeBackground = () => {
         }}
         onCreated={() => {
           setIsLoaded(true);
-          console.log('ThreeBackground Canvas created');
         }}
       >
-        {/* Scene setup */}
-        <color attach="background" args={["#030808"]} />
-        <fog attach="fog" color="#051010" near={20} far={100} />
-        
-        {/* Lighting */}
-        <ambientLight intensity={0.4} />
-        <pointLight position={[30, 30, 30]} color="#10b981" intensity={2} />
-        <pointLight position={[-30, -30, 30]} color="#14b8a6" intensity={1.5} />
-        <pointLight position={[0, 0, 20]} color="#0ea5e9" intensity={1} />
-        
-        {/* 3D Components */}
-        <BackgroundSphere />
-        <AnimatedParticles />
-        <ConnectionLines />
-        <FloatingGeometries />
-        <CameraRig />
+        <Suspense fallback={null}>
+          {/* Scene setup */}
+          <color attach="background" args={["#030808"]} />
+          <fog attach="fog" color="#051010" near={20} far={100} />
+          
+          {/* Lighting */}
+          <ambientLight intensity={0.4} />
+          <pointLight position={[30, 30, 30]} color="#10b981" intensity={1.5} />
+          <pointLight position={[-30, -30, 30]} color="#14b8a6" intensity={1} />
+          <pointLight position={[0, 0, 20]} color="#0ea5e9" intensity={0.8} />
+          
+          {/* 3D Components */}
+          <BackgroundSphere />
+          <StaticGrid />
+          <FloatingCubes onCubeRef={handleCubeRef} />
+          <SmallCubeParticles onCubeRef={handleCubeRef} />
+          <DynamicConnectionLines cubeRefs={cubeRefs} />
+        </Suspense>
       </Canvas>
       
       {/* Gradient overlays */}
