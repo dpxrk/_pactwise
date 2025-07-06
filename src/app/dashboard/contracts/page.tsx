@@ -202,7 +202,14 @@ const AllContracts = () => {
           </h2>
           <p className="text-muted-foreground mt-1">Manage and track your contract portfolio</p>
         </div>
-        <div className="animate-bounce-in" style={{ animationDelay: '200ms' }}>
+        <div className="flex gap-2 animate-bounce-in" style={{ animationDelay: '200ms' }}>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/dashboard/contracts/templates')}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Templates
+          </Button>
           <NewContractButton />
         </div>
       </div>

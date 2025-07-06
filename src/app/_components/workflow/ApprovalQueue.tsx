@@ -81,7 +81,7 @@ export interface ApprovalRequest {
   workflowStep?: number;
   
   // Additional data
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   attachments?: string[];
   comments?: {
     id: string;
@@ -184,7 +184,7 @@ export interface ApprovalQueueProps {
   className?: string;
 }
 
-export const ApprovalQueue: React.FC<ApprovalQueueProps> = ({
+const ApprovalQueueComponent: React.FC<ApprovalQueueProps> = ({
   requests = mockApprovalRequests,
   onApprove,
   onReject,
@@ -227,7 +227,8 @@ export const ApprovalQueue: React.FC<ApprovalQueueProps> = ({
 
     // Sort
     filtered.sort((a, b) => {
-      let aValue: any, bValue: any;
+      let aValue: number = 0;
+      let bValue: number = 0;
       
       switch (sortBy) {
         case 'dueDate':
@@ -614,7 +615,7 @@ export const ApprovalQueue: React.FC<ApprovalQueueProps> = ({
 
       {/* Filters and controls */}
       <div className="flex items-center gap-4">
-        <Select value={filter} onValueChange={(value: any) => setFilter(value)}>
+        <Select value={filter} onValueChange={(value) => setFilter(value as FilterType)}>
           <SelectTrigger className="w-48">
             <Filter className="h-4 w-4 mr-2" />
             <SelectValue />
@@ -626,7 +627,7 @@ export const ApprovalQueue: React.FC<ApprovalQueueProps> = ({
           </SelectContent>
         </Select>
 
-        <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+        <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortByType)}>
           <SelectTrigger className="w-40">
             <SelectValue />
           </SelectTrigger>
@@ -666,5 +667,10 @@ export const ApprovalQueue: React.FC<ApprovalQueueProps> = ({
     </div>
   );
 };
+
+export const ApprovalQueue = React.memo(ApprovalQueueComponent, (prevProps, nextProps) => {
+  // Only re-render if requests array changes
+  return JSON.stringify(prevProps.requests) === JSON.stringify(nextProps.requests);
+});
 
 export default ApprovalQueue;

@@ -27,9 +27,9 @@ interface AIServiceResult<T> {
  * AI service request with progress tracking and retry logic
  */
 export function useAIService<T>(
-  serviceFn: (...args: any[]) => Promise<T>,
+  serviceFn: (...args: unknown[]) => Promise<T>,
   options?: AIServiceOptions
-): AIServiceResult<T> & { execute: (...args: any[]) => Promise<T | null> } {
+): AIServiceResult<T> & { execute: (...args: unknown[]) => Promise<T | null> } {
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -38,7 +38,7 @@ export function useAIService<T>(
   
   const abortControllerRef = useRef<AbortController | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const lastArgsRef = useRef<any[]>([]);
+  const lastArgsRef = useRef<unknown[]>([]);
   
   const maxRetries = options?.maxRetries || 3;
   const timeout = options?.timeout || 30000; // 30 seconds default
@@ -62,7 +62,7 @@ export function useAIService<T>(
     }
   }, []);
   
-  const execute = useCallback(async (...args: any[]): Promise<T | null> => {
+  const execute = useCallback(async (...args: unknown[]): Promise<T | null> => {
     lastArgsRef.current = args;
     setIsLoading(true);
     setError(null);
@@ -195,7 +195,7 @@ export function useAIServiceQueue(options?: {
   const maxConcurrent = options?.maxConcurrent || 2;
   const [queue, setQueue] = useState<Array<{
     id: string;
-    fn: () => Promise<any>;
+    fn: () => Promise<unknown>;
     priority: number;
     status: 'pending' | 'processing' | 'completed' | 'failed';
   }>>([]);
@@ -236,7 +236,7 @@ export function useAIServiceQueue(options?: {
   }, [queue, processing, processQueue]);
   
   const addToQueue = useCallback((
-    fn: () => Promise<any>,
+    fn: () => Promise<unknown>,
     priority: number = 0
   ) => {
     const id = Math.random().toString(36).substr(2, 9);

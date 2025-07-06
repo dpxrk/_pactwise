@@ -2,8 +2,8 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useQuery, useMutation } from 'convex/react';
-import { api } from '@/convex/_generated/api';
-import { Id } from '@/convex/_generated/dataModel';
+import { api } from '../../../../convex/_generated/api';
+import { Id } from '../../../../convex/_generated/dataModel';
 import {
   MessageSquare,
   Send,
@@ -56,7 +56,7 @@ interface Message {
     actions?: {
       label: string;
       action: string;
-      data?: any;
+      data?: Record<string, unknown>;
     }[];
   };
   feedback?: 'positive' | 'negative';
@@ -199,7 +199,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
-  const handleAction = (action: string, data?: any) => {
+  const handleAction = (action: string, data?: Record<string, unknown>) => {
     // Handle predefined actions
     switch (action) {
       case 'view_contract':

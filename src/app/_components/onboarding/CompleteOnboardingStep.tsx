@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { CheckCircle, ArrowRight } from 'lucide-react';
 import { useConvexMutation, useConvexAction } from '@/lib/api-client'; // Assuming useConvexAction is similar to useConvexMutation for actions
-import { api } from '@/../convex/_generated/api';
+import { api } from '../../../../convex/_generated/api';
 
 const CompleteOnboardingStep: React.FC = () => {
   const router = useRouter();

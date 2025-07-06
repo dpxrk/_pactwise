@@ -2,8 +2,8 @@
 
 import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
-import { api } from '@/convex/_generated/api';
-import { Id } from '@/convex/_generated/dataModel';
+import { api } from '../../../../convex/_generated/api';
+import { Id } from '../../../../convex/_generated/dataModel';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/ui/data-table';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
@@ -142,7 +142,7 @@ export function ContractList({ enterpriseId, status }: ContractListProps) {
       await updateContractStatus({ 
         contractId: contractId as Id<"contracts">, 
         enterpriseId,
-        newStatus: newStatus as any
+        newStatus: newStatus as "draft" | "pending_analysis" | "active" | "expired" | "terminated" | "archived"
       });
       toast.success('Contract status updated');
     } catch (error) {

@@ -6,7 +6,7 @@ export interface ChartDataPoint {
   value: number;
   category?: string;
   color?: string;
-  [key: string]: any;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ChartSeries {
@@ -92,7 +92,7 @@ export interface ThreeChartProps {
   margins?: Partial<ChartMargins>;
   onHover?: (data: ChartDataPoint | null) => void;
   onClick?: (data: ChartDataPoint) => void;
-  onDrillDown?: (category: string, value: any) => void;
+  onDrillDown?: (category: string, value: number | string) => void;
   className?: string;
 }
 

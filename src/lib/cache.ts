@@ -100,8 +100,8 @@ class LRUCache<T> {
 // Cache manager singleton
 class CacheManager {
   private static instance: CacheManager;
-  private memoryCache: LRUCache<any>;
-  private redisClient: any = null; // Will be initialized if Redis URL is provided
+  private memoryCache: LRUCache<unknown>;
+  private redisClient: unknown = null; // Will be initialized if Redis URL is provided
 
   private constructor() {
     this.memoryCache = new LRUCache(
@@ -267,7 +267,7 @@ class CacheManager {
 export const cache = CacheManager.getInstance();
 
 // Convenience cache decorators
-export function withCache<T extends (...args: any[]) => Promise<any>>(
+export function withCache<T extends (...args: unknown[]) => Promise<unknown>>(
   fn: T,
   keyGenerator: (...args: Parameters<T>) => string,
   options?: CacheOptions

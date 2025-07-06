@@ -314,7 +314,12 @@ export const GlobalErrorHandler: React.FC<GlobalErrorHandlerProps> = ({
       {showToasts && activeToasts.length > 0 && (
         <div className="fixed top-4 right-4 z-50 space-y-2">
           {activeToasts.map(error => {
-            const toastProps: any = {
+            const toastProps: {
+              key: string;
+              error: AppError;
+              onDismiss: () => void;
+              onViewDetails?: () => void;
+            } = {
               key: error.id,
               error: error,
               onDismiss: () => dismissToast(error.id),
@@ -365,7 +370,7 @@ export const triggerErrorEvent = (error: AppError) => {
 };
 
 // Enhanced error handler that also triggers events
-export const handleErrorWithNotification = async (error: any, context?: any) => {
+export const handleErrorWithNotification = async (error: unknown, context?: ErrorContext) => {
   const appError = await globalErrorHandler.handleError(error, context);
   triggerErrorEvent(appError);
   

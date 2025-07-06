@@ -4,9 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { Loader2, FileText, Building, Users, BarChart3, Search, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { PremiumLoader, SkeletonCard, LiquidProgress } from '@/components/premium';
 
 // Loading spinner variants
 export interface LoadingSpinnerProps {
@@ -22,90 +22,20 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   color = 'primary',
   className
 }) => {
-  const sizeClasses = {
-    sm: 'h-4 w-4',
-    md: 'h-6 w-6',
-    lg: 'h-8 w-8',
-    xl: 'h-12 w-12'
-  };
-
-  const colorClasses = {
-    primary: 'text-primary',
-    secondary: 'text-secondary',
-    muted: 'text-muted-foreground'
-  };
-
-  if (variant === 'dots') {
-    return (
-      <div className={cn('flex items-center space-x-1', className)}>
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className={cn(
-              'rounded-full bg-current animate-pulse',
-              size === 'sm' ? 'h-1 w-1' : size === 'md' ? 'h-2 w-2' : 'h-3 w-3',
-              colorClasses[color]
-            )}
-            style={{
-              animationDelay: `${i * 0.15}s`,
-              animationDuration: '0.8s'
-            }}
-          />
-        ))}
-      </div>
-    );
-  }
-
-  if (variant === 'pulse') {
-    return (
-      <div className={cn('flex items-center space-x-2', className)}>
-        {[0, 1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className={cn(
-              'rounded-full bg-current animate-pulse',
-              size === 'sm' ? 'h-2 w-2' : size === 'md' ? 'h-3 w-3' : 'h-4 w-4',
-              colorClasses[color]
-            )}
-            style={{
-              animationDelay: `${i * 0.2}s`,
-              animationDuration: '1.2s'
-            }}
-          />
-        ))}
-      </div>
-    );
-  }
-
-  if (variant === 'bounce') {
-    return (
-      <div className={cn('flex items-end space-x-1', className)}>
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className={cn(
-              'bg-current rounded-sm animate-bounce',
-              size === 'sm' ? 'h-3 w-1' : size === 'md' ? 'h-4 w-1.5' : 'h-6 w-2',
-              colorClasses[color]
-            )}
-            style={{
-              animationDelay: `${i * 0.1}s`,
-              animationDuration: '0.6s'
-            }}
-          />
-        ))}
-      </div>
-    );
-  }
+  // Map to premium loader variants
+  const variantMap = {
+    'default': 'spinner',
+    'dots': 'dots',
+    'pulse': 'liquid',
+    'spin': 'spinner',
+    'bounce': 'dots'
+  } as const;
 
   return (
-    <Loader2 
-      className={cn(
-        'animate-spin',
-        sizeClasses[size],
-        colorClasses[color],
-        className
-      )}
+    <PremiumLoader
+      size={size === 'xl' ? 'lg' : size}
+      variant={variantMap[variant] || 'spinner'}
+      className={className}
     />
   );
 };
@@ -171,7 +101,7 @@ export const LoadingWithProgress: React.FC<LoadingWithProgressProps> = ({
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          <Progress value={displayProgress} className="h-2" />
+          <LiquidProgress value={displayProgress} variant="gradient" />
         </CardContent>
       </Card>
     );
@@ -193,7 +123,7 @@ export const LoadingWithProgress: React.FC<LoadingWithProgressProps> = ({
           </span>
         )}
       </div>
-      <Progress value={displayProgress} className="h-2" />
+      <LiquidProgress value={displayProgress} />
     </div>
   );
 };

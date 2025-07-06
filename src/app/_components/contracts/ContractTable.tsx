@@ -7,6 +7,7 @@ import { useConvexQuery } from '@/lib/api-client';
 import { api } from '../../../../convex/_generated/api';
 import { Id } from '../../../../convex/_generated/dataModel';
 import type { ContractStatus } from '@/types/contract.types';
+import type { ContractEntity } from '@/types/core-entities';
 import { useUser } from '@clerk/nextjs';
 
 // UI Components
@@ -95,7 +96,7 @@ export const ContractTable = ({
     
     const contractsList = Array.isArray(contracts) ? contracts : contracts.contracts || [];
 
-    let filtered = contractsList.filter((contract: any) => {
+    let filtered = contractsList.filter((contract: ContractEntity) => {
       // Search filter
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
@@ -117,9 +118,9 @@ export const ContractTable = ({
     });
 
     // Sort contracts
-    filtered.sort((a: any, b: any) => {
-      let aValue: any;
-      let bValue: any;
+    filtered.sort((a: ContractEntity, b: ContractEntity) => {
+      let aValue: string | number;
+      let bValue: string | number;
 
       switch (sortField) {
         case 'title':
@@ -355,7 +356,7 @@ export const ContractTable = ({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedContracts.map((contract: any) => (
+                  {paginatedContracts.map((contract: ContractEntity) => (
                     <TableRow key={contract._id} className="hover:bg-accent/50 hover:shadow-md hover:scale-[1.005] transition-all duration-200 ease-out cursor-pointer group">
                       <TableCell className="font-medium">
                         <div className="flex flex-col">

@@ -3,8 +3,9 @@
  */
 
 import { useQuery, useMutation, usePaginatedQuery } from 'convex/react';
-import { api } from '@/convex/_generated/api';
-import { Id } from '@/convex/_generated/dataModel';
+import { FunctionReference } from 'convex/server';
+import { api } from '../../convex/_generated/api';
+import { Id } from '../../convex/_generated/dataModel';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { logger } from './logger';
 import { cache } from './cache';
@@ -12,8 +13,8 @@ import { cache } from './cache';
 /**
  * Optimistic update wrapper for mutations
  */
-export function useOptimisticMutation<Args extends any[], Response>(
-  mutation: any,
+export function useOptimisticMutation<Args extends unknown[], Response>(
+  mutation: (...args: Args) => Promise<Response>,
   options?: {
     onSuccess?: (data: Response) => void;
     onError?: (error: Error) => void;
@@ -71,8 +72,8 @@ export function useOptimisticMutation<Args extends any[], Response>(
  * Query with caching and error handling
  */
 export function useCachedQuery<T>(
-  query: any,
-  args: any,
+  query: (...args: unknown[]) => unknown,
+  args: unknown,
   options?: {
     cacheKey?: string;
     cacheTTL?: number;
@@ -99,7 +100,7 @@ export function useCachedQuery<T>(
   
   useEffect(() => {
     if (queryResult !== undefined && options?.cacheKey) {
-      cache.set(options.cacheKey, queryResult, { ttl: options.cacheTTL });
+      cache.set(options.cacheKey, queryResult, options.cacheTTL ? { ttl: options.cacheTTL } : undefined);
       setCachedData(queryResult);
     }
   }, [queryResult, options?.cacheKey, options?.cacheTTL]);
@@ -128,7 +129,7 @@ export function useCachedQuery<T>(
  */
 export function useInfiniteQuery<T>(
   query: any,
-  baseArgs: any,
+  baseArgs: Record<string, unknown>,
   options?: {
     pageSize?: number;
     enabled?: boolean;
@@ -183,8 +184,8 @@ export function useInfiniteQuery<T>(
  * Real-time subscription with connection management
  */
 export function useSubscription<T>(
-  query: any,
-  args: any,
+  query: (...args: unknown[]) => unknown,
+  args: unknown,
   options?: {
     onUpdate?: (data: T) => void;
     onError?: (error: Error) => void;
@@ -193,12 +194,11 @@ export function useSubscription<T>(
 ) {
   const [isConnected, setIsConnected] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const previousDataRef = useRef<T>();
+  const previousDataRef = useRef<T | undefined>();
   
-  const data = useQuery(
-    options?.enabled !== false ? query : null,
-    options?.enabled !== false ? args : null
-  );
+  const data = options?.enabled !== false 
+    ? useQuery(query, args)
+    : undefined;
   
   useEffect(() => {
     if (data !== undefined && data !== previousDataRef.current) {
@@ -221,8 +221,8 @@ export function useSubscription<T>(
 /**
  * Batch operations helper
  */
-export function useBatchMutation<T, Args extends any[]>(
-  mutation: any,
+export function useBatchMutation<T, Args extends unknown[]>(
+  mutation: FunctionReference<"mutation">,
   options?: {
     batchSize?: number;
     onProgress?: (completed: number, total: number) => void;
@@ -246,7 +246,7 @@ export function useBatchMutation<T, Args extends any[]>(
       
       const batchPromises = batch.map(async (args, index) => {
         try {
-          const result = await mutate(...args);
+          const result = await mutate(args as any);
           return { success: true, result, index: i + index };
         } catch (error) {
           if (options?.onError) {
@@ -292,8 +292,8 @@ export function useBatchMutation<T, Args extends any[]>(
  * Error recovery wrapper
  */
 export function useQueryWithRetry<T>(
-  query: any,
-  args: any,
+  query: FunctionReference<"query">,
+  args: unknown,
   options?: {
     maxRetries?: number;
     retryDelay?: number;
@@ -305,7 +305,7 @@ export function useQueryWithRetry<T>(
   const maxRetries = options?.maxRetries || 3;
   const retryDelay = options?.retryDelay || 1000;
   
-  const data = useQuery(query, args);
+  const data = useQuery(query, args as any);
   
   const retry = useCallback(async () => {
     if (retryCount >= maxRetries) return;
@@ -339,7 +339,7 @@ export function useQueryWithRetry<T>(
 export function usePrefetch() {
   const prefetchedQueries = useRef(new Set<string>());
   
-  const prefetch = useCallback(async (query: any, args: any, cacheKey: string) => {
+  const prefetch = useCallback(async (query: any, args: unknown, cacheKey: string) => {
     if (prefetchedQueries.current.has(cacheKey)) return;
     
     try {

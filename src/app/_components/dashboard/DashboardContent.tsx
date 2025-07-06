@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from "react";
+import { usePerformanceTracking, useComponentPerformance } from '@/hooks/usePerformanceTracking';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -45,6 +46,15 @@ import { MetricId } from "../../../../convex/dashboardPreferences";
 import DynamicChart from "@/app/_components/common/DynamicCharts";
 import { MetricCard } from "@/app/_components/common/MetricCard";
 import { toast } from "sonner";
+import { 
+  ParticleBackground, 
+  AnimatedCounter, 
+  Card3D,
+  AuroraBackground,
+  PremiumLoader,
+  SkeletonCard
+} from "@/components/premium";
+import { useStaggerReveal } from "@/hooks/usePremiumEffects";
 
 // Define chart colors for consistency
 const CHART_COLORS = {
@@ -87,7 +97,16 @@ interface DashboardItem {
   chartContent?: React.ReactNode;
 }
 
-const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => {
+const DashboardContentComponent: React.FC<DashboardContentProps> = ({ enterpriseId }) => {
+  // Performance tracking
+  const { trackInteraction, trackOperation } = usePerformanceTracking();
+  const { trackMount, trackUpdate } = useComponentPerformance('DashboardContent');
+
+  // Track component mount
+  useEffect(() => {
+    trackMount();
+  }, [trackMount]);
+
   // Fetch user preferences
   const userPreferences = useQuery(api.dashboardPreferences.getUserPreferences);
   const savePreferences = useMutation(api.dashboardPreferences.saveUserPreferences);
@@ -866,5 +885,10 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ enterpriseId }) => 
     </div>
   );
 };
+
+const DashboardContent = React.memo(DashboardContentComponent, (prevProps, nextProps) => {
+  // Only re-render if enterpriseId changes
+  return prevProps.enterpriseId === nextProps.enterpriseId;
+});
 
 export default DashboardContent;

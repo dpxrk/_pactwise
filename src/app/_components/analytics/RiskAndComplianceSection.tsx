@@ -24,7 +24,7 @@ export const RiskAndComplianceSection = () => (
           <DynamicChart 
             type="pie"
             data={riskDistribution}
-            series={[{ dataKey: "value" }] as any}
+            series={[{ dataKey: "value" }] as ChartSeries[]}
             pieConfig={{
               innerRadius: 60,
               outerRadius: 80,
@@ -54,7 +54,7 @@ export const RiskAndComplianceSection = () => (
               dataKey: "efficiency",
               name: "Compliance Score",
               color: "#4ade80"
-            }] as any}
+            }] as ChartSeries[]}
             xAxisKey="department"
             height={280}
             showGrid={true}

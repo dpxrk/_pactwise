@@ -1,6 +1,6 @@
 // Common type definitions to replace any usage
 
-import { Id } from '@/convex/_generated/dataModel';
+import { Id } from '../../convex/_generated/dataModel';
 
 // Error types
 export type AppError = Error & {

@@ -85,7 +85,7 @@ class MetricsCollector {
       name,
       value,
       type: 'counter',
-      tags,
+      tags: tags || undefined,
       timestamp: Date.now(),
     });
   }
@@ -96,7 +96,7 @@ class MetricsCollector {
       name,
       value,
       type: 'gauge',
-      tags,
+      tags: tags || undefined,
       timestamp: Date.now(),
     });
   }
@@ -107,7 +107,7 @@ class MetricsCollector {
       name,
       value,
       type: 'histogram',
-      tags,
+      tags: tags || undefined,
       timestamp: Date.now(),
     });
   }
@@ -118,7 +118,7 @@ class MetricsCollector {
       name,
       value: duration,
       type: 'timing',
-      tags,
+      tags: tags || undefined,
       timestamp: Date.now(),
     });
   }

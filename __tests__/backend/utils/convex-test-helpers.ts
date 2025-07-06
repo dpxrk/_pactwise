@@ -143,21 +143,22 @@ export function createMockEnterprise(overrides?: Partial<Doc<'enterprises'>>): D
 
 export function createMockContract(overrides?: Partial<Doc<'contracts'>>): Doc<'contracts'> {
   const now = Date.now();
+  const nowString = new Date(now).toISOString();
   return {
     _id: 'contract123' as GenericId<'contracts'>,
     _creationTime: now,
     title: 'Test Contract',
-    contractNumber: 'TEST-001',
-    type: 'service',
     status: 'active',
     enterpriseId: 'enterprise123' as GenericId<'enterprises'>,
     vendorId: 'vendor123' as GenericId<'vendors'>,
+    storageId: 'storage123' as GenericId<'_storage'>,
+    fileName: 'test-contract.pdf',
+    fileType: 'application/pdf',
     value: 50000,
-    currency: 'USD',
-    startDate: now,
-    endDate: now + 365 * 24 * 60 * 60 * 1000, // 1 year later
+    startDate: nowString,
+    endDate: new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year later
     createdBy: 'user123' as GenericId<'users'>,
-    createdAt: now,
+    createdAt: nowString,
     updatedAt: now,
     ...overrides,
   };
@@ -165,19 +166,18 @@ export function createMockContract(overrides?: Partial<Doc<'contracts'>>): Doc<'
 
 export function createMockVendor(overrides?: Partial<Doc<'vendors'>>): Doc<'vendors'> {
   const now = Date.now();
+  const nowString = new Date(now).toISOString();
   return {
     _id: 'vendor123' as GenericId<'vendors'>,
     _creationTime: now,
     name: 'Test Vendor',
-    legalName: 'Test Vendor Inc.',
-    type: 'supplier',
     status: 'active',
     enterpriseId: 'enterprise123' as GenericId<'enterprises'>,
-    taxId: '12-3456789',
-    email: 'vendor@example.com',
-    phone: '+1234567890',
+    contactEmail: 'vendor@example.com',
+    contactPhone: '+1234567890',
     website: 'https://vendor.example.com',
-    createdAt: now,
+    category: 'technology',
+    createdAt: nowString,
     updatedAt: now,
     ...overrides,
   };

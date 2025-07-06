@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { useConvexMutation } from '@/lib/api-client';
-import { api } from '@/../convex/_generated/api';
+import { api } from '../../../../convex/_generated/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,7 +16,7 @@ import type { UserRole } from '@/../convex/schema';
 import { ONBOARDING_STEPS, type OnboardingStep } from '@/../convex/onboardingConstants';
 
 interface InviteTeamStepProps {
-  onStepComplete: (nextStep?: OnboardingStep, metadata?: any) => void;
+  onStepComplete: (nextStep?: OnboardingStep, metadata?: Record<string, unknown>) => void;
   onSkip: (nextStep?: OnboardingStep) => void;
 }
 
@@ -71,8 +71,8 @@ const InviteTeamStep: React.FC<InviteTeamStepProps> = ({ onStepComplete, onSkip 
       try {
         await createInvitationMutation.execute({ email: inv.email, role: inv.role });
         sentEmails.push(inv.email);
-      } catch (err: any) {
-        setError(`Failed to send invitation to ${inv.email}: ${err.message}`);
+      } catch (err) {
+        setError(`Failed to send invitation to ${inv.email}: ${err instanceof Error ? err.message : 'Unknown error'}`);
         allSuccessful = false;
         // Optionally break or collect all errors
       }

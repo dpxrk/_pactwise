@@ -28,6 +28,8 @@ import {
   Webhook,
   ClipboardList,
   CheckCircle,
+  DollarSign,
+  Activity,
   Archive,
   AlertCircle,
   FileEdit,
@@ -66,11 +68,11 @@ const NavItem = React.memo(
     return (
       <div className="space-y-1">
         <Button
-          variant={isActive ? "secondary" : "ghost"}
+          variant="ghost"
           className={cn(
-            "w-full justify-start group relative overflow-visible cursor-pointer",
-            "hover:shadow-lg hover:-translate-y-0.5 hover:bg-accent/70 hover:scale-[1.02] transition-all duration-200 ease-out",
-            isActive && "bg-gradient-to-r from-primary/10 to-primary/5 border-l-2 border-primary shadow-md",
+            "w-full justify-start group relative overflow-hidden cursor-pointer",
+            "hover:bg-white/5 transition-all duration-200 ease-out",
+            isActive && "bg-gradient-to-r from-teal-500/10 to-cyan-500/5 border-l-2 border-teal-400",
             navItemClassName
           )}
           onClick={handleClick}
@@ -78,10 +80,14 @@ const NavItem = React.memo(
         >
           <item.icon className={cn(
             "mr-3 h-4 w-4 transition-all duration-200 ease-out",
-            isActive ? "text-primary" : "text-gold",
-            "group-hover:scale-110 group-hover:text-primary"
+            isActive ? "text-teal-400" : "text-gray-500",
+            "group-hover:text-teal-400"
           )} />
-          <span className="flex-1 text-left font-medium">{item.label}</span>
+          <span className={cn(
+            "flex-1 text-left font-medium transition-colors",
+            isActive ? "text-teal-400" : "text-gray-300",
+            "group-hover:text-white"
+          )}>{item.label}</span>
           {item.subItems && (
             <ChevronDown
               className={cn(
@@ -93,10 +99,14 @@ const NavItem = React.memo(
           )}
           {/* Hover indicator */}
           <div className={cn(
-            "absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent",
+            "absolute inset-0 bg-gradient-to-r from-teal-500/5 via-transparent to-transparent",
             "opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out",
             "-z-10"
           )} />
+          {/* Glow effect on hover */}
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-teal-400/50 to-transparent" />
+          </div>
         </Button>
 
         {/* Animated sub-items */}
@@ -110,9 +120,9 @@ const NavItem = React.memo(
                 key={subItem.href}
                 variant="ghost"
                 className={cn(
-                  "w-full justify-start h-9 cursor-pointer group relative overflow-visible",
-                  "hover:bg-accent/70 hover:translate-x-1 hover:shadow-md hover:scale-[1.01] transition-all duration-200 ease-out",
-                  pathname === subItem.href && "bg-accent border-l-2 border-primary/50 shadow-sm",
+                  "w-full justify-start h-9 cursor-pointer group relative overflow-hidden",
+                  "hover:bg-white/5 hover:translate-x-1 transition-all duration-200 ease-out",
+                  pathname === subItem.href && "bg-teal-500/10 border-l-2 border-teal-400/50",
                   // Staggered animation
                   isExpanded && "animate-slide-in-left"
                 )}
@@ -122,14 +132,18 @@ const NavItem = React.memo(
                 onClick={() => onClick(subItem.href, subItem.label)}
               >
                 <subItem.icon className={cn(
-                  "mr-2 h-4 w-4 transition-all duration-200 ease-out",
-                  pathname === subItem.href ? "text-primary" : "text-muted-foreground",
-                  "group-hover:text-primary group-hover:scale-110"
+                  "mr-2 h-3.5 w-3.5 transition-all duration-200 ease-out",
+                  pathname === subItem.href ? "text-teal-400" : "text-gray-600",
+                  "group-hover:text-teal-400"
                 )} />
-                <span className="text-sm font-medium">{subItem.label}</span>
+                <span className={cn(
+                  "text-sm font-medium transition-colors",
+                  pathname === subItem.href ? "text-teal-400" : "text-gray-400",
+                  "group-hover:text-white"
+                )}>{subItem.label}</span>
                 {/* Sub-item hover indicator */}
                 <div className={cn(
-                  "absolute left-0 top-0 w-1 h-full bg-primary/30 scale-y-0",
+                  "absolute left-0 top-0 w-0.5 h-full bg-teal-400/50 scale-y-0",
                   "group-hover:scale-y-100 transition-transform duration-200 ease-out origin-center"
                 )} />
               </Button>
@@ -170,6 +184,11 @@ export const SideNavigation = ({ className }: { className?: string }) => {
             {
               label: "All Contracts",
               href: "/dashboard/contracts",
+              icon: FileText,
+            },
+            {
+              label: "Templates",
+              href: "/dashboard/contracts/templates",
               icon: FileText,
             },
             {
@@ -240,6 +259,26 @@ export const SideNavigation = ({ className }: { className?: string }) => {
           label: "Analytics",
           href: "/dashboard/analytics",
           icon: BarChart3,
+        },
+      ],
+    },
+    {
+      label: "Finance",
+      items: [
+        {
+          label: "Budgets",
+          href: "/dashboard/finance/budgets",
+          icon: DollarSign,
+        },
+      ],
+    },
+    {
+      label: "Administration",
+      items: [
+        {
+          label: "System Health",
+          href: "/dashboard/admin/system",
+          icon: Activity,
         },
       ],
     },
@@ -354,11 +393,13 @@ export const SideNavigation = ({ className }: { className?: string }) => {
 
   return (
     <aside className={cn(
-      "flex flex-col border-r bg-card/50 backdrop-blur-sm h-full",
-      "shadow-lg border-border/50",
+      "flex flex-col border-r glass h-full",
+      "border-white/5",
       className
     )}>
-      <ScrollArea className="flex-1 h-full">
+      {/* Background gradient */}
+      <div className="absolute inset-0 bg-gradient-to-b from-background via-background/95 to-background opacity-90" />
+      <ScrollArea className="flex-1 h-full relative z-10">
         <div className="space-y-8 p-6 min-h-full">
           {navigationSections.map((section, sectionIdx) => (
             <div 
@@ -371,10 +412,10 @@ export const SideNavigation = ({ className }: { className?: string }) => {
               {section.label && (
                 <>
                   <div className="flex items-center px-2 mb-3">
-                    <span className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       {section.label}
                     </span>
-                    <Separator className="ml-3 flex-1 bg-gradient-to-r from-border/50 to-transparent" />
+                    <div className="ml-3 flex-1 h-px bg-gradient-to-r from-gray-800 to-transparent" />
                   </div>
                 </>
               )}

@@ -50,7 +50,7 @@ export interface WorkflowStep {
   completedAt?: Date;
   dueDate?: Date;
   duration?: number; // in milliseconds
-  output?: any;
+  output?: unknown;
   error?: string;
   comments?: {
     id: string;
@@ -81,7 +81,7 @@ export interface WorkflowExecution {
     entityId?: string;
     entityTitle?: string;
   };
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Step status configurations

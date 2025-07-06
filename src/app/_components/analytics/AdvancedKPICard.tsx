@@ -41,7 +41,7 @@ export interface KPIData {
   status?: "good" | "warning" | "critical" | "neutral";
   description?: string;
   lastUpdated?: string;
-  drillDownData?: any[];
+  drillDownData?: Array<Record<string, unknown>>;
 }
 
 interface AdvancedKPICardProps {

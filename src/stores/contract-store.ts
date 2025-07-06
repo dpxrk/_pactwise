@@ -41,7 +41,7 @@ interface ContractModalState {
   updateFormData: (field: string, value: string) => void;
   isSubmitting: boolean;
   isFormValid: () => boolean;
-  submitContract: () => Promise<any>;
+  submitContract: () => Promise<ContractType | null>;
   
   // Search functionality
   searchQuery: string;

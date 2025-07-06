@@ -2,13 +2,12 @@
 
 import React from 'react';
 import { 
-  ThreeBarChart, 
-  ThreeLineChart, 
-  ThreePieChart, 
-  ThreeAreaChart,
-  ChartDataPoint,
-  ChartSeries 
-} from '../three-charts';
+  LazyThreeBarChart, 
+  LazyThreeLineChart, 
+  LazyThreePieChart, 
+  LazyThreeAreaChart
+} from '../three-charts/LazyThreeCharts';
+import type { ChartDataPoint, ChartSeries } from '@/types/three-charts.types';
 import { convertLegacySeries, createChartProps, type LegacySeries } from '@/lib/chart-type-helpers';
 
 // Define available chart types (reduced to what Three.js supports)
@@ -126,7 +125,7 @@ const DynamicChart: React.FC<DynamicChartProps> = ({
   switch (type) {
     case 'line':
       return (
-        <ThreeLineChart
+        <LazyThreeLineChart
           {...commonProps}
           lineWidth={lineConfig?.lineWidth || 0.05}
           pointSize={lineConfig?.pointSize || 0.08}
@@ -138,7 +137,7 @@ const DynamicChart: React.FC<DynamicChartProps> = ({
 
     case 'bar':
       return (
-        <ThreeBarChart
+        <LazyThreeBarChart
           {...commonProps}
           barWidth={barConfig?.barWidth || 0.6}
           barDepth={barConfig?.barDepth || 0.6}
@@ -150,7 +149,7 @@ const DynamicChart: React.FC<DynamicChartProps> = ({
 
     case 'area':
       return (
-        <ThreeAreaChart
+        <LazyThreeAreaChart
           {...commonProps}
           opacity={areaConfig?.opacity || 0.7}
           showPoints={areaConfig?.showPoints ?? false}
@@ -161,7 +160,7 @@ const DynamicChart: React.FC<DynamicChartProps> = ({
 
     case 'pie':
       return (
-        <ThreePieChart
+        <LazyThreePieChart
           {...commonProps}
           innerRadius={pieConfig?.innerRadius || 0}
           outerRadius={pieConfig?.outerRadius || 3}

@@ -91,7 +91,7 @@ const agentTypeConfigs: Partial<Record<AgentType, {
   icon: typeof Shield;
   color: string;
   description: string;
-  defaultSettings: Record<string, any>;
+  defaultSettings: Record<string, unknown>;
 }>> = {
   financial: {
     icon: DollarSign,
@@ -185,11 +185,15 @@ export const AgentConfigurationPanel: React.FC<AgentConfigurationPanelProps> = (
       timeoutMinutes: agent.config?.timeoutMinutes || 30,
       enabled: agent.isEnabled,
       priority: agent.config?.priority || 'medium',
-      maxConcurrentTasks: (agent.config as any)?.maxConcurrentTasks || 5,
-      riskThreshold: (agent.config as any)?.riskThreshold || 75,
-      autoRestart: (agent.config as any)?.autoRestart || false,
-      notificationSettings: (agent.config as any)?.notificationSettings || defaultConfig.notificationSettings,
-      customSettings: (agent.config as any)?.customSettings || {},
+      maxConcurrentTasks: (agent.config?.customSettings as Record<string, unknown>)?.maxConcurrentTasks as number || 5,
+      riskThreshold: (agent.config?.customSettings as Record<string, unknown>)?.riskThreshold as number || 75,
+      autoRestart: (agent.config?.customSettings as Record<string, unknown>)?.autoRestart as boolean || false,
+      notificationSettings: (agent.config?.customSettings as Record<string, unknown>)?.notificationSettings as {
+        onSuccess: boolean;
+        onFailure: boolean;
+        onCriticalError: boolean;
+      } || defaultConfig.notificationSettings,
+      customSettings: agent.config?.customSettings || {},
     });
     
     setIsConfigDialogOpen(true);
@@ -266,7 +270,7 @@ export const AgentConfigurationPanel: React.FC<AgentConfigurationPanelProps> = (
 
     return Object.entries(categories).map(([category, types]) => ({
       category,
-      agents: agentsList.filter(agent => types.includes(agent.type))
+      agents: agentsList.filter((agent: Agent) => types.includes(agent.type))
     }));
   }, [agentsList]);
 
@@ -307,7 +311,7 @@ export const AgentConfigurationPanel: React.FC<AgentConfigurationPanelProps> = (
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="flex items-center gap-1">
             <Activity className="h-3 w-3" />
-            {agentsList.filter(a => a.isEnabled).length}/{agentsList.length} Active
+            {agentsList.filter((a: Agent) => a.isEnabled).length}/{agentsList.length} Active
           </Badge>
         </div>
       </div>
@@ -350,7 +354,7 @@ export const AgentConfigurationPanel: React.FC<AgentConfigurationPanelProps> = (
                   <div>
                     <p className="text-sm font-medium">Active Agents</p>
                     <p className="text-2xl font-bold">
-                      {agentsList.filter(a => a.isEnabled && a.status === 'active').length}
+                      {agentsList.filter((a: Agent) => a.isEnabled && a.status === 'active').length}
                     </p>
                   </div>
                 </div>
@@ -407,11 +411,11 @@ export const AgentConfigurationPanel: React.FC<AgentConfigurationPanelProps> = (
                               <div>
                                 <h4 className="font-medium text-sm">{agent.name}</h4>
                                 <p className="text-xs text-muted-foreground">
-                                  {AGENT_TYPE_LABELS[agent.type]}
+                                  {AGENT_TYPE_LABELS[agent.type as AgentType]}
                                 </p>
                               </div>
                             </div>
-                            <Badge className={STATUS_COLORS[agent.status]} variant="outline">
+                            <Badge className={STATUS_COLORS[agent.status as keyof typeof STATUS_COLORS]} variant="outline">
                               {agent.status}
                             </Badge>
                           </div>
@@ -457,7 +461,7 @@ export const AgentConfigurationPanel: React.FC<AgentConfigurationPanelProps> = (
 
         <TabsContent value="agents" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {agentsList.map((agent) => {
+            {agentsList.map((agent: Agent) => {
               const typeInfo = getAgentTypeInfo(agent.type);
               const performanceScore = getAgentPerformanceScore({ runCount: agent.runCount, errorCount: agent.errorCount });
               const Icon = typeInfo.icon;
@@ -471,11 +475,11 @@ export const AgentConfigurationPanel: React.FC<AgentConfigurationPanelProps> = (
                         <div>
                           <CardTitle className="text-lg">{agent.name}</CardTitle>
                           <p className="text-sm text-muted-foreground">
-                            {AGENT_TYPE_LABELS[agent.type]}
+                            {AGENT_TYPE_LABELS[agent.type as AgentType]}
                           </p>
                         </div>
                       </div>
-                      <Badge className={STATUS_COLORS[agent.status]}>
+                      <Badge className={STATUS_COLORS[agent.status as keyof typeof STATUS_COLORS]}>
                         {agent.status}
                       </Badge>
                     </div>

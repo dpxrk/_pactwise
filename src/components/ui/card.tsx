@@ -17,12 +17,11 @@ function Card({
       ref={elementRef as React.Ref<HTMLDivElement>}
       data-slot="card"
       className={cn(
-        "bg-card/50 backdrop-blur-sm text-card-foreground flex flex-col gap-6",
-        "rounded-xl border border-border/50 py-6 shadow-elegant",
+        "glass-card text-card-foreground flex flex-col gap-6 relative",
         "transition-all duration-300 ease-out group",
-        animated && isVisible && "animate-zoom-in",
-        animated && "hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5",
-        "hover:border-primary/20 hover:bg-card/80",
+        animated && isVisible && "animate-fade-in-up",
+        animated && "hover:-translate-y-1 hover:shadow-depth hover:border-white/10",
+        "before:absolute before:inset-0 before:rounded-xl before:bg-gradient-to-br before:from-teal-500/5 before:to-transparent before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-300",
         className
       )}
       {...(animated ? hoverProps : {})}

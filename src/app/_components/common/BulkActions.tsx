@@ -50,7 +50,7 @@ export interface BulkActionItem {
   title?: string;
   status?: string;
   type?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Bulk action definition
@@ -447,8 +447,8 @@ export const SelectAllHeader: React.FC<SelectAllHeaderProps> = ({
       <Checkbox
         checked={isAllSelected}
         ref={(el: HTMLButtonElement | null) => {
-          if (el && (el as any).indeterminate !== undefined) {
-            (el as any).indeterminate = isPartiallySelected;
+          if (el && (el as HTMLInputElement & { indeterminate?: boolean }).indeterminate !== undefined) {
+            (el as HTMLInputElement & { indeterminate?: boolean }).indeterminate = isPartiallySelected;
           }
         }}
         onCheckedChange={onToggleAll}

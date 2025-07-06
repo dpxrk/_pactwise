@@ -45,11 +45,11 @@ const CustomCursor = () => {
       
       if (cursorRef.current && cursorInnerRef.current) {
         if (isInteractive) {
-          cursorRef.current.style.transform = `translate(${cursorPosition.current.x}px, ${cursorPosition.current.y}px) scale(1.5)`;
-          cursorInnerRef.current.style.transform = 'scale(0.5)';
+          cursorRef.current.classList.add('scale-150');
+          cursorInnerRef.current.classList.add('scale-50');
         } else {
-          cursorRef.current.style.transform = `translate(${cursorPosition.current.x}px, ${cursorPosition.current.y}px) scale(1)`;
-          cursorInnerRef.current.style.transform = 'scale(1)';
+          cursorRef.current.classList.remove('scale-150');
+          cursorInnerRef.current.classList.remove('scale-50');
         }
       }
     };
@@ -59,8 +59,8 @@ const CustomCursor = () => {
       if (previousTimeRef.current !== undefined) {
         const deltaTime = time - previousTimeRef.current;
         
-        // Smooth following with easing
-        const ease = 0.125;
+        // Smooth following with faster easing
+        const ease = 0.3; // Increased from 0.125 for faster response
         currentPosition.current.x += (cursorPosition.current.x - currentPosition.current.x) * ease;
         currentPosition.current.y += (cursorPosition.current.y - currentPosition.current.y) * ease;
         
@@ -112,23 +112,25 @@ const CustomCursor = () => {
       {/* Outer cursor - follows with delay */}
       <div
         ref={cursorRef}
-        className="fixed top-0 left-0 w-8 h-8 pointer-events-none z-[9999] opacity-0 transition-opacity duration-300"
+        className="fixed top-0 left-0 w-8 h-8 pointer-events-none z-[9999] opacity-0 transition-all duration-200"
         style={{
           transform: 'translate(-50%, -50%)',
+          willChange: 'transform',
         }}
       >
-        <div className="absolute inset-0 rounded-full border border-purple-500/50 animate-pulse" />
+        <div className="absolute inset-0 rounded-full border border-teal-500/50 animate-pulse scale-100 transition-transform duration-200" />
       </div>
       
       {/* Inner cursor - follows immediately */}
       <div
         ref={cursorInnerRef}
-        className="fixed top-0 left-0 w-2 h-2 pointer-events-none z-[10000] opacity-0 transition-all duration-150"
+        className="fixed top-0 left-0 w-2 h-2 pointer-events-none z-[10000] opacity-0 transition-all duration-100"
         style={{
           transform: 'translate(-50%, -50%)',
+          willChange: 'transform',
         }}
       >
-        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-400 to-pink-400" />
+        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-teal-400 to-cyan-400 scale-100 transition-transform duration-100" />
       </div>
     </>
   );

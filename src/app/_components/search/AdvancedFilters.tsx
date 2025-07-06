@@ -306,7 +306,7 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
       const newFilter: ActiveFilter = {
         fieldId,
         value,
-        operator: operator as any,
+        operator: operator as FilterOperator,
       };
       
       if (field?.label) {

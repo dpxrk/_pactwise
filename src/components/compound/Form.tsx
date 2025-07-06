@@ -165,7 +165,7 @@ export function FormSelect({ name, placeholder, children, value, onValueChange, 
   const { errors, touched } = useContext(FormContext);
   const hasError = errors?.[name] && touched?.[name];
   
-  const selectProps: any = {};
+  const selectProps: { value?: string; onValueChange?: (value: string) => void } = {};
   if (value !== undefined) {
     selectProps.value = value;
   }

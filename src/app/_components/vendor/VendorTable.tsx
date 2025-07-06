@@ -7,6 +7,7 @@ import { useConvexQuery } from '@/lib/api-client';
 import { api } from '../../../../convex/_generated/api';
 import { Id } from '../../../../convex/_generated/dataModel';
 import type { VendorCategory } from '@/types/vendor.types';
+import type { VendorEntity } from '@/types/core-entities';
 import { useUser } from '@clerk/nextjs';
 
 // UI Components
@@ -120,7 +121,7 @@ export const VendorTable = ({
     
     const vendorsList = Array.isArray(vendors) ? vendors : vendors.vendors || [];
 
-    let filtered = vendorsList.filter((vendor: any) => {
+    let filtered = vendorsList.filter((vendor: VendorEntity) => {
       // Search filter
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
@@ -148,8 +149,8 @@ export const VendorTable = ({
 
     // Sort vendors
     filtered.sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
+      let aValue: string | number;
+      let bValue: string | number;
 
       switch (sortField) {
         case 'name':

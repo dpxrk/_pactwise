@@ -87,8 +87,8 @@ class PerformanceTracker {
 
   private sendEventToConvex(event: string, properties: Record<string, unknown>) {
     // This will be called by the ConvexClientProvider
-    if (typeof window !== 'undefined' && (window as any).convexAnalytics) {
-      (window as any).convexAnalytics.logEvent(event, properties);
+    if (typeof window !== 'undefined' && (window as Window & { convexAnalytics?: { logEvent: (event: string, properties: Record<string, unknown>) => void } }).convexAnalytics) {
+      (window as Window & { convexAnalytics?: { logEvent: (event: string, properties: Record<string, unknown>) => void } }).convexAnalytics.logEvent(event, properties);
     }
   }
 
@@ -120,7 +120,7 @@ interface UserEvent {
   timestamp: number;
   url: string;
   userId?: string;
-  properties?: Record<string, any>;
+  properties?: Record<string, unknown>;
   sessionId: string;
 }
 
@@ -245,8 +245,8 @@ class UserAnalytics {
     }
 
     // Send to Convex
-    if (typeof window !== 'undefined' && (window as any).convexAnalytics) {
-      (window as any).convexAnalytics.logEvent(event.event, {
+    if (typeof window !== 'undefined' && (window as Window & { convexAnalytics?: { logEvent: (event: string, properties: Record<string, unknown>) => void } }).convexAnalytics) {
+      (window as Window & { convexAnalytics?: { logEvent: (event: string, properties: Record<string, unknown>) => void } }).convexAnalytics.logEvent(event.event, {
         ...event.properties,
         timestamp: event.timestamp,
         url: event.url,
@@ -263,8 +263,8 @@ class UserAnalytics {
       this.events = [];
       
       // Send batch of events to Convex
-      if (typeof window !== 'undefined' && (window as any).convexAnalytics) {
-        (window as any).convexAnalytics.logEventBatch(eventsToSend);
+      if (typeof window !== 'undefined' && (window as Window & { convexAnalytics?: { logEventBatch: (events: UserEvent[]) => void } }).convexAnalytics) {
+        (window as Window & { convexAnalytics?: { logEventBatch: (events: UserEvent[]) => void } }).convexAnalytics.logEventBatch(eventsToSend);
       }
     }
   }
@@ -284,13 +284,13 @@ export const userAnalytics = new UserAnalytics();
 // Error tracking
 interface ErrorReport {
   error: Error;
-  errorInfo?: any;
+  errorInfo?: unknown;
   timestamp: number;
   url: string;
   userId?: string;
   sessionId: string;
   userAgent: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 class ErrorTracker {
@@ -361,8 +361,8 @@ class ErrorTracker {
     this.sendToSentry(errorReport);
 
     // Send to Convex
-    if (typeof window !== 'undefined' && (window as any).convexAnalytics) {
-      (window as any).convexAnalytics.reportError({
+    if (typeof window !== 'undefined' && (window as Window & { convexAnalytics?: { reportError: (data: unknown) => void } }).convexAnalytics) {
+      (window as Window & { convexAnalytics?: { reportError: (data: unknown) => void } }).convexAnalytics.reportError({
         message: errorReport.error.message,
         stack: errorReport.error.stack,
         timestamp: errorReport.timestamp,
@@ -669,7 +669,12 @@ export const reportPerformance = async (
     const Sentry = await import('@sentry/nextjs');
     
     // Send custom metric to Sentry
-    const breadcrumb: any = {
+    const breadcrumb: {
+      category: string;
+      message: string;
+      level: string;
+      data?: Record<string, unknown>;
+    } = {
       category: 'performance',
       message: `${metric.name}: ${metric.value}${metric.unit || ''}`,
       level: 'info'
@@ -679,7 +684,7 @@ export const reportPerformance = async (
       breadcrumb.data = metric.tags;
     }
     
-    Sentry.addBreadcrumb(breadcrumb);
+    Sentry.addBreadcrumb(breadcrumb as any);
 
     // Also track via user analytics
     userAnalytics.track('performance_metric', {

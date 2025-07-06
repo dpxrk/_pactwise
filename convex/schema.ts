@@ -220,7 +220,10 @@ export default defineSchema({
   .index("by_enterprise_title_status", ["enterpriseId", "title", "status"])
   // Search optimization indexes
   .index("by_enterprise_fileName", ["enterpriseId", "fileName"])
-  .index("by_enterprise_contractType_status", ["enterpriseId", "contractType", "status"]),
+  .index("by_enterprise_contractType_status", ["enterpriseId", "contractType", "status"])
+  // Additional required indexes
+  .index("by_enterprise_created", ["enterpriseId", "createdAt"])
+  .index("by_enterprise_status_vendor", ["enterpriseId", "status", "vendorId"]),
 
   // ===== CONTRACT ASSIGNMENTS =====
   contractAssignments: defineTable({
@@ -458,10 +461,12 @@ export default defineSchema({
     targetUsers: v.optional(v.array(v.id("users"))),
     timestamp: v.string(),
     processed: v.boolean(),
+    expiresAt: v.optional(v.number()),
   })
     .index("by_enterprise_timestamp", ["enterpriseId", "timestamp"])
     .index("by_user", ["userId"])
-    .index("by_processed", ["processed"]),
+    .index("by_processed", ["processed"])
+    .index("by_processed_expires", ["processed", "expiresAt"]),
 
   // ===== TYPING INDICATORS =====
   typingIndicators: defineTable({
@@ -554,6 +559,185 @@ export default defineSchema({
   })
     .index("by_user", ["userId"]),
 
+  // Stripe Integration Tables
+  stripeCustomers: defineTable({
+    enterpriseId: v.id("enterprises"),
+    stripeCustomerId: v.string(),
+    email: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_stripe_id", ["stripeCustomerId"]),
+
+  subscriptions: defineTable({
+    enterpriseId: v.id("enterprises"),
+    stripeSubscriptionId: v.string(),
+    stripeCustomerId: v.string(),
+    status: v.union(
+      v.literal("active"),
+      v.literal("canceled"),
+      v.literal("incomplete"),
+      v.literal("incomplete_expired"),
+      v.literal("past_due"),
+      v.literal("trialing"),
+      v.literal("unpaid")
+    ),
+    plan: v.union(
+      v.literal("starter"),
+      v.literal("professional"),
+      v.literal("enterprise")
+    ),
+    billingPeriod: v.union(
+      v.literal("monthly"),
+      v.literal("annual")
+    ),
+    currentPeriodStart: v.number(),
+    currentPeriodEnd: v.number(),
+    cancelAtPeriodEnd: v.boolean(),
+    canceledAt: v.optional(v.number()),
+    trialEnd: v.optional(v.number()),
+    metadata: v.optional(v.record(v.string(), v.string())),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_stripe_id", ["stripeSubscriptionId"])
+    .index("by_status", ["status"]),
+
+  paymentMethods: defineTable({
+    enterpriseId: v.id("enterprises"),
+    stripePaymentMethodId: v.string(),
+    type: v.string(),
+    card: v.optional(v.object({
+      brand: v.string(),
+      last4: v.string(),
+      expMonth: v.number(),
+      expYear: v.number(),
+    })),
+    isDefault: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_stripe_id", ["stripePaymentMethodId"]),
+
+  invoices: defineTable({
+    enterpriseId: v.id("enterprises"),
+    stripeInvoiceId: v.string(),
+    subscriptionId: v.optional(v.string()),
+    status: v.string(),
+    amount: v.number(),
+    currency: v.string(),
+    paid: v.boolean(),
+    periodStart: v.number(),
+    periodEnd: v.number(),
+    dueDate: v.optional(v.number()),
+    pdfUrl: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_stripe_id", ["stripeInvoiceId"])
+    .index("by_subscription", ["subscriptionId"]),
+
+  usageRecords: defineTable({
+    enterpriseId: v.id("enterprises"),
+    subscriptionId: v.string(),
+    metric: v.string(),
+    quantity: v.number(),
+    timestamp: v.number(),
+    metadata: v.optional(v.record(v.string(), v.string())),
+  })
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_subscription", ["subscriptionId"])
+    .index("by_metric", ["metric"])
+    .index("by_timestamp", ["timestamp"]),
+
+  // ===== AI CHAT TABLES =====
+  chatSessions: defineTable({
+    userId: v.id("users"),
+    enterpriseId: v.id("enterprises"),
+    title: v.string(),
+    messages: v.array(v.object({
+      id: v.string(),
+      role: v.union(v.literal("user"), v.literal("assistant"), v.literal("system")),
+      content: v.string(),
+      timestamp: v.string(),
+      attachments: v.optional(v.array(v.object({
+        type: v.union(v.literal("contract"), v.literal("vendor")),
+        id: v.string(),
+        title: v.string()
+      }))),
+      metadata: v.optional(v.object({
+        model: v.optional(v.string()),
+        tokens: v.optional(v.number()),
+        processingTime: v.optional(v.number())
+      }))
+    })),
+    context: v.optional(v.object({
+      contractId: v.optional(v.id("contracts")),
+      vendorId: v.optional(v.id("vendors")),
+      enterpriseId: v.id("enterprises")
+    })),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+    isActive: v.boolean()
+  })
+    .index("by_user", ["userId"])
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_created", ["createdAt"]),
+
+  chatFeedback: defineTable({
+    sessionId: v.id("chatSessions"),
+    messageId: v.string(),
+    userId: v.id("users"),
+    feedback: v.union(v.literal("helpful"), v.literal("not_helpful")),
+    comment: v.optional(v.string()),
+    createdAt: v.string()
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_user", ["userId"]),
+
+  // ===== AI INSIGHTS TABLES =====
+  insightFeedback: defineTable({
+    insightId: v.id("agentInsights"),
+    agentId: v.id("agents"),
+    feedback: v.union(v.literal("helpful"), v.literal("not_helpful"), v.literal("incorrect")),
+    comment: v.optional(v.string()),
+    userId: v.string(),
+    createdAt: v.string()
+  })
+    .index("by_insight", ["insightId"])
+    .index("by_agent", ["agentId"]),
+
+  // ===== CONTRACT CLAUSES TABLE =====
+  contractClauses: defineTable({
+    contractId: v.id("contracts"),
+    enterpriseId: v.id("enterprises"),
+    clauseType: v.string(),
+    present: v.boolean(),
+    confidence: v.number(),
+    extractedText: v.optional(v.string()),
+    riskLevel: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    recommendations: v.array(v.string()),
+    embedding: v.optional(v.array(v.number())),
+    createdAt: v.string(),
+    updatedAt: v.optional(v.string())
+  })
+    .index("by_contract", ["contractId"])
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_type", ["clauseType"])
+    .index("by_risk", ["riskLevel"]),
+
+  // ===== ANALYTICS CACHE TABLE =====
+  analyticsCache: defineTable({
+    key: v.string(),
+    data: v.any(),
+    timestamp: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_expires", ["expiresAt"]),
+
   ...agentTables,
   ...notificationTables,
   ...rateLimitTables,
@@ -561,5 +745,216 @@ export default defineSchema({
   ...memoryTables,
   ...episodicMemoryTables,
   ...memorySharingTables,
-  ...collaborativeDocumentsSchema
+  ...collaborativeDocumentsSchema,
+
+  // ===== WEBHOOK MANAGEMENT =====
+  webhooks: defineTable({
+    enterpriseId: v.id("enterprises"),
+    url: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    events: v.array(v.string()),
+    secret: v.string(),
+    isActive: v.boolean(),
+    headers: v.record(v.string(), v.string()),
+    retryConfig: v.object({
+      maxRetries: v.number(),
+      initialDelay: v.number(),
+      maxDelay: v.number(),
+    }),
+    createdBy: v.id("users"),
+    createdAt: v.string(),
+    updatedAt: v.optional(v.string()),
+    lastTriggeredAt: v.optional(v.string()),
+    failureCount: v.number(),
+    successCount: v.number(),
+  })
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_active", ["isActive"])
+    .index("by_enterprise_active", ["enterpriseId", "isActive"]),
+
+  webhookDeliveries: defineTable({
+    webhookId: v.id("webhooks"),
+    event: v.string(),
+    payload: v.any(),
+    response: v.optional(v.string()),
+    statusCode: v.optional(v.number()),
+    success: v.boolean(),
+    error: v.optional(v.string()),
+    duration: v.number(),
+    retryCount: v.number(),
+    deliveredAt: v.string(),
+  })
+    .index("by_webhook", ["webhookId"])
+    .index("by_delivered", ["deliveredAt"])
+    .index("by_webhook_delivered", ["webhookId", "deliveredAt"]),
+
+  // ===== API KEY MANAGEMENT =====
+  apiKeys: defineTable({
+    enterpriseId: v.id("enterprises"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    keyHash: v.string(), // Store hashed version
+    keyPrefix: v.string(), // First 8 chars for identification
+    permissions: v.array(v.string()),
+    rateLimit: v.optional(v.object({
+      requestsPerMinute: v.number(),
+      requestsPerHour: v.number(),
+      requestsPerDay: v.number(),
+    })),
+    expiresAt: v.optional(v.string()),
+    lastUsedAt: v.optional(v.string()),
+    isActive: v.boolean(),
+    createdBy: v.id("users"),
+    createdAt: v.string(),
+    revokedAt: v.optional(v.string()),
+    revokedBy: v.optional(v.id("users")),
+    metadata: v.optional(v.record(v.string(), v.string())),
+  })
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_prefix", ["keyPrefix"])
+    .index("by_active", ["isActive"])
+    .index("by_enterprise_active", ["enterpriseId", "isActive"]),
+
+  apiKeyUsage: defineTable({
+    apiKeyId: v.id("apiKeys"),
+    endpoint: v.string(),
+    method: v.string(),
+    statusCode: v.number(),
+    responseTime: v.number(),
+    ipAddress: v.string(),
+    userAgent: v.optional(v.string()),
+    timestamp: v.string(),
+  })
+    .index("by_key", ["apiKeyId"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_key_timestamp", ["apiKeyId", "timestamp"]),
+
+  // ===== BACKUP & RECOVERY =====
+  backups: defineTable({
+    enterpriseId: v.id("enterprises"),
+    backupType: v.string(),
+    status: v.union(
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    description: v.optional(v.string()),
+    includeAttachments: v.boolean(),
+    selectedTables: v.optional(v.array(v.string())),
+    size: v.number(), // in bytes
+    recordCount: v.number(),
+    storageId: v.optional(v.id("_storage")),
+    createdBy: v.id("users"),
+    createdAt: v.string(),
+    completedAt: v.optional(v.string()),
+    error: v.optional(v.string()),
+  })
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"]),
+
+  backupSchedules: defineTable({
+    enterpriseId: v.id("enterprises"),
+    schedule: v.union(
+      v.literal("daily"),
+      v.literal("weekly"),
+      v.literal("monthly")
+    ),
+    backupType: v.union(
+      v.literal("full"),
+      v.literal("incremental")
+    ),
+    time: v.string(), // HH:MM format
+    timezone: v.string(),
+    isActive: v.boolean(),
+    createdBy: v.id("users"),
+    createdAt: v.string(),
+    updatedAt: v.optional(v.string()),
+    lastRunAt: v.optional(v.string()),
+    nextRunAt: v.optional(v.string()),
+  })
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_active", ["isActive"])
+    .index("by_next_run", ["nextRunAt"]),
+
+  // ===== CONTRACT TEMPLATES =====
+  contractTemplates: defineTable({
+    enterpriseId: v.id("enterprises"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    category: v.string(),
+    contractType: v.string(),
+    content: v.object({
+      sections: v.array(v.object({
+        id: v.string(),
+        title: v.string(),
+        content: v.string(),
+        isRequired: v.boolean(),
+        variables: v.optional(v.array(v.object({
+          name: v.string(),
+          type: v.union(v.literal("text"), v.literal("date"), v.literal("number"), v.literal("select")),
+          defaultValue: v.optional(v.string()),
+          options: v.optional(v.array(v.string())),
+          required: v.boolean(),
+          description: v.optional(v.string()),
+        }))),
+      })),
+      metadata: v.optional(v.object({
+        estimatedValue: v.optional(v.number()),
+        typicalDuration: v.optional(v.string()),
+        requiredApprovals: v.optional(v.array(v.string())),
+        tags: v.optional(v.array(v.string())),
+      })),
+    }),
+    variables: v.array(v.object({
+      name: v.string(),
+      type: v.union(v.literal("text"), v.literal("date"), v.literal("number"), v.literal("select")),
+      defaultValue: v.optional(v.string()),
+      options: v.optional(v.array(v.string())),
+      required: v.boolean(),
+      description: v.optional(v.string()),
+    })),
+    isPublic: v.boolean(),
+    isActive: v.boolean(),
+    version: v.number(),
+    tags: v.array(v.string()),
+    usageCount: v.number(),
+    createdBy: v.id("users"),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+    updatedBy: v.optional(v.id("users")),
+    deletedAt: v.optional(v.string()),
+    deletedBy: v.optional(v.id("users")),
+    clonedFrom: v.optional(v.id("contractTemplates")),
+  })
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_category", ["category"])
+    .index("by_public", ["isPublic"])
+    .index("by_active", ["isActive"]),
+
+  templateVersions: defineTable({
+    templateId: v.id("contractTemplates"),
+    version: v.number(),
+    content: v.any(),
+    variables: v.array(v.any()),
+    createdAt: v.string(),
+    createdBy: v.id("users"),
+    changes: v.string(),
+  })
+    .index("by_template", ["templateId"])
+    .index("by_version", ["templateId", "version"]),
+
+  templateUsage: defineTable({
+    templateId: v.id("contractTemplates"),
+    enterpriseId: v.id("enterprises"),
+    userId: v.id("users"),
+    contractTitle: v.string(),
+    variableValues: v.record(v.string(), v.any()),
+    usedAt: v.string(),
+  })
+    .index("by_template", ["templateId"])
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_user", ["userId"])
+    .index("by_used", ["usedAt"])
 });

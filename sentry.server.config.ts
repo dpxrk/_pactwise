@@ -20,9 +20,7 @@ if (dsn) {
 
   // Server-specific integrations
   integrations: [    
-    ...(((Sentry as any).Integrations?.Http) ? [new (Sentry as any).Integrations.Http({
-      // Capture HTTP requests
-    })] : []),
+    // Server integrations are handled automatically by @sentry/nextjs
   ],
 
   // Performance monitoring for server-side

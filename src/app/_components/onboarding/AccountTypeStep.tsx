@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useConvexQuery, useConvexMutation } from '@/lib/api-client';
-import { api } from '@/../convex/_generated/api';
+import { api } from '../../../../convex/_generated/api';
 import { ONBOARDING_STEPS, type OnboardingStep } from '@/../convex/onboardingConstants';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,16 +11,24 @@ import { LoadingSpinner } from '@/app/_components/common/LoadingSpinner';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Building, Users, Mail } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { Id } from '@/../convex/_generated/dataModel';
+import { Id } from '../../../../convex/_generated/dataModel';
 
 interface AccountTypeStepProps {
   userEmail?: string;
-  onStepComplete: (nextStep: OnboardingStep, metadata?: any) => void;
+  onStepComplete: (nextStep: OnboardingStep, metadata?: Record<string, unknown>) => void;
 }
 
 const AccountTypeStep: React.FC<AccountTypeStepProps> = ({ userEmail, onStepComplete }) => {
   const router = useRouter();
-  const [selectedInvitation, setSelectedInvitation] = useState<any | null>(null);
+  const [selectedInvitation, setSelectedInvitation] = useState<{
+    _id: Id<"invitations">;
+    email: string;
+    role: string;
+    status: string;
+    enterpriseId: Id<"enterprises">;
+    token: string;
+    enterpriseName?: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   const { data: domainMatch, isLoading: isLoadingDomainMatch } = useConvexQuery(
@@ -56,8 +64,8 @@ const AccountTypeStep: React.FC<AccountTypeStepProps> = ({ userEmail, onStepComp
       onStepComplete(ONBOARDING_STEPS.PROFILE_SETUP, { joinedEnterpriseId: enterpriseId });
       router.push('/dashboard'); // Or let OnboardingFlowManager handle next step rendering
 
-    } catch (err: any) {
-      setError(err.message || "Could not process invitation.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not process invitation.");
     }
   };
 

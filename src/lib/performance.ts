@@ -2,7 +2,7 @@
  * Performance optimization utilities for React components
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 
 /**
@@ -113,7 +113,7 @@ export function useLazyLoad(options?: IntersectionObserverInit) {
  */
 export function usePerformanceMonitor(componentName: string) {
   const renderCount = useRef(0);
-  const renderStartTime = useRef<number>();
+  const renderStartTime = useRef<number | undefined>();
   
   useEffect(() => {
     renderCount.current += 1;
@@ -139,11 +139,11 @@ export function usePerformanceMonitor(componentName: string) {
 /**
  * Memoization helpers
  */
-export const memoizeOne = <T extends (...args: any[]) => any>(fn: T): T => {
-  let lastArgs: any[] | undefined;
-  let lastResult: any;
+export const memoizeOne = <T extends (...args: unknown[]) => unknown>(fn: T): T => {
+  let lastArgs: unknown[] | undefined;
+  let lastResult: unknown;
   
-  return ((...args: any[]) => {
+  return ((...args: unknown[]) => {
     if (!lastArgs || args.some((arg, i) => arg !== lastArgs![i])) {
       lastArgs = args;
       lastResult = fn(...args);
@@ -184,7 +184,7 @@ export function useOptimizedImage(src: string, options?: {
 /**
  * Code splitting helper
  */
-export const lazyWithRetry = <T extends React.ComponentType<any>>(
+export const lazyWithRetry = <T extends React.ComponentType<unknown>>(
   componentImport: () => Promise<{ default: T }>
 ): React.LazyExoticComponent<T> => {
   return React.lazy(async () => {

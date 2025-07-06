@@ -31,7 +31,7 @@ describe('Vendor Management', () => {
           const vendorData = {
             name: 'Acme Corporation',
             legalName: 'Acme Corp LLC',
-            type: 'supplier' as const,
+            category: 'technology' as const,
             taxId: '12-3456789',
             email: 'contact@acme.com',
             phone: '+1234567890',
@@ -57,7 +57,7 @@ describe('Vendor Management', () => {
           expect(ctx.db.insert).toHaveBeenCalledWith('vendors', expect.objectContaining({
             name: vendorData.name,
             legalName: vendorData.legalName,
-            type: vendorData.type,
+            category: vendorData.category,
             status: 'active',
             enterpriseId: mockUser.enterpriseId,
             createdAt: expect.any(Number),
@@ -85,7 +85,7 @@ describe('Vendor Management', () => {
           
           await expect(simulateCreateVendor(ctx, {
             name: 'Acme Corporation',
-            type: 'supplier' as const
+            category: 'technology' as const
           })).rejects.toThrow('Vendor with this name already exists');
         });
       });
@@ -102,14 +102,14 @@ describe('Vendor Management', () => {
           // Test empty name
           await expect(simulateCreateVendor(ctx, {
             name: '',
-            type: 'supplier' as const
+            category: 'technology' as const
           })).rejects.toThrow('Vendor name is required');
           
-          // Test invalid type
+          // Test invalid category
           await expect(simulateCreateVendor(ctx, {
             name: 'Test Vendor',
-            type: 'invalid' as any
-          })).rejects.toThrow('Invalid vendor type');
+            category: 'invalid' as any
+          })).rejects.toThrow('Invalid vendor category');
         });
       });
 
@@ -125,7 +125,7 @@ describe('Vendor Management', () => {
           
           await expect(simulateCreateVendor(ctx, {
             name: 'Test Vendor',
-            type: 'supplier' as const,
+            category: 'technology' as const,
             email: 'invalid-email'
           })).rejects.toThrow('Invalid email format');
         });
@@ -142,7 +142,7 @@ describe('Vendor Management', () => {
           
           await expect(simulateCreateVendor(ctx, {
             name: 'Test Vendor',
-            type: 'supplier' as const
+            category: 'technology' as const
           })).rejects.toThrow('Insufficient permissions. Admin or owner role required');
         });
       });
@@ -166,7 +166,7 @@ describe('Vendor Management', () => {
           
           await expect(simulateCreateVendor(ctx, {
             name: 'Acme Corporation', // Different case
-            type: 'supplier' as const
+            category: 'technology' as const
           })).rejects.toThrow('Vendor with this name already exists');
         });
       });
@@ -255,7 +255,7 @@ describe('Vendor Management', () => {
 
       it('should allow members to update basic fields', async () => {
         await withMockContext(async (ctx) => {
-          const mockUser = createMockUser({ role: 'member' });
+          const mockUser = createMockUser({ role: 'user' });
           const mockVendor = createMockVendor({
             enterpriseId: mockUser.enterpriseId
           });
@@ -429,12 +429,12 @@ describe('Vendor Management', () => {
             createMockVendor({ 
               enterpriseId: mockUser.enterpriseId,
               status: 'active',
-              type: 'supplier'
+              category: 'technology'
             }),
             createMockVendor({ 
               enterpriseId: mockUser.enterpriseId,
               status: 'active',
-              type: 'service'
+              category: 'consulting'
             })
           ];
           
@@ -450,7 +450,8 @@ describe('Vendor Management', () => {
           });
           
           const mockOrder = jest.fn().mockReturnValue({ paginate: mockPaginate });
-          const mockFilter = jest.fn().mockReturnValue({ 
+          const mockFilter = jest.fn();
+          mockFilter.mockReturnValue({ 
             filter: mockFilter,
             order: mockOrder 
           });
@@ -459,7 +460,7 @@ describe('Vendor Management', () => {
           
           const result = await simulateGetVendors(ctx, {
             status: 'active',
-            type: 'supplier',
+            category: 'technology',
             paginationOpts: { numItems: 10 }
           });
           
@@ -500,7 +501,8 @@ describe('Vendor Management', () => {
           });
           
           const mockOrder = jest.fn().mockReturnValue({ paginate: mockPaginate });
-          const mockFilter = jest.fn().mockReturnValue({ 
+          const mockFilter = jest.fn();
+          mockFilter.mockReturnValue({ 
             filter: mockFilter,
             order: mockOrder 
           });
@@ -626,20 +628,17 @@ describe('Vendor Management', () => {
             createMockVendor({ 
               enterpriseId: mockUser.enterpriseId,
               status: 'active',
-              type: 'supplier',
-              categories: ['technology']
+              category: 'technology',
             }),
             createMockVendor({ 
               enterpriseId: mockUser.enterpriseId,
               status: 'active',
-              type: 'service',
-              categories: ['consulting', 'technology']
+              category: 'consulting'
             }),
             createMockVendor({ 
               enterpriseId: mockUser.enterpriseId,
               status: 'inactive',
-              type: 'supplier',
-              categories: ['office']
+              category: 'technology'
             })
           ];
           
@@ -690,15 +689,15 @@ describe('Vendor Management', () => {
           const mockUser = createMockUser();
           const mockVendors = [
             createMockVendor({ 
-              categories: ['technology', 'software'],
+              category: 'technology',
               enterpriseId: mockUser.enterpriseId
             }),
             createMockVendor({ 
-              categories: ['consulting', 'technology'],
+              category: 'consulting',
               enterpriseId: mockUser.enterpriseId
             }),
             createMockVendor({ 
-              categories: ['technology'],
+              category: 'technology',
               enterpriseId: mockUser.enterpriseId
             })
           ];
@@ -728,11 +727,7 @@ describe('Vendor Management', () => {
         await withMockContext(async (ctx) => {
           const mockContract = createMockContract({
             vendorId: undefined,
-            analysisResults: {
-              extractedVendorInfo: {
-                name: 'Acme Corporation'
-              }
-            }
+            extractedParties: ['Acme Corporation']
           });
           const mockVendor = createMockVendor({
             name: 'ACME CORPORATION'
@@ -754,14 +749,7 @@ describe('Vendor Management', () => {
       it('should create new vendor when no match found', async () => {
         await withMockContext(async (ctx) => {
           const mockContract = createMockContract({
-            vendorId: undefined,
-            analysisResults: {
-              extractedVendorInfo: {
-                name: 'New Vendor Inc',
-                email: 'contact@newvendor.com',
-                phone: '+1234567890'
-              }
-            }
+            extractedParties: ['New Vendor Inc']
           });
           
           ctx.db.query().filter().filter().collect.mockResolvedValue([mockContract]);
@@ -784,12 +772,7 @@ describe('Vendor Management', () => {
       it('should use fuzzy matching for vendor names', async () => {
         await withMockContext(async (ctx) => {
           const mockContract = createMockContract({
-            vendorId: undefined,
-            analysisResults: {
-              extractedVendorInfo: {
-                name: 'Acme Corp.'
-              }
-            }
+            extractedParties: ['Acme Corp.']
           });
           const mockVendor = createMockVendor({
             name: 'Acme Corporation'
@@ -815,12 +798,12 @@ describe('Vendor Management', () => {
           const vendor1 = createMockVendor({
             _id: 'vendor1' as any,
             name: 'Acme Corporation',
-            createdAt: Date.now() - 1000
+            createdAt: new Date(Date.now() - 1000).toISOString()
           });
           const vendor2 = createMockVendor({
             _id: 'vendor2' as any,
             name: 'ACME CORP',
-            createdAt: Date.now()
+            createdAt: new Date().toISOString()
           });
           
           const mockVendors = [vendor1, vendor2];
@@ -1312,7 +1295,7 @@ async function simulateMergeDuplicateVendors(ctx: any) {
         
       for (const contract of contracts) {
         await ctx.db.patch(contract._id, {
-          vendorId: primary._id,
+          vendorId: primary!._id,
           updatedAt: Date.now()
         });
       }
@@ -1355,16 +1338,16 @@ function getEditDistance(s1: string, s2: string): number {
   for (let i = 1; i <= s1.length; i++) {
     for (let j = 1; j <= s2.length; j++) {
       if (s1[i - 1] === s2[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1];
+        dp[i]![j] = dp[i - 1]![j - 1]!;
       } else {
         dp[i][j] = Math.min(
-          dp[i - 1][j] + 1,
-          dp[i][j - 1] + 1,
-          dp[i - 1][j - 1] + 1
+          dp[i - 1]![j]! + 1,
+          dp[i]![j - 1]! + 1,
+          dp[i - 1]![j - 1]! + 1
         );
       }
     }
   }
   
-  return dp[s1.length][s2.length];
+  return dp[s1.length]![s2.length]!;
 }

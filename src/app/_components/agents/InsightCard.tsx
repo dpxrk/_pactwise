@@ -22,7 +22,7 @@ import { AgentInsight, InsightType, TaskPriority, INSIGHT_TYPE_LABELS, PRIORITY_
 import { cn } from "@/lib/utils";
 
 interface InsightCardProps {
-  insight: any; // Using any because the actual structure might differ from types
+  insight: AgentInsight; // Using proper type from agents.types
   onMarkAsRead?: (insightId: string) => void;
   onViewDetails?: (insightId: string) => void;
   onTakeAction?: (insightId: string) => void;

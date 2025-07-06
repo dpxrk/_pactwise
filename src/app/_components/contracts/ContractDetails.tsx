@@ -288,7 +288,7 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
                   <div>
                     <DetailItem icon={Users} label="Parties Involved" />
                     <ul className="mt-1 space-y-1 pl-8">
-                      {contract.extractedParties.map((party:any, index:number) => (
+                      {contract.extractedParties.map((party: string, index: number) => (
                         <li key={index} className="text-sm text-muted-foreground list-disc list-inside">
                           {party}
                         </li>
@@ -388,7 +388,7 @@ export const ContractDetails = ({ contractId, onEdit }: ContractDetailsProps) =>
           </TabsContent>
 
           <TabsContent value="history" className="mt-6">
-            <ContractVersionHistory contractId={contractId} currentContract={contract as any} />
+            <ContractVersionHistory contractId={contractId} currentContract={contract} />
           </TabsContent>
 
           <TabsContent value="collaborative" className="mt-6">

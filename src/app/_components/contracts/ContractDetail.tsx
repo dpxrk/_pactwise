@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
-import { api } from '@/convex/_generated/api';
-import { Id } from '@/convex/_generated/dataModel';
+import { api } from '../../../../convex/_generated/api';
+import { Id } from '../../../../convex/_generated/dataModel';
 import {
   Card,
   CardContent,
@@ -63,7 +63,7 @@ interface ClauseAnalysis {
   suggestions?: string[];
 }
 
-export function ContractDetail({ contractId, enterpriseId }: ContractDetailProps) {
+function ContractDetailComponent({ contractId, enterpriseId }: ContractDetailProps) {
   const router = useRouter();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -113,7 +113,7 @@ export function ContractDetail({ contractId, enterpriseId }: ContractDetailProps
 
   const handleStatusChange = async (newStatus: string) => {
     try {
-      await updateContractStatus({ contractId, enterpriseId, newStatus: newStatus as any });
+      await updateContractStatus({ contractId, enterpriseId, newStatus: newStatus as "draft" | "pending_analysis" | "active" | "expired" | "terminated" | "archived" });
       toast.success('Contract status updated');
     } catch (error) {
       toast.error('Failed to update status');
@@ -675,3 +675,9 @@ export function ContractDetail({ contractId, enterpriseId }: ContractDetailProps
     </div>
   );
 }
+
+export const ContractDetail = React.memo(ContractDetailComponent, (prevProps, nextProps) => {
+  // Only re-render if contractId or enterpriseId changes
+  return prevProps.contractId === nextProps.contractId && 
+         prevProps.enterpriseId === nextProps.enterpriseId;
+});

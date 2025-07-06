@@ -137,8 +137,8 @@ const ChartScene: React.FC<{
   theme: ChartTheme;
   enableGrid: boolean;
   enableAxes: boolean;
-  onHover?: (data: any) => void;
-  onClick?: (data: any) => void;
+  onHover?: (data: unknown) => void;
+  onClick?: (data: unknown) => void;
 }> = ({ 
   children, 
   theme, 
@@ -151,7 +151,7 @@ const ChartScene: React.FC<{
   const [hoveredObject, setHoveredObject] = useState<THREE.Object3D | null>(null);
 
   // Handle mouse interactions
-  const handlePointerMove = useCallback((event: any) => {
+  const handlePointerMove = useCallback((event: PointerEvent) => {
     const mouse = new THREE.Vector2();
     const rect = gl.domElement.getBoundingClientRect();
     
@@ -173,7 +173,7 @@ const ChartScene: React.FC<{
     }
   }, [camera, raycaster, scene, gl, hoveredObject, onHover]);
 
-  const handleClick = useCallback((event: any) => {
+  const handleClick = useCallback((event: PointerEvent) => {
     const mouse = new THREE.Vector2();
     const rect = gl.domElement.getBoundingClientRect();
     
@@ -267,7 +267,7 @@ export const BaseThreeChart: React.FC<BaseThreeChartProps> = ({
   };
 
   // Handle hover events
-  const handleHover = useCallback((dataPoint: any) => {
+  const handleHover = useCallback((dataPoint: { name?: string; value?: string | number; color?: string } | null) => {
     if (dataPoint && defaultInteraction.hover) {
       setTooltip({
         title: dataPoint.name || '',
@@ -284,7 +284,7 @@ export const BaseThreeChart: React.FC<BaseThreeChartProps> = ({
   }, [defaultInteraction.hover, onHover, mergedTheme.primaryColor]);
 
   // Handle click events
-  const handleClick = useCallback((dataPoint: any) => {
+  const handleClick = useCallback((dataPoint: { name?: string; value?: string | number; color?: string } | null) => {
     if (defaultInteraction.click) {
       onClick?.(dataPoint);
     }

@@ -136,7 +136,7 @@ const SettingsLayout = ({ children }: SettingsLayoutProps) => {
                             : "text-muted-foreground hover:text-foreground hover:bg-accent/50 hover:shadow-sm hover:scale-[1.02] hover:border-accent-foreground/10 border border-transparent",
                           isDisabled && "opacity-50 cursor-not-allowed hover:scale-100 hover:bg-transparent hover:shadow-none"
                         )}
-                        {...(isDisabled && { onClick: (e: any) => e.preventDefault() })}
+                        {...(isDisabled && { onClick: (e: React.MouseEvent) => e.preventDefault() })}
                       >
                         <Icon className="h-4 w-4 flex-shrink-0" />
                         <div className="flex-1 min-w-0">

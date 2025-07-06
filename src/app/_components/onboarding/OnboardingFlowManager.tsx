@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { useConvexQuery, useConvexMutation } from '@/lib/api-client';
-import { api } from "@/../convex/_generated/api"
+import { api } from "../../../../convex/_generated/api"
 import { ONBOARDING_STEPS, type OnboardingStep } from '@/../convex/onboardingConstants';
 import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
@@ -44,7 +44,7 @@ const OnboardingFlowManager = () => {
 
   const updateStepMutation = useConvexMutation(api.onboarding.updateOnboardingStep);
 
-  const handleStepCompletion = async (nextStep?: OnboardingStep, metadata?: any) => {
+  const handleStepCompletion = async (nextStep?: OnboardingStep, metadata?: Record<string, unknown>) => {
     if (onboardingStatus?.currentStep) {
       await updateStepMutation.execute({
         step: onboardingStatus.currentStep,
@@ -57,7 +57,7 @@ const OnboardingFlowManager = () => {
     }
   };
 
-  const advanceToStep = async (step: OnboardingStep, metadata?: any) => {
+  const advanceToStep = async (step: OnboardingStep, metadata?: Record<string, unknown>) => {
     await updateStepMutation.execute({
       step: step,
       completed: false, // Mark the new step as current, not necessarily completed yet

@@ -6,7 +6,7 @@
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 interface LogContext {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface LogEntry {
@@ -65,8 +65,8 @@ class Logger {
       timestamp: new Date().toISOString(),
       level,
       message,
-      context,
-      error,
+      context: context || undefined,
+      error: error || undefined,
     };
 
     const formattedLog = this.formatLog(entry);
@@ -136,7 +136,7 @@ export const logError = (message: string, error?: Error, context?: LogContext) =
 declare global {
   interface Window {
     Sentry?: {
-      captureException: (error: Error, context?: any) => void;
+      captureException: (error: Error, context?: Record<string, unknown>) => void;
     };
   }
 }

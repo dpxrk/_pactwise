@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useConvexMutation, useConvexQuery } from '@/lib/api-client';
-import { api } from '@/../convex/_generated/api';
+import { api } from '../../../../convex/_generated/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,7 +45,13 @@ const ProfileSetupStep: React.FC<ProfileSetupStepProps> = ({ onStepComplete }) =
     }
 
     try {
-      const args: any = {
+      const args: {
+        firstName: string;
+        lastName: string;
+        phoneNumber?: string;
+        department?: string;
+        title?: string;
+      } = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
       };
@@ -64,8 +70,8 @@ const ProfileSetupStep: React.FC<ProfileSetupStepProps> = ({ onStepComplete }) =
       
       await completeProfileMutation.execute(args);
       onStepComplete();
-    } catch (err: any) {
-      setError(err.message || 'Failed to save profile.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save profile.');
     }
   };
 

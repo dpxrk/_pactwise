@@ -40,7 +40,7 @@ interface LogEntry {
   taskId?: string;
   category?: string;
   source?: string;
-  data?: any;
+  data?: unknown;
 }
 
 interface AgentLogViewerProps {

@@ -13,7 +13,7 @@ describe('Contract Analysis', () => {
         const mockUser = createMockUser();
         const mockContract = createMockContract({
           enterpriseId: mockUser.enterpriseId,
-          fileId: 'storage123' as any,
+          storageId: 'storage123' as any,
           analysisStatus: 'pending'
         });
         
@@ -50,7 +50,7 @@ describe('Contract Analysis', () => {
         const mockUser = createMockUser();
         const mockContract = createMockContract({
           enterpriseId: mockUser.enterpriseId,
-          fileId: undefined
+          storageId: undefined
         });
         
         ctx.auth.getUserIdentity.mockResolvedValue({
@@ -70,7 +70,7 @@ describe('Contract Analysis', () => {
         const mockUser = createMockUser();
         const mockContract = createMockContract({
           enterpriseId: mockUser.enterpriseId,
-          fileId: 'storage123' as any,
+          storageId: 'storage123' as any,
           analysisStatus: 'processing'
         });
         
@@ -174,7 +174,7 @@ describe('Contract Analysis', () => {
         );
         
         expect(result.clauses).toHaveLength(3);
-        expect(result.clauses.filter(c => c.riskLevel === 'high')).toHaveLength(1);
+        expect(result.clauses.filter((c: any) => c.riskLevel === 'high')).toHaveLength(1);
         expect(result.overallRisk).toBe('medium');
       });
 
@@ -490,7 +490,7 @@ async function simulateExportContracts(
     
     const csv = [
       headers.join(','),
-      ...rows.map(row => row.join(','))
+      ...rows.map((row: any) => row.join(','))
     ].join('\n');
     
     return {

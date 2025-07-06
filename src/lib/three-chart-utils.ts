@@ -298,7 +298,7 @@ export const validateChartData = (data: ChartDataPoint[]): boolean => {
   const requiredFields = ['name', 'value'];
   const isValid = data.every(item => 
     requiredFields.every(field => 
-      item.hasOwnProperty(field) && item[field] !== undefined && item[field] !== null
+      item.hasOwnProperty(field) && (item as any)[field] !== undefined && (item as any)[field] !== null
     )
   );
   

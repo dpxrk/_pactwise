@@ -107,7 +107,11 @@ export const NotificationCenter = ({
   const [selectedTab, setSelectedTab] = useState('all');
 
   // Queries
-  const notificationArgs: any = { 
+  const notificationArgs: {
+    limit: number;
+    includeRead: boolean;
+    priority?: 'high';
+  } = { 
     limit: 50, 
     includeRead: filter !== 'unread',
   };

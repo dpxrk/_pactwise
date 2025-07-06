@@ -21,14 +21,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   // Show loading state while checking auth
   if (!isLoaded) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-background to-muted/30">
-        <div className="text-center space-y-6 animate-fade-in">
-          <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-8 border border-border/50 shadow-2xl">
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="absolute inset-0 bg-grid-pattern opacity-20" />
+        <div className="text-center space-y-6 animate-fade-in relative z-10">
+          <div className="glass-panel max-w-sm shadow-depth">
             <LoadingSpinner size="xl" className="mb-4" />
-            <h3 className="text-lg font-semibold text-foreground mb-2">Loading Pactwise</h3>
-            <p className="text-muted-foreground">Preparing your dashboard...</p>
+            <h3 className="text-lg font-semibold text-gray-200 mb-2">Loading Pactwise</h3>
+            <p className="text-gray-500">Preparing your dashboard...</p>
           </div>
         </div>
+        {/* Animated gradient orbs */}
+        <div className="absolute top-40 right-40 w-80 h-80 bg-teal-500 rounded-full mix-blend-screen filter blur-3xl opacity-10 animate-float" />
+        <div className="absolute bottom-40 left-40 w-80 h-80 bg-cyan-500 rounded-full mix-blend-screen filter blur-3xl opacity-10 animate-float animation-delay-2000" />
       </div>
     );
   }
@@ -39,8 +43,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   }
 
   return (
-    <div className={`flex h-screen bg-gradient-to-br from-background via-background to-muted/20 ${isVisible ? 'animate-fade-in' : 'opacity-0'}`}>
-      <SideNavigation className="hidden md:flex w-72 relative z-10" />
+    <div className={`flex h-screen bg-background ${isVisible ? 'animate-fade-in' : 'opacity-0'}`}>
+      {/* Background pattern */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-[0.02]" />
+      
+      <SideNavigation className="hidden lg:flex w-72 relative z-20" />
       <div className="flex-1 flex flex-col relative">
         <Header
           isSearchOpen={isSearchOpen}
@@ -53,10 +60,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
         </main>
         
-        {/* Subtle background decoration */}
+        {/* Premium background decoration */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2" />
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-secondary/5 rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2" />
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-teal-500 rounded-full mix-blend-screen filter blur-3xl opacity-5 animate-float" />
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-500 rounded-full mix-blend-screen filter blur-3xl opacity-5 animate-float animation-delay-2000" />
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-teal-500 rounded-full mix-blend-screen filter blur-3xl opacity-3 animate-float animation-delay-4000" />
         </div>
       </div>
     </div>

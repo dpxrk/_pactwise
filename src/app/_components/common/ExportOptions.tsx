@@ -142,7 +142,7 @@ export const ExportOptions = ({
   const [exportConfig, setExportConfig] = useState<ExportConfig>({
     format: 'csv',
     includeFields: data !== 'custom' && data in fieldConfigs 
-      ? (fieldConfigs as any)[data].basic 
+      ? (fieldConfigs as Record<string, { basic: string[]; advanced: string[]; relationships: string[] }>)[data].basic 
       : [],
     includeRelatedData: true,
   });
@@ -211,7 +211,7 @@ export const ExportOptions = ({
 
     // Filter by entityIds if provided
     if (entityIds.length > 0) {
-      sourceData = sourceData.filter(item => entityIds.includes((item as any)._id));
+      sourceData = sourceData.filter(item => entityIds.includes((item as { _id: string })._id));
     }
 
     // Apply date range filter if specified
@@ -220,7 +220,7 @@ export const ExportOptions = ({
       const endDate = new Date(exportConfig.dateRange.end);
       
       sourceData = sourceData.filter(item => {
-        const itemDate = new Date((item as any)._creationTime || (item as any).createdAt);
+        const itemDate = new Date((item as { _creationTime?: number; createdAt?: string })._creationTime || (item as { _creationTime?: number; createdAt?: string }).createdAt || 0);
         return itemDate >= startDate && itemDate <= endDate;
       });
     }
@@ -363,7 +363,7 @@ export const ExportOptions = ({
       ...prev,
       format,
       includeFields: data !== 'custom' && data in fieldConfigs 
-        ? (fieldConfigs as any)[data].basic 
+        ? (fieldConfigs as Record<string, { basic: string[]; advanced: string[]; relationships: string[] }>)[data].basic 
         : [],
     }));
     
@@ -400,7 +400,7 @@ export const ExportOptions = ({
                         ? 'border-primary bg-primary/5' 
                         : 'border-muted hover:border-primary/50'
                     )}
-                    onClick={() => setExportConfig(prev => ({ ...prev, format: key as any }))}
+                    onClick={() => setExportConfig(prev => ({ ...prev, format: key as ExportFormat }))}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">
@@ -556,7 +556,7 @@ export const ExportOptions = ({
                   <Button
                     key={key}
                     variant="outline"
-                    onClick={() => handleQuickExport(key as any)}
+                    onClick={() => handleQuickExport(key as ExportFormat)}
                     className="h-20 flex-col gap-2"
                   >
                     <IconComponent className="h-6 w-6" />
@@ -595,7 +595,7 @@ export const ExportOptions = ({
                 return (
                   <DropdownMenuItem
                     key={key}
-                    onClick={() => handleQuickExport(key as any)}
+                    onClick={() => handleQuickExport(key as ExportFormat)}
                   >
                     <IconComponent className="h-4 w-4 mr-2" />
                     {format.label}

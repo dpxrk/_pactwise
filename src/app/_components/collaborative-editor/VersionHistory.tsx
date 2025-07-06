@@ -411,19 +411,19 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
             <div className="mt-2 space-y-2">
               {conflicts?.slice(0, 3).map((conflict, index) => (
                 <div key={index} className="flex items-center justify-between p-2 bg-destructive/10 rounded">
-                  <span className="text-sm">Conflict at position {(conflict as any).position}</span>
+                  <span className="text-sm">Conflict at position {(conflict as { id: string; position: number }).position}</span>
                   <div className="flex gap-1">
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleResolveConflict((conflict as any).id, 'accept_local')}
+                      onClick={() => handleResolveConflict((conflict as { id: string; position: number }).id, 'accept_local')}
                     >
                       Accept Local
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleResolveConflict((conflict as any).id, 'accept_remote')}
+                      onClick={() => handleResolveConflict((conflict as { id: string; position: number }).id, 'accept_remote')}
                     >
                       Accept Remote
                     </Button>

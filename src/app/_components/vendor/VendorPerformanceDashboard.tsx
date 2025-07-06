@@ -298,7 +298,7 @@ export const VendorPerformanceDashboard: React.FC<VendorPerformanceDashboardProp
           </p>
         </div>
         <div className="flex gap-3">
-          <Select value={selectedTimeRange} onValueChange={(value) => setSelectedTimeRange(value as any)}>
+          <Select value={selectedTimeRange} onValueChange={(value) => setSelectedTimeRange(value as "30d" | "90d" | "12m")}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Time Range" />
             </SelectTrigger>
@@ -308,7 +308,7 @@ export const VendorPerformanceDashboard: React.FC<VendorPerformanceDashboardProp
               <SelectItem value="12m">Last 12 months</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as any)}>
+          <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as "all" | "quality" | "delivery" | "compliance" | "financial")}>
             <SelectTrigger className="w-[160px]">
               <SelectValue placeholder="Category" />
             </SelectTrigger>

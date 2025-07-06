@@ -96,19 +96,32 @@ export interface EnterpriseEntity extends Doc<"enterprises"> {
 // ============================================================================
 
 /**
+ * Query chain interface for Convex queries
+ */
+interface QueryChain<T extends TableNames> {
+  withIndex: (indexName: string, callback?: (q: unknown) => unknown) => QueryChain<T>;
+  filter: (callback: (q: unknown) => unknown) => QueryChain<T>;
+  order: (order: "asc" | "desc") => QueryChain<T>;
+  paginate: (paginationOpts: { cursor?: string; numItems: number }) => Promise<{ page: Doc<T>[]; continueCursor?: string; isDone: boolean }>;
+  collect: () => Promise<Doc<T>[]>;
+  take: (n: number) => Promise<Doc<T>[]>;
+  first: () => Promise<Doc<T> | null>;
+}
+
+/**
  * Strongly typed query context to replace any types
  */
 export interface TypedQueryContext {
   db: {
     query: <T extends TableNames>(
       table: T
-    ) => any;
+    ) => QueryChain<T>;
     get: <T extends TableNames>(
       id: Id<T>
     ) => Promise<Doc<T> | null>;
   };
   auth: {
-    getUserIdentity: () => Promise<any>;
+    getUserIdentity: () => Promise<{ tokenIdentifier: string; name?: string; email?: string; } | null>;
   };
 }
 
@@ -119,7 +132,7 @@ export interface TypedMutationContext extends TypedQueryContext {
   db: TypedQueryContext["db"] & {
     insert: <T extends TableNames>(
       table: T,
-      value: any
+      value: Partial<Doc<T>>
     ) => Promise<Id<T>>;
     patch: <T extends TableNames>(
       id: Id<T>,
@@ -129,7 +142,7 @@ export interface TypedMutationContext extends TypedQueryContext {
       id: Id<T>,
       value: Doc<T>
     ) => Promise<void>;
-    delete: (id: Id<any>) => Promise<void>;
+    delete: <T extends TableNames>(id: Id<T>) => Promise<void>;
   };
 }
 

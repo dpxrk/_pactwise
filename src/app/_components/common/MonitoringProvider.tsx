@@ -40,8 +40,8 @@ export const MonitoringProvider: React.FC<MonitoringProviderProps> = ({ children
   // Set up global analytics bridge
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      (window as any).convexAnalytics = {
-        logEvent: async (event: string, properties: Record<string, any> = {}) => {
+      (window as Window & { convexAnalytics?: unknown }).convexAnalytics = {
+        logEvent: async (event: string, properties: Record<string, unknown> = {}) => {
           try {
             await logAnalyticsEvent({
               event,
@@ -57,7 +57,15 @@ export const MonitoringProvider: React.FC<MonitoringProviderProps> = ({ children
           }
         },
         
-        logEventBatch: async (events: any[]) => {
+        logEventBatch: async (events: Array<{
+          event: string;
+          timestamp: number;
+          url: string;
+          userId?: string;
+          properties?: Record<string, unknown>;
+          sessionId: string;
+          userAgent?: string;
+        }>) => {
           try {
             const formattedEvents = events.map(event => ({
               event: event.event,
@@ -74,7 +82,16 @@ export const MonitoringProvider: React.FC<MonitoringProviderProps> = ({ children
           }
         },
         
-        reportError: async (errorData: any) => {
+        reportError: async (errorData: {
+          message: string;
+          stack?: string;
+          timestamp: number;
+          url: string;
+          userId?: string;
+          sessionId: string;
+          userAgent?: string;
+          context?: Record<string, unknown>;
+        }) => {
           try {
             await reportError({
               message: errorData.message,

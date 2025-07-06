@@ -12,7 +12,7 @@ export interface LegacySeries {
   dot?: boolean;
   stackId?: string;
   fillOpacity?: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -24,7 +24,7 @@ export function convertLegacySeries(
 ): ChartSeries[] | undefined {
   if (!series || series.length === 0) return undefined;
 
-  return series.map((s: any, index: number) => {
+  return series.map((s: ChartSeries | LegacySeries, index: number) => {
     // Check if it's already in the new format
     if ('key' in s && !('dataKey' in s)) {
       return s as ChartSeries;
@@ -45,7 +45,7 @@ export function convertLegacySeries(
  * Ensure chart data has required 'name' and 'value' properties
  */
 export function normalizeChartData(
-  data: any[],
+  data: Array<Record<string, unknown>>,
   nameField?: string,
   valueField?: string
 ): ChartDataPoint[] {
@@ -97,15 +97,15 @@ export function filterUndefinedProps<T extends Record<string, any>>(obj: T): Par
 /**
  * Create chart props with proper optional handling
  */
-export function createChartProps<T extends Record<string, any>>(
+export function createChartProps<T extends Record<string, unknown>>(
   baseProps: T,
-  optionalProps: Record<string, any>
+  optionalProps: Record<string, unknown>
 ): T {
   const result = { ...baseProps };
   
   for (const [key, value] of Object.entries(optionalProps)) {
     if (value !== undefined) {
-      (result as any)[key] = value;
+      (result as Record<string, unknown>)[key] = value;
     }
   }
   

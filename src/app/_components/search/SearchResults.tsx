@@ -243,7 +243,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
 
     // Sort results
     filtered.sort((a, b) => {
-      let aValue: any, bValue: any;
+      let aValue: string | number, bValue: string | number;
       
       switch (sortBy) {
         case 'relevance':
@@ -665,7 +665,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
           
           {showSorting && (
             <>
-              <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+              <Select value={sortBy} onValueChange={(value) => setSortBy(value as 'relevance' | 'date' | 'title' | 'type')}>
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>

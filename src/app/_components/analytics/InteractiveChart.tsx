@@ -32,13 +32,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { 
-  ThreeBarChart, 
-  ThreeLineChart, 
-  ThreePieChart, 
-  ThreeAreaChart,
-  ChartDataPoint,
-  ChartSeries 
-} from '../three-charts';
+  LazyThreeBarChart, 
+  LazyThreeLineChart, 
+  LazyThreePieChart, 
+  LazyThreeAreaChart
+} from '../three-charts/LazyThreeCharts';
+import type { ChartDataPoint, ChartSeries } from '@/types/three-charts.types';
 
 export type ChartType = "area" | "bar" | "line" | "pie";
 
@@ -56,7 +55,7 @@ interface InteractiveChartProps {
   showTypeSelector?: boolean;
   showSeriesToggle?: boolean;
   onDataPointClick?: (dataPoint: ChartDataPoint) => void;
-  onDrillDown?: (category: string, value: any) => void;
+  onDrillDown?: (category: string, value: unknown) => void;
   className?: string;
   loading?: boolean;
 }
@@ -147,7 +146,7 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const handleDataPointClick = (data: any) => {
+  const handleDataPointClick = (data: ChartDataPoint) => {
     if (!data) return;
     
     if (onDataPointClick) {
@@ -201,7 +200,7 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
     switch (chartType) {
       case "area":
         return (
-          <ThreeAreaChart
+          <LazyThreeAreaChart
             {...commonProps}
             opacity={0.7}
             showPoints={false}
@@ -212,7 +211,7 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
 
       case "bar":
         return (
-          <ThreeBarChart
+          <LazyThreeBarChart
             {...commonProps}
             barWidth={0.6}
             barDepth={0.6}
@@ -224,7 +223,7 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
 
       case "line":
         return (
-          <ThreeLineChart
+          <LazyThreeLineChart
             {...commonProps}
             lineWidth={0.05}
             pointSize={0.08}
@@ -236,7 +235,7 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
 
       case "pie":
         return (
-          <ThreePieChart
+          <LazyThreePieChart
             {...commonProps}
             innerRadius={series.length > 3 ? 1 : 0}
             outerRadius={3}

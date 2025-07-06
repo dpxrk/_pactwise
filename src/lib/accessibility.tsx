@@ -7,8 +7,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 /**
  * Keyboard navigation hook
  */
-export function useKeyboardNavigation(
-  items: any[],
+export function useKeyboardNavigation<T>(
+  items: T[],
   options?: {
     horizontal?: boolean;
     wrap?: boolean;
@@ -172,36 +172,25 @@ export function useAnnounce() {
  */
 export function SkipLinks() {
   return (
-    <div className="skip-links">
-      <a href="#main-content" className="skip-link">
+    <div className="absolute -top-[9999px] -left-[9999px]">
+      <a 
+        href="#main-content" 
+        className="focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-background focus:text-foreground focus:no-underline focus:border-2 focus:border-border focus:rounded focus:shadow-lg"
+      >
         Skip to main content
       </a>
-      <a href="#main-navigation" className="skip-link">
+      <a 
+        href="#main-navigation" 
+        className="focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-background focus:text-foreground focus:no-underline focus:border-2 focus:border-border focus:rounded focus:shadow-lg"
+      >
         Skip to navigation
       </a>
-      <a href="#search" className="skip-link">
+      <a 
+        href="#search" 
+        className="focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-background focus:text-foreground focus:no-underline focus:border-2 focus:border-border focus:rounded focus:shadow-lg"
+      >
         Skip to search
       </a>
-      <style jsx>{`
-        .skip-links {
-          position: absolute;
-          top: -9999px;
-          left: -9999px;
-        }
-        .skip-link:focus {
-          position: fixed;
-          top: 1rem;
-          left: 1rem;
-          z-index: 9999;
-          padding: 0.5rem 1rem;
-          background: var(--background);
-          color: var(--foreground);
-          text-decoration: none;
-          border: 2px solid var(--border);
-          border-radius: 0.25rem;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-      `}</style>
     </div>
   );
 }

@@ -28,7 +28,7 @@ const AgentDashboard = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch agent system status - using direct useQuery for better control
-  const systemStatusQuery = useQuery(api.agents.manager.getAgentSystemStatus, {} as any);
+  const systemStatusQuery = useQuery(api.agents.manager.getAgentSystemStatus, {});
   const systemStatus = systemStatusQuery;
   const isLoading = systemStatusQuery === undefined;
   const error = null;

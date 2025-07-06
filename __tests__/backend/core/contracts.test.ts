@@ -225,7 +225,7 @@ describe('Contract Management', () => {
           const mockUser = createMockUser();
           const mockContract = createMockContract({
             enterpriseId: mockUser.enterpriseId,
-            fileId: 'storage123' as any
+            storageId: 'storage123' as any
           });
           
           ctx.auth.getUserIdentity.mockResolvedValue({
@@ -247,7 +247,7 @@ describe('Contract Management', () => {
           const mockUser = createMockUser();
           const mockContract = createMockContract({
             enterpriseId: mockUser.enterpriseId,
-            fileId: undefined
+            storageId: undefined
           });
           
           ctx.auth.getUserIdentity.mockResolvedValue({
@@ -270,8 +270,7 @@ describe('Contract Management', () => {
         await withMockContext(async (ctx) => {
           const mockUser = createMockUser();
           const mockContract = createMockContract({
-            enterpriseId: mockUser.enterpriseId,
-            vendorId: undefined
+            enterpriseId: mockUser.enterpriseId
           });
           const mockVendor = createMockVendor({
             enterpriseId: mockUser.enterpriseId
@@ -500,13 +499,13 @@ describe('Contract Management', () => {
               enterpriseId: mockUser.enterpriseId, 
               status: 'active',
               value: 50000,
-              endDate: now + 30 * 24 * 60 * 60 * 1000 // 30 days
+              extractedEndDate: new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
             }),
             createMockContract({ 
               enterpriseId: mockUser.enterpriseId, 
               status: 'active',
               value: 30000,
-              endDate: now + 60 * 24 * 60 * 60 * 1000 // 60 days
+              extractedEndDate: new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString() // 60 days
             }),
             createMockContract({ 
               enterpriseId: mockUser.enterpriseId, 

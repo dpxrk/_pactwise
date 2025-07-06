@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useConvexQuery, useConvexMutation } from '@/lib/api-client';
-import { api } from '@/../convex/_generated/api';
+import { api } from '../../../../convex/_generated/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner } from '@/app/_components/common/LoadingSpinner';
@@ -82,7 +82,7 @@ const InvitationHandlerPage = () => {
         router.push('/dashboard'); 
       }, 2000);
 
-    } catch (err: any) {
+    } catch (err) {
       setPageError(err.message || "Could not process invitation.");
     }
   };

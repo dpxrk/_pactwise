@@ -41,8 +41,8 @@ export interface CustomToastOptions {
 
 export interface PromiseToastOptions {
   loading: string;
-  success: string | ((data: any) => string);
-  error: string | ((error: any) => string);
+  success: string | ((data: unknown) => string);
+  error: string | ((error: unknown) => string);
   duration?: {
     loading?: number;
     success?: number;
@@ -68,7 +68,7 @@ const CustomToast = ({
   onDismiss?: () => void;
   dismissible?: boolean;
   className?: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }) => {
   const iconMap = {
     success: CheckCircle,

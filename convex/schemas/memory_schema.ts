@@ -252,6 +252,43 @@ export const memoryTables = {
     .index("by_user", ["userId"])
     .index("by_processing", ["isProcessed"]),
 
+  // ===== WORKING MEMORY =====
+  // Limited capacity memory with activation-based decay (cognitive model)
+  workingMemory: defineTable({
+    userId: v.id("users"),
+    sessionId: v.string(),
+    
+    // Working memory items stored as JSON
+    items: v.array(v.object({
+      id: v.string(),
+      content: v.string(),
+      type: v.union(
+        v.literal("concept"),
+        v.literal("entity"),
+        v.literal("task"),
+        v.literal("preference"),
+        v.literal("context")
+      ),
+      activation: v.number(), // 0-1, decays over time
+      lastAccessed: v.string(),
+      accessCount: v.number(),
+      associations: v.array(v.string()), // IDs of related items
+      source: v.union(
+        v.literal("chat"),
+        v.literal("memory"),
+        v.literal("inference")
+      ),
+      metadata: v.optional(v.any())
+    })),
+    
+    // Cognitive constraints
+    capacity: v.number(), // Default 7
+    focusItem: v.optional(v.string()), // ID of current focus
+    lastUpdate: v.string(),
+  })
+    .index("by_session", ["userId", "sessionId"])
+    .index("by_user", ["userId"]),
+
   // ===== MEMORY CONSOLIDATION JOBS =====
   // Tracks memory consolidation processes
   memoryConsolidationJobs: defineTable({

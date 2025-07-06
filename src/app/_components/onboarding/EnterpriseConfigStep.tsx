@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { useConvexMutation } from '@/lib/api-client';
-import { api } from '@/../convex/_generated/api';
+import { api } from '../../../../convex/_generated/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,7 +38,12 @@ const EnterpriseConfigStep: React.FC<EnterpriseConfigStepProps> = ({ onStepCompl
     }
 
     try {
-      const args: any = {
+      const args: {
+        industry: string;
+        size: typeof companySizes[number];
+        contractVolume?: typeof contractVolumes[number];
+        primaryUseCase?: string[];
+      } = {
         industry: industry.trim(),
         size: size as typeof companySizes[number], // Ensure type safety
       };
@@ -54,8 +59,8 @@ const EnterpriseConfigStep: React.FC<EnterpriseConfigStepProps> = ({ onStepCompl
       
       await completeConfigMutation.execute(args);
       onStepComplete();
-    } catch (err: any) {
-      setError(err.message || 'Failed to save enterprise configuration.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save enterprise configuration.');
     }
   };
 

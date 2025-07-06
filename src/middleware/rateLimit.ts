@@ -19,7 +19,7 @@ const RATE_LIMIT_MAX_REQUESTS = 100; // 100 requests per window
 setInterval(() => {
   const now = Date.now();
   Object.keys(rateLimitStore).forEach((key) => {
-    if (rateLimitStore[key].resetTime < now) {
+    if (rateLimitStore[key] && rateLimitStore[key].resetTime < now) {
       delete rateLimitStore[key];
     }
   });
@@ -93,7 +93,7 @@ export function rateLimitMiddleware(
 // Default key generator (by IP address)
 function defaultKeyGenerator(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
-  const ip = forwarded ? forwarded.split(',')[0].trim() : 'anonymous';
+  const ip = forwarded ? forwarded.split(',')[0]!.trim() : 'anonymous';
   return `ratelimit:${ip}`;
 }
 

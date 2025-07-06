@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { VendorType } from '@/types/vendor.types'; // Assuming this has _id
+import type { ContractEntity } from '@/types/core-entities';
 import { contractValidationSchema, validateFileUpload, sanitizeInput } from '@/lib/validation-utils';
 
 // UI Components
@@ -230,11 +231,11 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
       const newFormState: FormState = {
         title: contractData.title || '',
         description: contractData.notes || '', // Map to notes
-        contractType: (contractData as any).contractType || '', // Add missing field
+        contractType: (contractData as ContractEntity & { contractType?: string }).contractType || '', // Add missing field
         vendorId: contractData.vendorId?.toString() || '',
         // These fields are not in the simplified schema
-        autoRenewal: (contractData as any).autoRenewal || false,
-        currency: (contractData as any).currency || 'USD',
+        autoRenewal: (contractData as ContractEntity & { autoRenewal?: boolean }).autoRenewal || false,
+        currency: (contractData as ContractEntity & { currency?: string }).currency || 'USD',
         documents: [],
       };
       
@@ -246,8 +247,8 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
         newFormState.expiresAt = new Date(contractData.extractedEndDate);
       }
       
-      if ((contractData as any).extractedPricing) {
-        const value = parseFloat((contractData as any).extractedPricing.replace(/[^0-9.-]+/g,""));
+      if ((contractData as ContractEntity).extractedPricing) {
+        const value = parseFloat((contractData as ContractEntity).extractedPricing.replace(/[^0-9.-]+/g,""));
         if (!isNaN(value)) {
           newFormState.value = value;
         }
@@ -344,7 +345,12 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
       }
 
       if (contractId) { // Update existing contract
-        const updatePayload: any = { id: contractId };
+        const updatePayload: {
+          id: Id<"contracts">;
+          title?: string;
+          notes?: string;
+          enterpriseId?: Id<"enterprises">;
+        } = { id: contractId };
         // Only include fields if they've changed and are part of the schema
         if (formState.title !== contractData?.title) updatePayload.title = formState.title;
         if (formState.description !== contractData?.notes) updatePayload.notes = formState.description;
@@ -395,9 +401,9 @@ export const ContractForm = ({ contractId, isModal = false, onClose, onSuccess }
          setFormState(prev => ({ ...prev, documents: [] })); // Clear documents on success
       }
 
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error saving contract:", err);
-      setError(`Submission failed: ${err.message || String(err)}`);
+      setError(`Submission failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsLoading(false);
     }

@@ -174,7 +174,17 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
     if (!userId || !selectedText) return;
 
     try {
-      const suggestionArgs: any = {
+      const suggestionArgs: {
+        documentId: Id<"collaborativeDocuments">;
+        type: 'addition' | 'deletion' | 'replacement' | 'comment';
+        position: number;
+        length: number;
+        originalContent: string;
+        suggestedContent: string;
+        userId: string;
+        userName: string;
+        reason?: string;
+      } = {
         documentId,
         type,
         position: selectedText.start,
@@ -201,7 +211,12 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
     if (!userId) return;
 
     try {
-      const reviewArgs: any = {
+      const reviewArgs: {
+        suggestionId: Id<"documentSuggestions">;
+        status: 'accepted' | 'rejected';
+        reviewedBy: string;
+        reviewComment?: string;
+      } = {
         suggestionId,
         status,
         reviewedBy: userId
@@ -662,7 +677,7 @@ export const SuggestionModal: React.FC<SuggestionModalProps> = ({
                     name="suggestionType"
                     value={type}
                     checked={suggestionType === type}
-                    onChange={(e) => setSuggestionType(e.target.value as any)}
+                    onChange={(e) => setSuggestionType(e.target.value as 'replace' | 'insert' | 'delete')}
                   />
                   <span className="text-sm capitalize">{type}</span>
                 </label>

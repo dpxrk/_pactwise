@@ -3,6 +3,11 @@
 import React, { useState } from "react";
 import { Check, Sparkles, Zap, Building2, ArrowRight } from "lucide-react";
 import { useInView } from "react-intersection-observer";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
+import { CheckoutButton } from "@/components/stripe/CheckoutButton";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 
 const PricingPremium = () => {
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly");
@@ -10,6 +15,15 @@ const PricingPremium = () => {
     threshold: 0.1,
     triggerOnce: true
   });
+  const router = useRouter();
+  const { isSignedIn, userId } = useAuth();
+  
+  // Get user's enterprise if signed in
+  const user = useQuery(
+    api.users.getByClerkId,
+    isSignedIn && userId ? { clerkId: userId } : "skip"
+  );
+  const enterpriseId = user?.enterpriseId;
 
   const plans = [
     {
@@ -230,18 +244,54 @@ const PricingPremium = () => {
                     </ul>
 
                     {/* CTA */}
-                    <button className={`
-                      w-full py-3 px-6 rounded-xl font-semibold
-                      flex items-center justify-center gap-2
-                      transition-all duration-300 group
-                      ${plan.popular
-                        ? "bg-gradient-to-r from-teal-600 to-cyan-600 text-white hover:from-teal-700 hover:to-cyan-700 shadow-glow"
-                        : "glass text-white hover:bg-white/10 border border-white/10 hover:border-white/20"
-                      }
-                    `}>
-                      {plan.cta}
-                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                    </button>
+                    {plan.name === "Enterprise" ? (
+                      <button 
+                        onClick={() => router.push("/contact")}
+                        className={`
+                          w-full py-3 px-6 rounded-xl font-semibold
+                          flex items-center justify-center gap-2
+                          transition-all duration-300 group
+                          glass text-white hover:bg-white/10 border border-white/10 hover:border-white/20
+                        `}
+                      >
+                        {plan.cta}
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </button>
+                    ) : enterpriseId ? (
+                      <CheckoutButton
+                        plan={plan.name.toLowerCase() as "starter" | "professional"}
+                        billingPeriod={billingPeriod}
+                        enterpriseId={enterpriseId}
+                        className={`
+                          w-full py-3 px-6 rounded-xl font-semibold
+                          flex items-center justify-center gap-2
+                          transition-all duration-300 group
+                          ${plan.popular
+                            ? "bg-gradient-to-r from-teal-600 to-cyan-600 text-white hover:from-teal-700 hover:to-cyan-700 shadow-glow"
+                            : "glass text-white hover:bg-white/10 border border-white/10 hover:border-white/20"
+                          }
+                        `}
+                      >
+                        {plan.cta}
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </CheckoutButton>
+                    ) : (
+                      <button 
+                        onClick={() => router.push("/sign-up")}
+                        className={`
+                          w-full py-3 px-6 rounded-xl font-semibold
+                          flex items-center justify-center gap-2
+                          transition-all duration-300 group
+                          ${plan.popular
+                            ? "bg-gradient-to-r from-teal-600 to-cyan-600 text-white hover:from-teal-700 hover:to-cyan-700 shadow-glow"
+                            : "glass text-white hover:bg-white/10 border border-white/10 hover:border-white/20"
+                          }
+                        `}
+                      >
+                        {plan.cta}
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

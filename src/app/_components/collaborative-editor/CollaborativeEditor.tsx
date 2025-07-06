@@ -241,23 +241,23 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
 
     // Content change handlers
     editor.addEventListener('input', handleInput);
-    editor.addEventListener('keydown', handleKeyDown as any);
-    editor.addEventListener('paste', handlePaste as any);
+    editor.addEventListener('keydown', handleKeyDown);
+    editor.addEventListener('paste', handlePaste);
     
     // Selection change handlers
     globalThis.document.addEventListener('selectionchange', handleSelectionChange);
     
     // Mouse handlers
-    editor.addEventListener('click', handleClick as any);
-    editor.addEventListener('mouseup', handleMouseUp as any);
+    editor.addEventListener('click', handleClick);
+    editor.addEventListener('mouseup', handleMouseUp);
 
     return () => {
       editor.removeEventListener('input', handleInput);
-      editor.removeEventListener('keydown', handleKeyDown as any);
-      editor.removeEventListener('paste', handlePaste as any);
+      editor.removeEventListener('keydown', handleKeyDown);
+      editor.removeEventListener('paste', handlePaste);
       globalThis.document.removeEventListener('selectionchange', handleSelectionChange);
-      editor.removeEventListener('click', handleClick as any);
-      editor.removeEventListener('mouseup', handleMouseUp as any);
+      editor.removeEventListener('click', handleClick);
+      editor.removeEventListener('mouseup', handleMouseUp);
     };
   }, []);
 
@@ -361,7 +361,12 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
         presenceManagerRef.current.updateCursor(userId, position, textSelection);
         
         // Send to server
-        const presenceArgs: any = {
+        const presenceArgs: {
+          documentId: Id<"collaborativeDocuments">;
+          userId: string;
+          cursor: { position: number; isVisible: boolean };
+          selection?: { start: number; end: number };
+        } = {
           documentId: documentId as Id<"collaborativeDocuments">,
           userId,
           cursor: { position, isVisible: true }
@@ -430,7 +435,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
       case 'deleteByCut':
       case 'deleteByDrag':
         // Handle larger deletions
-        const deletedLength = (inputEvent as any).dataTransfer?.getData('text/plain')?.length || 1;
+        const deletedLength = (inputEvent as InputEvent & { dataTransfer?: DataTransfer }).dataTransfer?.getData('text/plain')?.length || 1;
         return {
           type: 'delete',
           position,
@@ -636,7 +641,11 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     }
   };
 
-  const formatContentForDisplay = (content: string, spans: any[]): string => {
+  const formatContentForDisplay = (content: string, spans: Array<{
+    start: number;
+    end: number;
+    attributes?: TextAttributes;
+  }>): string => {
     // Convert plain text and spans to HTML for display
     // This is a simplified implementation
     return content.replace(/\n/g, '<br>');

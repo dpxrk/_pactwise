@@ -107,8 +107,8 @@ export function useSwipeGesture(options?: {
   
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     setTouchStart({
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY,
+      x: e.touches[0]!.clientX,
+      y: e.touches[0]!.clientY,
     });
   }, []);
   
@@ -116,8 +116,8 @@ export function useSwipeGesture(options?: {
     if (!touchStart) return;
     
     const touchEnd = {
-      x: e.changedTouches[0].clientX,
-      y: e.changedTouches[0].clientY,
+      x: e.changedTouches[0]!.clientX,
+      y: e.changedTouches[0]!.clientY,
     };
     
     const deltaX = touchEnd.x - touchStart.x;

@@ -15,7 +15,13 @@ import {
   defaultChartTheme,
   createGradientTexture,
 } from '@/lib/three-chart-utils';
-import gsap from 'gsap';
+// Dynamic import for GSAP to reduce initial bundle size
+let gsap: typeof import('gsap').gsap | null = null;
+if (typeof window !== 'undefined') {
+  import('gsap').then(module => {
+    gsap = module.gsap;
+  });
+}
 
 // Data Point component
 const DataPoint: React.FC<{
@@ -30,7 +36,7 @@ const DataPoint: React.FC<{
 
   // Animation on mount
   useEffect(() => {
-    if (meshRef.current && visible) {
+    if (meshRef.current && visible && gsap) {
       meshRef.current.scale.set(0, 0, 0);
       gsap.to(meshRef.current.scale, {
         duration: 0.6,
@@ -45,7 +51,7 @@ const DataPoint: React.FC<{
 
   // Hover animation
   const handlePointerEnter = () => {
-    if (meshRef.current) {
+    if (meshRef.current && gsap) {
       gsap.to(meshRef.current.scale, {
         duration: 0.3,
         x: 1.5,
@@ -57,7 +63,7 @@ const DataPoint: React.FC<{
   };
 
   const handlePointerLeave = () => {
-    if (meshRef.current) {
+    if (meshRef.current && gsap) {
       gsap.to(meshRef.current.scale, {
         duration: 0.3,
         x: 1,
@@ -103,7 +109,7 @@ const AnimatedLine: React.FC<{
   smoothCurve: boolean;
   index: number;
 }> = ({ points, color, lineWidth, smoothCurve, index }) => {
-  const lineRef = useRef<any>(null);
+  const lineRef = useRef<THREE.Line | null>(null);
   const [opacity, setOpacity] = React.useState(0);
 
   // Create line points
@@ -120,15 +126,20 @@ const AnimatedLine: React.FC<{
 
   // Animation on mount
   useEffect(() => {
-    gsap.to({ value: 0 }, {
-      duration: 0.8,
-      value: 1,
-      delay: index * 0.2,
-      ease: "power2.out",
-      onUpdate: function() {
-        setOpacity(this.targets()[0].value);
-      }
-    });
+    if (gsap) {
+      gsap.to({ value: 0 }, {
+        duration: 0.8,
+        value: 1,
+        delay: index * 0.2,
+        ease: "power2.out",
+        onUpdate: function() {
+          setOpacity(this.targets()[0].value);
+        }
+      });
+    } else {
+      // Fallback without animation
+      setOpacity(1);
+    }
   }, [index]);
 
   return (

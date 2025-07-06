@@ -26,8 +26,8 @@ export default function Error({ error, reset }: ErrorProps) {
     console.error('Application error:', error);
     
     // Report to monitoring service if available
-    if (typeof window !== 'undefined' && (window as any).convexAnalytics) {
-      (window as any).convexAnalytics.reportError({
+    if (typeof window !== 'undefined' && (window as { convexAnalytics?: { reportError: (data: unknown) => void } }).convexAnalytics) {
+      window.convexAnalytics.reportError({
         message: error.message,
         stack: error.stack,
         digest: error.digest,

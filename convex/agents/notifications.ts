@@ -2,6 +2,7 @@
 import { internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
+import { AgentMutationCtx } from "../shared/agent_types";
 
 /**
  * Notifications Agent
@@ -182,13 +183,13 @@ export const run = internalMutation({
 // ============================================================================
 
 async function processNotificationTasks(
-  ctx: any,
+  ctx: AgentMutationCtx,
   agentId: Id<"agents">
 ): Promise<number> {
   const tasks = await ctx.db
     .query("agentTasks")
-    .withIndex("by_assigned_agent", (q: any) => q.eq("assignedAgentId", agentId))
-    .filter((q: any) => 
+    .withIndex("by_assigned_agent", (q) => q.eq("assignedAgentId", agentId))
+    .filter((q) => 
       q.and(
         q.eq(q.field("status"), "pending"),
         q.eq(q.field("taskType"), "send_notification")
@@ -220,7 +221,10 @@ async function processNotificationTasks(
       await ctx.db.patch(task._id, {
         status: "completed",
         completedAt: new Date().toISOString(),
-        result: { notificationId: notification._id },
+        result: { 
+          success: true,
+          output: { notificationId: notification._id },
+        },
       });
 
       processed++;
@@ -247,7 +251,7 @@ async function processNotificationTasks(
 }
 
 async function sendScheduledNotifications(
-  ctx: any,
+  ctx: AgentMutationCtx,
   agentId: Id<"agents">
 ): Promise<number> {
   const now = new Date();
@@ -255,7 +259,7 @@ async function sendScheduledNotifications(
   // Get notifications that are scheduled and due
   const dueNotifications = await ctx.db
     .query("notifications")
-    .filter((q: any) => 
+    .filter((q) => 
       q.and(
         q.eq(q.field("status"), "scheduled"),
         q.lte(q.field("scheduledFor"), now.toISOString())
@@ -278,7 +282,7 @@ async function sendScheduledNotifications(
 }
 
 async function processBatchedNotifications(
-  ctx: any,
+  ctx: AgentMutationCtx,
   agentId: Id<"agents">
 ): Promise<number> {
   // Get batched notifications older than batch delay
@@ -286,7 +290,7 @@ async function processBatchedNotifications(
   
   const batchedNotifications = await ctx.db
     .query("notifications")
-    .filter((q: any) => 
+    .filter((q) => 
       q.and(
         q.eq(q.field("status"), "batched"),
         q.lte(q.field("createdAt"), batchCutoff.toISOString())
@@ -324,12 +328,12 @@ async function processBatchedNotifications(
 }
 
 async function retryFailedNotifications(
-  ctx: any,
+  ctx: AgentMutationCtx,
   agentId: Id<"agents">
 ): Promise<number> {
   const failedNotifications = await ctx.db
     .query("notifications")
-    .filter((q: any) => 
+    .filter((q) => 
       q.and(
         q.eq(q.field("status"), "failed"),
         q.lt(q.field("retryCount"), NOTIFICATIONS_CONFIG.maxRetries)
@@ -358,7 +362,7 @@ async function retryFailedNotifications(
 }
 
 async function cleanupOldNotifications(
-  ctx: any,
+  ctx: AgentMutationCtx,
   agentId: Id<"agents">
 ): Promise<void> {
   // Archive notifications older than 90 days
@@ -366,7 +370,7 @@ async function cleanupOldNotifications(
   
   const oldNotifications = await ctx.db
     .query("notifications")
-    .filter((q: any) => 
+    .filter((q) => 
       q.and(
         q.lte(q.field("createdAt"), archiveCutoff.toISOString()),
         q.neq(q.field("status"), "archived")
@@ -391,7 +395,7 @@ async function generateNotificationInsights(
   // Get notification statistics
   const recentNotifications = await ctx.db
     .query("notifications")
-    .filter((q: any) => q.gte(q.field("createdAt"), last24Hours.toISOString()))
+    .filter((q) => q.gte(q.field("createdAt"), last24Hours.toISOString()))
     .collect();
 
   if (recentNotifications.length < 10) return; // Not enough data
@@ -496,7 +500,7 @@ async function createNotificationFromTask(ctx: any, task: any): Promise<any> {
             q.eq("contractId", task.contractId)
               .eq("isActive", true)
           )
-          .filter((q: any) => q.eq(q.field("assignmentType"), "owner"))
+          .filter((q) => q.eq(q.field("assignmentType"), "owner"))
           .first();
         
         if (activeAssignment) {
@@ -506,7 +510,7 @@ async function createNotificationFromTask(ctx: any, task: any): Promise<any> {
           const admin = await ctx.db
             .query("users")
             .withIndex("by_enterprise", (q: any) => q.eq("enterpriseId", contract.enterpriseId))
-            .filter((q: any) => 
+            .filter((q) => 
               q.or(
                 q.eq(q.field("role"), "owner"),
                 q.eq(q.field("role"), "admin")
@@ -1028,7 +1032,7 @@ export const getPendingNotifications = internalQuery({
   handler: async (ctx, args) => {
     const notifications = await ctx.db
       .query("notifications")
-      .filter((q: any) => 
+      .filter((q) => 
         q.or(
           q.eq(q.field("status"), "pending"),
           q.eq(q.field("status"), "scheduled"),
@@ -1053,7 +1057,7 @@ export const getNotificationStats = internalQuery({
 
     const notifications = await ctx.db
       .query("notifications")
-      .filter((q: any) => q.gte(q.field("createdAt"), cutoffDate.toISOString()))
+      .filter((q) => q.gte(q.field("createdAt"), cutoffDate.toISOString()))
       .collect();
 
     const stats = {

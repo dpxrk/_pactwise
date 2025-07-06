@@ -12,7 +12,7 @@ describe('Secretary Agent', () => {
       it('should process PDF contract successfully', async () => {
         await withMockContext(async (ctx) => {
           const mockContract = createMockContract({
-            fileId: 'storage123' as any,
+            storageId: 'storage123' as any,
             analysisStatus: 'pending'
           });
           
@@ -59,7 +59,7 @@ describe('Secretary Agent', () => {
       it('should handle missing file', async () => {
         await withMockContext(async (ctx) => {
           const mockContract = createMockContract({
-            fileId: undefined
+            storageId: undefined as any
           });
           
           ctx.db.get.mockResolvedValue(mockContract);
@@ -72,7 +72,7 @@ describe('Secretary Agent', () => {
       it('should validate file size limits', async () => {
         await withMockContext(async (ctx) => {
           const mockContract = createMockContract({
-            fileId: 'storage123' as any
+            storageId: 'storage123' as any
           });
           
           ctx.db.get.mockResolvedValue(mockContract);
@@ -89,7 +89,7 @@ describe('Secretary Agent', () => {
       it('should validate supported file types', async () => {
         await withMockContext(async (ctx) => {
           const mockContract = createMockContract({
-            fileId: 'storage123' as any
+            storageId: 'storage123' as any
           });
           
           ctx.db.get.mockResolvedValue(mockContract);
@@ -366,23 +366,23 @@ describe('Secretary Agent', () => {
           const contracts = [
             createMockContract({ 
               title: 'Service Agreement - Company A',
-              type: 'service'
+              contractType: 'sow'
             }),
             createMockContract({ 
               title: 'Service Agreement - Company B',
-              type: 'service'
+              contractType: 'sow'
             }),
             createMockContract({ 
               title: 'Service Agreement - Company C',
-              type: 'service'
+              contractType: 'sow'
             }),
             createMockContract({ 
               title: 'NDA - Partner X',
-              type: 'nda'
+              contractType: 'nda'
             }),
             createMockContract({ 
               title: 'NDA - Partner Y',
-              type: 'nda'
+              contractType: 'nda'
             })
           ];
           
@@ -393,14 +393,14 @@ describe('Secretary Agent', () => {
           expect(result).toEqual({
             recommendedTemplates: [
               {
-                type: 'service',
+                contractType: 'sow',
                 count: 3,
                 commonClauses: expect.any(Array),
                 variableFields: expect.any(Array),
                 estimatedTimeSaving: '2-3 hours per contract'
               },
               {
-                type: 'nda',
+                contractType: 'nda',
                 count: 2,
                 commonClauses: expect.any(Array),
                 variableFields: expect.any(Array),
@@ -436,7 +436,7 @@ describe('Secretary Agent', () => {
           expect(result).toEqual({
             template: {
               name: 'Service Agreement Template',
-              type: 'service',
+              contractType: 'sow',
               structure: expect.any(Array),
               variables: expect.arrayContaining([
                 { name: 'PARTY_A', type: 'text', required: true },
@@ -498,7 +498,7 @@ describe('Secretary Agent', () => {
     it('should handle processing errors gracefully', async () => {
       await withMockContext(async (ctx) => {
         const mockContract = createMockContract({
-          fileId: 'corrupted-file' as any
+          storageId: 'corrupted-file' as any
         });
         
         ctx.db.get.mockResolvedValue(mockContract);
@@ -583,27 +583,27 @@ async function simulateExtractDocumentMetadata(content: string) {
   
   // Extract document type
   const typeMatch = content.match(/^([A-Z\s]+(?:AGREEMENT|CONTRACT|ORDER))/m);
-  if (typeMatch) {
+  if (typeMatch && typeMatch[1]) {
     metadata.documentType = typeMatch[1].trim();
   }
   
   // Extract parties - look for the specific pattern in the test
-  const partyLines = content.match(/between:?\s*([^(]+)\s*\("([^"]+)"\)\s*(?:and\s*)?([^(]+)\s*\("([^"]+)"\)/si);
+  const partyLines = content.match(/between:?\s*([^(]+)\s*\("([^"]+)"\)\s*(?:and\s*)?([^(]+)\s*\("([^"]+)"\)/i);
   if (partyLines) {
     metadata.parties.push({
-      name: partyLines[1].trim(),
-      role: partyLines[2].trim()
+      name: partyLines[1]?.trim() || '',
+      role: partyLines[2]?.trim() || ''
     });
     metadata.parties.push({
-      name: partyLines[3].trim(),
-      role: partyLines[4].trim()
+      name: partyLines[3]?.trim() || '',
+      role: partyLines[4]?.trim() || ''
     });
   } else {
     // Fallback to simpler pattern - handle "Between: XYZ Company"
     const betweenMatch = content.match(/between:?\s*([^\n]+?)(?:\s*\("([^"]+)"\))?(?:\n|$)/i);
     if (betweenMatch) {
       metadata.parties.push({
-        name: betweenMatch[1].trim(),
+        name: betweenMatch[1]?.trim() || '',
         role: betweenMatch[2] || 'Party'
       });
     }
@@ -627,13 +627,13 @@ async function simulateExtractDocumentMetadata(content: string) {
   const valueMatch = content.match(/(?:total|contract)\s*value:?\s*\$?([\d,]+)/i);
   if (valueMatch) {
     metadata.financials = {
-      totalValue: parseInt(valueMatch[1].replace(/,/g, '')),
+      totalValue: parseInt(valueMatch[1]?.replace(/,/g, '') || '0'),
       currency: 'USD'
     };
     
     // Extract payment terms from dedicated line
     const paymentMatch = content.match(/payment\s*terms?:?\s*([^\n]+)/i);
-    if (paymentMatch && !paymentMatch[1].includes('Total contract value')) {
+    if (paymentMatch && paymentMatch[1] && !paymentMatch[1].includes('Total contract value')) {
       metadata.financials.paymentTerms = paymentMatch[1].trim();
     } else {
       // Look for Net X days pattern
@@ -649,9 +649,9 @@ async function simulateExtractDocumentMetadata(content: string) {
   metadata.signatories = [];
   for (const match of signMatches) {
     metadata.signatories.push({
-      name: match[1].trim(),
-      title: match[2].trim(),
-      organization: match[3].trim()
+      name: match[1]?.trim() || '',
+      title: match[2]?.trim() || '',
+      organization: match[3]?.trim() || ''
     });
   }
   
@@ -672,7 +672,7 @@ async function simulateExtractDocumentMetadata(content: string) {
   
   // Also check document type for key terms
   if (metadata.documentType && metadata.documentType.includes('CONFIDENTIALITY')) {
-    if (!metadata.keyTerms.some(term => term.toLowerCase().includes('confidential'))) {
+    if (!metadata.keyTerms.some((term: string) => term.toLowerCase().includes('confidential'))) {
       metadata.keyTerms.push('CONFIDENTIALITY');
     }
   }
@@ -727,7 +727,7 @@ async function simulateClassifyDocument(content: string) {
   }
   
   return {
-    type: topType[0],
+    type: topType?.[0] || 'unknown',
     confidence: Math.min(confidence, 0.99),
     alternativeTypes: sorted.slice(1).filter(([_, score]) => score > 0).map(([type]) => type),
     requiresManualReview: confidence < 0.8
@@ -816,17 +816,17 @@ async function simulateGenerateContractSummary(contractData: any) {
   
   // Build key points
   if (contractData.parties) {
-    summary.keyPoints.push(`Parties: ${contractData.parties.join(', ')}`);
+    (summary.keyPoints as string[]).push(`Parties: ${contractData.parties.join(', ')}`);
   }
   if (contractData.value) {
-    summary.keyPoints.push(`Total Value: $${contractData.value.toLocaleString()}`);
+    (summary.keyPoints as string[]).push(`Total Value: $${contractData.value.toLocaleString()}`);
   }
   if (contractData.term) {
-    summary.keyPoints.push(`Term: ${contractData.term}`);
+    (summary.keyPoints as string[]).push(`Term: ${contractData.term}`);
   }
   if (contractData.keyTerms) {
     contractData.keyTerms.forEach((term: string) => {
-      summary.keyPoints.push(`Key Term: ${term}`);
+      (summary.keyPoints as string[]).push(`Key Term: ${term}`);
     });
   }
   
@@ -835,13 +835,13 @@ async function simulateGenerateContractSummary(contractData: any) {
     summary.riskSummary = `Identified risks: ${contractData.risks.join(', ')}`;
     
     if (contractData.risks.some((r: string) => r.toLowerCase().includes('liability'))) {
-      summary.recommendations.push('Negotiate liability cap');
+      (summary.recommendations as string[]).push('Negotiate liability cap');
     }
   }
   
   // Add generic recommendations if none exist
   if (summary.recommendations.length === 0 && (!contractData.value || !contractData.term)) {
-    summary.recommendations.push('Requires additional review');
+    (summary.recommendations as string[]).push('Requires additional review');
   }
   
   return summary;
@@ -979,4 +979,10 @@ async function simulateProcessContractDocumentWithError(ctx: any, contractId: an
       retryable: !error.message.includes('not found')
     };
   }
+  
+  // Return default success response if no error occurs
+  return {
+    success: true,
+    documentId: contractId
+  };
 }

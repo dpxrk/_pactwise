@@ -81,8 +81,8 @@ const ActiveVendors = () => {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       const newVendor: VendorType = {
-        _id: `vendor-${Date.now()}` as any,
-        enterpriseId: "enterprise-1" as any,
+        _id: `vendor-${Date.now()}` as Id<"vendors">,
+        enterpriseId: "enterprise-1" as Id<"enterprises">,
         name: vendorData.name || "",
         status: "active",
         vendor_number: `VND-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
@@ -113,7 +113,7 @@ const ActiveVendors = () => {
     setLoading(true);
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
-      updateVendor(selectedVendor._id as any, vendorData);
+      updateVendor(selectedVendor._id, vendorData);
       setSelectedVendor({ ...selectedVendor, ...vendorData } as VendorType);
     } finally {
       setLoading(false);

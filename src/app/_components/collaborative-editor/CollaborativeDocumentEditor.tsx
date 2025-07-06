@@ -122,7 +122,19 @@ export const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorPr
     if (!userId || !enterpriseId) return;
 
     try {
-      const params: any = {
+      const params: {
+        title: string;
+        ownerId: string;
+        collaborators: string[];
+        permissions: {
+          read: string[];
+          write: string[];
+          comment: string[];
+          admin: string[];
+        };
+        contractId?: Id<"contracts">;
+        initialContent?: string;
+      } = {
         title,
         ownerId: userId,
         collaborators: [],

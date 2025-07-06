@@ -773,7 +773,7 @@ async function simulateHasEnterpriseAccess(ctx: any, enterpriseId: any, required
   const userLevel = roleHierarchy[user.role];
   const requiredLevel = roleHierarchy[requiredRole];
   
-  return userLevel >= requiredLevel;
+  return userLevel !== undefined && requiredLevel !== undefined && userLevel >= requiredLevel;
 }
 
 async function simulateUpsertUser(ctx: any, args: any) {

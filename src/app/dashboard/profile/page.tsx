@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useUser, UserProfile as ClerkUserProfile } from '@clerk/nextjs'; // Clerk UserProfile for some settings
 import { useConvexQuery, useConvexMutation } from '@/lib/api-client';
-import { api } from '@/../convex/_generated/api';
-import { Id } from '@/../convex/_generated/dataModel';
+import { api } from '../../../../convex/_generated/api';
+import { Id } from '../../../../convex/_generated/dataModel';
 import { UserRole, userRoleOptions } from '@/../convex/schema';
 
 // UI Components
@@ -150,10 +150,10 @@ const UserProfilePage = () => {
         type: 'success',
         message: 'Profile updated successfully!',
       });
-    } catch (error: any) {
+    } catch (error) {
       setStatusMessage({
         type: 'error',
-        message: error.data?.message || error.message || 'Failed to update profile.',
+        message: (error as { data?: { message?: string }; message?: string }).data?.message || (error as Error).message || 'Failed to update profile.',
       });
     }
   };
@@ -168,10 +168,10 @@ const UserProfilePage = () => {
         type: 'success',
         message: 'Notification preferences updated successfully!',
       });
-    } catch (error: any) {
+    } catch (error) {
       setStatusMessage({
         type: 'error',
-        message: error.data?.message || error.message || 'Failed to update preferences.',
+        message: (error as { data?: { message?: string }; message?: string }).data?.message || (error as Error).message || 'Failed to update preferences.',
       });
     }
   };

@@ -40,8 +40,8 @@ export function useQueryWithMonitoring<Query extends FunctionReference<'query'>>
   // Log query execution (this happens on every render when args change)
   if (result !== undefined) {
     // Query completed successfully
-    if (typeof window !== 'undefined' && (window as any).convexAnalytics) {
-      (window as any).convexAnalytics.logEvent('convex_query_completed', {
+    if (typeof window !== 'undefined' && (window as Window & { convexAnalytics?: { logEvent: (event: string, data: Record<string, unknown>) => void } }).convexAnalytics) {
+      (window as Window & { convexAnalytics?: { logEvent: (event: string, data: Record<string, unknown>) => void } }).convexAnalytics.logEvent('convex_query_completed', {
         function: functionName,
         hasResult: result !== null,
         resultType: Array.isArray(result) ? 'array' : typeof result,
@@ -63,8 +63,8 @@ export function usePreloadedQueryWithMonitoring<Query extends FunctionReference<
   const functionName = 'preloaded_query';
   
   // Track preloaded query usage
-  if (typeof window !== 'undefined' && (window as any).convexAnalytics) {
-    (window as any).convexAnalytics.logEvent('convex_preloaded_query_used', {
+  if (typeof window !== 'undefined' && (window as Window & { convexAnalytics?: { logEvent: (event: string, data: Record<string, unknown>) => void } }).convexAnalytics) {
+    (window as Window & { convexAnalytics?: { logEvent: (event: string, data: Record<string, unknown>) => void } }).convexAnalytics.logEvent('convex_preloaded_query_used', {
       function: functionName,
       hasResult: result !== null,
       resultType: Array.isArray(result) ? 'array' : typeof result,

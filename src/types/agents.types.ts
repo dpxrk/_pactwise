@@ -137,7 +137,7 @@ export interface AgentConfig {
   dependencies?: Id<"agents">[];
   triggers?: AgentTrigger[];
   /** Allows for agent-specific configuration fields not explicitly defined. */
-  [key: string]: any;
+  customSettings?: Record<string, unknown>;
 }
 
 /** Base agent metrics, intended to be extended by specific agent types. */
@@ -150,7 +150,7 @@ export interface AgentMetrics {
   dataProcessed?: number; // e.g., number of items, bytes
   insightsGenerated?: number;
   /** Allows for agent-specific metric fields not explicitly defined. */
-  [key: string]: any;
+  customMetrics?: Record<string, unknown>;
 }
 
 /** Represents an individual agent within the system. */
@@ -302,7 +302,7 @@ export interface InsightData {
     forecast?: number;
   };
   /** Allows for other types of structured insight data. */
-  [key: string]: any;
+  additionalData?: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -336,16 +336,16 @@ export interface AgentTask {
 
 /** Data payload for an AgentTask. */
 export interface TaskData {
-  input?: any;
-  parameters?: Record<string, any>;
-  context?: Record<string, any>;
-  metadata?: Record<string, any>;
+  input?: unknown;
+  parameters?: Record<string, unknown>;
+  context?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }
 
 /** Result payload from an AgentTask execution. */
 export interface TaskResult {
   success: boolean;
-  output?: any;
+  output?: unknown;
   metrics?: Record<string, number>;
   artifacts?: string[]; // URLs or IDs of generated files
   nextActions?: string[];
@@ -375,11 +375,11 @@ export interface AgentLog {
 export interface LogData {
   error?: Error | string;
   duration?: number; // Duration of an operation in milliseconds
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   stackTrace?: string;
   requestId?: string;
   sessionId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -391,7 +391,7 @@ export interface AgentEvent {
   type: string; // Consider a union type for known event types
   source: Id<"agents"> | "system";
   target?: Id<"agents"> | "system";
-  data?: any;
+  data?: unknown;
   timestamp: string; // ISO 8601 date-time string
   priority: TaskPriority;
 }
@@ -401,7 +401,7 @@ export interface AgentMessage {
   from: Id<"agents"> | "system";
   to: Id<"agents"> | "system";
   type: "request" | "response" | "notification" | "alert";
-  payload: any;
+  payload: unknown;
   correlationId?: string;
   timestamp: string; // ISO 8601 date-time string
 }
@@ -428,7 +428,7 @@ export interface WorkflowStep {
   id: string; // Unique identifier for the step within the workflow
   agentId: Id<"agents">;
   action: string; // Specific action for the agent
-  inputs?: Record<string, any>;
+  inputs?: Record<string, unknown>;
   conditions?: WorkflowCondition[];
   onSuccess?: string; // Next step ID
   onFailure?: string; // Next step ID
@@ -440,7 +440,7 @@ export interface WorkflowStep {
 export interface WorkflowCondition {
   field: string;
   operator: "eq" | "ne" | "gt" | "lt" | "gte" | "lte" | "in" | "contains";
-  value: any;
+  value: string | number | boolean | string[];
 }
 
 // ============================================================================
@@ -559,7 +559,7 @@ export interface AgentSystemStatusResponse {
 export interface AgentOperationResult {
   success: boolean;
   message: string;
-  data?: any;
+  data?: unknown;
   error?: string;
 }
 

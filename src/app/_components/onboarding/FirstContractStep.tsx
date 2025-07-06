@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { FilePlus2, SkipForward, CheckCircle } from 'lucide-react';
 import ContractFormModal from '@/app/_components/contracts/ContractFormModal'; // Re-use the existing modal
-import { Id } from '@/../convex/_generated/dataModel';
+import { Id } from '../../../../convex/_generated/dataModel';
 import { ONBOARDING_STEPS, type OnboardingStep } from '@/../convex/onboardingConstants';
 import { useConvexMutation } from '@/lib/api-client';
-import { api } from '@/../convex/_generated/api';
+import { api } from '../../../../convex/_generated/api';
 
 interface FirstContractStepProps {
-  onStepComplete: (nextStep?: OnboardingStep, metadata?: any) => void;
+  onStepComplete: (nextStep?: OnboardingStep, metadata?: Record<string, unknown>) => void;
   onSkip: (nextStep?: OnboardingStep) => void;
 }
 

@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { ArrowRight, Sparkles, Clock, Shield, CheckCircle } from "lucide-react";
 import { useInView } from "react-intersection-observer";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 
 const FinalCTAPremium = () => {
   const [timeLeft, setTimeLeft] = useState({
@@ -15,6 +17,8 @@ const FinalCTAPremium = () => {
     threshold: 0.1,
     triggerOnce: true
   });
+  const router = useRouter();
+  const { isSignedIn } = useAuth();
 
   // Countdown timer for urgency
   useEffect(() => {
@@ -103,7 +107,10 @@ const FinalCTAPremium = () => {
           flex flex-col sm:flex-row gap-4 justify-center mb-8
           ${inView ? 'animate-fade-in-up animation-delay-400' : 'opacity-0'}
         `}>
-          <button className="group relative px-8 py-4 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-semibold rounded-xl transition-all duration-300 shadow-glow hover:shadow-glow hover:scale-105 text-lg">
+          <button 
+            onClick={() => router.push(isSignedIn ? "/pricing" : "/sign-up")}
+            className="group relative px-8 py-4 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-semibold rounded-xl transition-all duration-300 shadow-glow hover:shadow-glow hover:scale-105 text-lg"
+          >
             <span className="relative z-10 flex items-center justify-center gap-2">
               Start Your Free Trial
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -111,7 +118,10 @@ const FinalCTAPremium = () => {
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 rounded-xl" />
           </button>
           
-          <button className="px-8 py-4 glass border border-white/10 hover:border-white/20 text-white font-semibold rounded-xl transition-all duration-300 hover:bg-white/5 text-lg">
+          <button 
+            onClick={() => router.push("/contact")}
+            className="px-8 py-4 glass border border-white/10 hover:border-white/20 text-white font-semibold rounded-xl transition-all duration-300 hover:bg-white/5 text-lg"
+          >
             Schedule a Demo
           </button>
         </div>

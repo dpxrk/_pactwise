@@ -120,7 +120,7 @@ class GlobalErrorHandler {
   }
 
   // Convert various error types to AppError
-  private normalizeError(error: any, context?: ErrorContext): AppError {
+  private normalizeError(error: unknown, context?: ErrorContext): AppError {
     const errorId = `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const timestamp = new Date();
 
@@ -141,7 +141,7 @@ class GlobalErrorHandler {
     }
 
     // Handle network errors
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+    if (error instanceof Error && error.name === 'TypeError' && error.message.includes('fetch')) {
       return {
         id: errorId,
         message: error.message,
@@ -149,7 +149,7 @@ class GlobalErrorHandler {
         category: 'network',
         severity: 'medium',
         timestamp,
-        stack: error.stack,
+        stack: error.stack || undefined,
         userMessage: 'Network connection error. Please check your internet connection.',
         actionable: true,
         retryable: true,
@@ -158,7 +158,7 @@ class GlobalErrorHandler {
     }
 
     // Handle authentication errors
-    if (error.message.includes('auth') || error.message.includes('unauthorized')) {
+    if (error instanceof Error && (error.message.includes('auth') || error.message.includes('unauthorized'))) {
       return {
         id: errorId,
         message: error.message,
@@ -166,7 +166,7 @@ class GlobalErrorHandler {
         category: 'auth',
         severity: 'high',
         timestamp,
-        stack: error.stack,
+        stack: error.stack || undefined,
         userMessage: 'Authentication error. Please log in again.',
         actionable: true,
         retryable: false,
@@ -174,7 +174,7 @@ class GlobalErrorHandler {
     }
 
     // Handle validation errors
-    if (error.name === 'ValidationError' || error.message.includes('validation')) {
+    if (error instanceof Error && (error.name === 'ValidationError' || error.message.includes('validation'))) {
       return {
         id: errorId,
         message: error.message,
@@ -185,19 +185,19 @@ class GlobalErrorHandler {
         userMessage: 'Please check your input and try again.',
         actionable: true,
         retryable: false,
-        metadata: error.details || error.errors
+        metadata: (error as { details?: unknown; errors?: unknown }).details || (error as { details?: unknown; errors?: unknown }).errors || {} as Record<string, any>
       };
     }
 
     // Default error handling
     return {
       id: errorId,
-      message: error.message || 'An unexpected error occurred',
-      code: error.code || 'UNKNOWN_ERROR',
+      message: error instanceof Error ? error.message : 'An unexpected error occurred',
+      code: (error as { code?: string }).code || 'UNKNOWN_ERROR',
       category: 'system',
       severity: 'medium',
       timestamp,
-      stack: error.stack,
+      stack: error instanceof Error ? (error.stack || undefined) : undefined,
       userMessage: 'Something went wrong. Please try again.',
       actionable: true,
       retryable: true,
@@ -231,8 +231,8 @@ class GlobalErrorHandler {
     return true;
   }
 
-  private getUserFriendlyMessage(error: any): string {
-    const message = error.message?.toLowerCase() || '';
+  private getUserFriendlyMessage(error: unknown): string {
+    const message = error instanceof Error ? error.message?.toLowerCase() : '';
     
     if (message.includes('not found')) {
       return 'The requested item could not be found.';
@@ -354,16 +354,16 @@ class GlobalErrorHandler {
 export const globalErrorHandler = new GlobalErrorHandler();
 
 // Export convenience functions
-export const handleError = (error: any, context?: ErrorContext) => 
+export const handleError = (error: unknown, context?: ErrorContext) => 
   globalErrorHandler.handleError(error, context);
 
-export const handleApiError = (error: any, endpoint?: string, operation?: string) =>
+export const handleApiError = (error: unknown, endpoint?: string, operation?: string) =>
   globalErrorHandler.handleApiError(error, endpoint, operation);
 
-export const handleUserError = (error: any, userId?: string, action?: string) =>
+export const handleUserError = (error: unknown, userId?: string, action?: string) =>
   globalErrorHandler.handleUserError(error, userId, action);
 
-export const handleComponentError = (error: any, component: string, props?: any) =>
+export const handleComponentError = (error: unknown, component: string, props?: Record<string, unknown>) =>
   globalErrorHandler.handleComponentError(error, component, props);
 
 // React hook for error handling

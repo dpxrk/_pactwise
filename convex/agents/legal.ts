@@ -338,7 +338,7 @@ async function analyzeContractClauses(
     if (requiredClauses.length === 0) continue;
 
     // Simulate clause analysis (in practice, would use AI/NLP)
-    const clauseAnalysis = await analyzeContractForClauses(contract, requiredClauses);
+    const clauseAnalysis = await analyzeContractForClauses(ctx, contract, requiredClauses);
     
     if (clauseAnalysis.missingClauses.length > 0 || clauseAnalysis.problematicClauses.length > 0) {
       analysisCreated++;
@@ -639,7 +639,7 @@ async function conductLegalReview(ctx: any, contract: any): Promise<any> {
   return review;
 }
 
-async function analyzeContractForClauses(contract: any, requiredClauses: string[]): Promise<any> {
+async function analyzeContractForClauses(ctx: any, contract: any, requiredClauses: string[]): Promise<any> {
   const analysis: {
     missingClauses: string[];
     problematicClauses: any[];
@@ -664,11 +664,14 @@ async function analyzeContractForClauses(contract: any, requiredClauses: string[
   ].join(' ');
 
   try {
-    // Import AI contract analyzer
-    const { analyzeContractClauses, assessClauseRisk } = await import("../ai/contractAnalyzer");
+    // Import AI contract analyzer actions
+    const { analyzeContractClauses } = await import("../ai/contractAnalyzer");
     
-    // Perform AI-powered contract analysis
-    const aiAnalysis = await analyzeContractClauses(contractText, requiredClauses);
+    // Perform AI-powered contract analysis using ctx.runAction
+    const aiAnalysis = await ctx.runAction(analyzeContractClauses, {
+      contractText,
+      requiredClauses
+    });
     
     // Process AI results into existing format
     for (const clause of aiAnalysis.clauses) {
@@ -749,7 +752,7 @@ async function analyzeContractForClauses(contract: any, requiredClauses: string[
 }
 
 // Enhanced clause analysis with semantic search
-async function enhancedClauseAnalysis(contract: any, templateClauses: string[]): Promise<any> {
+async function enhancedClauseAnalysis(ctx: any, contract: any, templateClauses: string[]): Promise<any> {
   const contractText = [
     contract.extractedScope || '',
     contract.extractedPaymentSchedule || '',
@@ -765,12 +768,19 @@ async function enhancedClauseAnalysis(contract: any, templateClauses: string[]):
     
     // For each template clause, find similar clauses in the contract
     for (const templateClause of templateClauses) {
-      const similarClauses = await findSimilarClauses(templateClause, contractText, 0.6);
+      const similarClauses = await ctx.runAction(findSimilarClauses, {
+        clauseText: templateClause,
+        contractText,
+        threshold: 0.6
+      });
       
       if (similarClauses.length > 0) {
         // Assess risk for the most similar clause
         const topMatch = similarClauses[0]!;
-        const riskAssessment = await assessClauseRisk(topMatch.text, "general");
+        const riskAssessment = await ctx.runAction(assessClauseRisk, {
+          clauseText: topMatch.text,
+          clauseType: "general"
+        });
         
         results.push({
           templateClause,
@@ -1024,7 +1034,7 @@ async function analyzeSpecificClauses(ctx: any, agentId: Id<"agents">, task: any
   const contractType = contract.contractType || "other";
   const requiredClauses = LEGAL_CONFIG.requiredClauses[contractType as keyof typeof LEGAL_CONFIG.requiredClauses] || [];
   
-  const clauseAnalysis = await analyzeContractForClauses(contract, requiredClauses);
+  const clauseAnalysis = await analyzeContractForClauses(ctx, contract, requiredClauses);
   
   const analysis = {
     contractId: contract._id,
@@ -1639,12 +1649,12 @@ export const analyzeContractWithAI = internalMutation({
     ];
 
     // Standard clause analysis
-    const standardAnalysis = await analyzeContractForClauses(contract, requiredClauses);
+    const standardAnalysis = await analyzeContractForClauses(ctx, contract, requiredClauses);
 
     // Enhanced semantic analysis if template clauses provided
     let semanticAnalysis = null;
     if (args.templateClauses && args.templateClauses.length > 0) {
-      semanticAnalysis = await enhancedClauseAnalysis(contract, args.templateClauses);
+      semanticAnalysis = await enhancedClauseAnalysis(ctx, contract, args.templateClauses);
     }
 
     // Combine results

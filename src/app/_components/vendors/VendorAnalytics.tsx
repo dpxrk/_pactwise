@@ -2,8 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { useQuery } from 'convex/react';
-import { api } from '@/convex/_generated/api';
-import { Id } from '@/convex/_generated/dataModel';
+import { api } from '../../../../convex/_generated/api';
+import { Id } from '../../../../convex/_generated/dataModel';
 import {
   BarChart3,
   TrendingUp,
@@ -105,7 +105,7 @@ interface VendorAnalyticsProps {
   className?: string;
 }
 
-export const VendorAnalytics: React.FC<VendorAnalyticsProps> = ({
+const VendorAnalyticsComponent: React.FC<VendorAnalyticsProps> = ({
   vendorId,
   enterpriseId,
   className
@@ -713,3 +713,9 @@ export const VendorAnalytics: React.FC<VendorAnalyticsProps> = ({
     </div>
   );
 };
+
+export const VendorAnalytics = React.memo(VendorAnalyticsComponent, (prevProps, nextProps) => {
+  // Only re-render if vendorId or enterpriseId changes
+  return prevProps.vendorId === nextProps.vendorId && 
+         prevProps.enterpriseId === nextProps.enterpriseId;
+});

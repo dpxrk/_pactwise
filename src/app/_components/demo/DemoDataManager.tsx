@@ -21,8 +21,8 @@ export function DemoDataManager({ enterpriseId }: DemoDataManagerProps) {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Queries
-  const demoDataExists = useQuery(api.features.demo.checkDemoDataExists, { enterpriseId: enterpriseId as any });
-  const demoStats = useQuery(api.features.demo.getDemoDataStats, { enterpriseId: enterpriseId as any });
+  const demoDataExists = useQuery(api.features.demo.checkDemoDataExists, enterpriseId ? { enterpriseId } : "skip");
+  const demoStats = useQuery(api.features.demo.getDemoDataStats, enterpriseId ? { enterpriseId } : "skip");
 
   // Mutations
   const setupDemoAccount = useMutation(api.features.demo.setupDemoAccount);
@@ -48,9 +48,9 @@ export function DemoDataManager({ enterpriseId }: DemoDataManagerProps) {
           { title: 'Setup Partially Failed' }
         );
       }
-    } catch (error: any) {
+    } catch (error) {
       showToast.error(
-        error.message || 'Failed to setup demo data',
+        error instanceof Error ? error.message : 'Failed to setup demo data',
         { title: 'Setup Failed' }
       );
     } finally {
@@ -68,9 +68,9 @@ export function DemoDataManager({ enterpriseId }: DemoDataManagerProps) {
         { title: 'Demo Data Cleaned Up' }
       );
       setIsCleanupDialogOpen(false);
-    } catch (error: any) {
+    } catch (error) {
       showToast.error(
-        error.message || 'Failed to cleanup demo data',
+        error instanceof Error ? error.message : 'Failed to cleanup demo data',
         { title: 'Cleanup Failed' }
       );
     } finally {
@@ -80,7 +80,7 @@ export function DemoDataManager({ enterpriseId }: DemoDataManagerProps) {
 
   if (!demoDataExists) return null;
 
-  const hasDemoData = (demoDataExists as any)?.hasExistingDemoData;
+  const hasDemoData = demoDataExists?.hasExistingDemoData;
 
   return (
     <Card className="w-full">
@@ -110,32 +110,32 @@ export function DemoDataManager({ enterpriseId }: DemoDataManagerProps) {
           {hasDemoData && (
             <div className="flex gap-2">
               <Badge variant="secondary">
-                {(demoDataExists as any).existingDemoVendors} vendors
+                {demoDataExists.existingDemoVendors} vendors
               </Badge>
               <Badge variant="secondary">
-                {(demoDataExists as any).existingDemoContracts} contracts
+                {demoDataExists.existingDemoContracts} contracts
               </Badge>
             </div>
           )}
         </div>
 
         {/* Detailed Stats */}
-        {demoStats && (demoStats as any).isDemoDataPresent && (
+        {demoStats && demoStats.isDemoDataPresent && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{(demoStats as any).totalVendors}</div>
+              <div className="text-2xl font-bold text-blue-600">{demoStats.totalVendors}</div>
               <div className="text-sm text-gray-600">Vendors</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{(demoStats as any).totalContracts}</div>
+              <div className="text-2xl font-bold text-green-600">{demoStats.totalContracts}</div>
               <div className="text-sm text-gray-600">Contracts</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">{(demoStats as any).matchedContracts}</div>
+              <div className="text-2xl font-bold text-purple-600">{demoStats.matchedContracts}</div>
               <div className="text-sm text-gray-600">Matched</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">{(demoStats as any).unmatchedContracts}</div>
+              <div className="text-2xl font-bold text-orange-600">{demoStats.unmatchedContracts}</div>
               <div className="text-sm text-gray-600">Unmatched</div>
             </div>
           </div>

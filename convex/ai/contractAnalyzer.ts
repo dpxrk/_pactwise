@@ -1,4 +1,6 @@
 // convex/ai/contractAnalyzer.ts
+import { action } from "../_generated/server";
+import { v } from "convex/values";
 import OpenAI from "openai";
 
 // ============================================================================
@@ -49,14 +51,18 @@ const getOpenAIClient = () => {
 /**
  * Analyze contract text for specific clauses using AI/NLP
  */
-export async function analyzeContractClauses(
-  contractText: string, 
-  requiredClauses: string[] = STANDARD_CLAUSES
-): Promise<ContractAnalysisResult> {
-  const openai = getOpenAIClient();
+export const analyzeContractClauses = action({
+  args: {
+    contractText: v.string(),
+    requiredClauses: v.optional(v.array(v.string()))
+  },
+  handler: async (ctx, args): Promise<ContractAnalysisResult> => {
+    const requiredClauses = args.requiredClauses || STANDARD_CLAUSES;
+    const contractText = args.contractText;
+    const openai = getOpenAIClient();
 
-  // Prepare the prompt for clause analysis
-  const prompt = `
+    // Prepare the prompt for clause analysis
+    const prompt = `
 You are a legal contract analysis expert. Analyze the following contract text and identify the presence, quality, and risk level of specific clauses.
 
 Contract Text:
@@ -97,107 +103,115 @@ Respond in valid JSON format:
 }
 `;
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4-1106-preview",
-      messages: [
-        {
-          role: "system",
-          content: "You are a legal expert specializing in contract analysis. Always respond with valid JSON format."
-        },
-        {
-          role: "user", 
-          content: prompt
-        }
-      ],
-      temperature: 0.1, // Low temperature for consistent analysis
-      max_tokens: 4000
-    });
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4-1106-preview",
+        messages: [
+          {
+            role: "system",
+            content: "You are a legal expert specializing in contract analysis. Always respond with valid JSON format."
+          },
+          {
+            role: "user", 
+            content: prompt
+          }
+        ],
+        temperature: 0.1, // Low temperature for consistent analysis
+        max_tokens: 4000
+      });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error("No response from OpenAI");
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from OpenAI");
+      }
+
+      // Parse the JSON response
+      const analysis: ContractAnalysisResult = JSON.parse(content);
+      
+      // Validate the response structure
+      if (!analysis.clauses || !Array.isArray(analysis.clauses)) {
+        throw new Error("Invalid response structure from AI analysis");
+      }
+
+      return analysis;
+
+    } catch (error) {
+      console.error("AI contract analysis failed:", error);
+      
+      // Fallback to basic analysis if AI fails
+      return fallbackClauseAnalysis(contractText, requiredClauses);
     }
-
-    // Parse the JSON response
-    const analysis: ContractAnalysisResult = JSON.parse(content);
-    
-    // Validate the response structure
-    if (!analysis.clauses || !Array.isArray(analysis.clauses)) {
-      throw new Error("Invalid response structure from AI analysis");
-    }
-
-    return analysis;
-
-  } catch (error) {
-    console.error("AI contract analysis failed:", error);
-    
-    // Fallback to basic analysis if AI fails
-    return fallbackClauseAnalysis(contractText, requiredClauses);
   }
-}
+});
 
 /**
  * Semantic similarity search for clause matching
  */
-export async function findSimilarClauses(
-  clauseText: string,
-  contractText: string,
-  threshold: number = 0.7
-): Promise<{ text: string; similarity: number }[]> {
-  const openai = getOpenAIClient();
+export const findSimilarClauses = action({
+  args: {
+    clauseText: v.string(),
+    contractText: v.string(),
+    threshold: v.optional(v.number())
+  },
+  handler: async (ctx, args): Promise<{ text: string; similarity: number }[]> => {
+    const { clauseText, contractText, threshold = 0.7 } = args;
+    const openai = getOpenAIClient();
 
-  try {
-    // Get embeddings for the clause and contract sections
-    const clauseEmbedding = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: clauseText
-    });
+    try {
+      // Get embeddings for the clause and contract sections
+      const clauseEmbedding = await openai.embeddings.create({
+        model: "text-embedding-3-small",
+        input: clauseText
+      });
 
-    // Split contract into sections for analysis
-    const sections = contractText.split('\n\n').filter(section => section.trim().length > 50);
-    const sectionEmbeddings = await Promise.all(
-      sections.map(async (section) => {
-        const embedding = await openai.embeddings.create({
-          model: "text-embedding-3-small",
-          input: section
-        });
-        return { text: section, embedding: embedding.data[0]!.embedding };
-      })
-    );
+      // Split contract into sections for analysis
+      const sections = contractText.split('\n\n').filter(section => section.trim().length > 50);
+      const sectionEmbeddings = await Promise.all(
+        sections.map(async (section) => {
+          const embedding = await openai.embeddings.create({
+            model: "text-embedding-3-small",
+            input: section
+          });
+          return { text: section, embedding: embedding.data[0]!.embedding };
+        })
+      );
 
-    // Calculate similarities
-    const clauseVector = clauseEmbedding.data[0]!.embedding;
-    const similarities = sectionEmbeddings.map(({ text, embedding }) => ({
-      text,
-      similarity: cosineSimilarity(clauseVector, embedding)
-    }));
+      // Calculate similarities
+      const clauseVector = clauseEmbedding.data[0]!.embedding;
+      const similarities = sectionEmbeddings.map(({ text, embedding }) => ({
+        text,
+        similarity: cosineSimilarity(clauseVector, embedding)
+      }));
 
-    // Return sections above threshold, sorted by similarity
-    return similarities
-      .filter(item => item.similarity >= threshold)
-      .sort((a, b) => b.similarity - a.similarity);
+      // Return sections above threshold, sorted by similarity
+      return similarities
+        .filter(item => item.similarity >= threshold)
+        .sort((a, b) => b.similarity - a.similarity);
 
-  } catch (error) {
-    console.error("Semantic similarity analysis failed:", error);
-    return [];
+    } catch (error) {
+      console.error("Semantic similarity analysis failed:", error);
+      return [];
+    }
   }
-}
+});
 
 /**
  * AI-powered risk assessment for contract clauses
  */
-export async function assessClauseRisk(
-  clauseText: string,
-  clauseType: string
-): Promise<{
-  riskScore: number;
-  riskFactors: string[];
-  mitigationStrategies: string[];
-}> {
-  const openai = getOpenAIClient();
+export const assessClauseRisk = action({
+  args: {
+    clauseText: v.string(),
+    clauseType: v.string()
+  },
+  handler: async (ctx, args): Promise<{
+    riskScore: number;
+    riskFactors: string[];
+    mitigationStrategies: string[];
+  }> => {
+    const { clauseText, clauseType } = args;
+    const openai = getOpenAIClient();
 
-  const prompt = `
+    const prompt = `
 Analyze the following ${clauseType} clause for legal and business risks:
 
 Clause Text:
@@ -218,41 +232,42 @@ Respond in JSON format:
 }
 `;
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4-1106-preview",
-      messages: [
-        {
-          role: "system",
-          content: "You are a legal risk assessment expert. Always respond with valid JSON."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: 0.1,
-      max_tokens: 1000
-    });
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4-1106-preview",
+        messages: [
+          {
+            role: "system",
+            content: "You are a legal risk assessment expert. Always respond with valid JSON."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 1000
+      });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error("No response from risk assessment");
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from risk assessment");
+      }
+
+      return JSON.parse(content);
+
+    } catch (error) {
+      console.error("Risk assessment failed:", error);
+      
+      // Fallback risk assessment
+      return {
+        riskScore: 50,
+        riskFactors: ["Unable to perform AI risk assessment"],
+        mitigationStrategies: ["Manual legal review recommended"]
+      };
     }
-
-    return JSON.parse(content);
-
-  } catch (error) {
-    console.error("Risk assessment failed:", error);
-    
-    // Fallback risk assessment
-    return {
-      riskScore: 50,
-      riskFactors: ["Unable to perform AI risk assessment"],
-      mitigationStrategies: ["Manual legal review recommended"]
-    };
   }
-}
+});
 
 // ============================================================================
 // UTILITY FUNCTIONS

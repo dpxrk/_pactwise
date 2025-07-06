@@ -2,8 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation } from 'convex/react';
-import { api } from '@/convex/_generated/api';
-import { Id } from '@/convex/_generated/dataModel';
+import { api } from '../../../../convex/_generated/api';
+import { Id } from '../../../../convex/_generated/dataModel';
 import {
   FileSearch,
   AlertTriangle,
@@ -23,7 +23,8 @@ import {
   Copy,
   Flag,
   Zap,
-  Target
+  Target,
+  Lightbulb
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -126,7 +127,7 @@ interface ContractAnalysisProps {
   className?: string;
 }
 
-export const ContractAnalysis: React.FC<ContractAnalysisProps> = ({
+const ContractAnalysisComponent: React.FC<ContractAnalysisProps> = ({
   contractId,
   onRefresh,
   className
@@ -965,3 +966,8 @@ export const ContractAnalysis: React.FC<ContractAnalysisProps> = ({
     </div>
   );
 };
+
+export const ContractAnalysis = React.memo(ContractAnalysisComponent, (prevProps, nextProps) => {
+  // Only re-render if contractId changes
+  return prevProps.contractId === nextProps.contractId;
+});

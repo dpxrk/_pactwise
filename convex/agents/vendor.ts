@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
-import { AgentTask } from "../shared/agent_types";
+import { AgentTask, AgentMutationCtx } from "../shared/agent_types";
 
 // Vendor matching threshold for fuzzy matching
 const MATCH_THRESHOLD = 0.85;
@@ -71,7 +71,7 @@ function calculateSimilarity(str1: string, str2: string): number {
 
 // Find matching vendor by name
 const findMatchingVendor = async (
-  ctx: any,
+  ctx: AgentMutationCtx,
   args: {
     enterpriseId: Id<"enterprises">;
     vendorName: string;
@@ -83,7 +83,7 @@ const findMatchingVendor = async (
     // Get all vendors for the enterprise
     const vendors = await ctx.db
       .query("vendors")
-      .withIndex("by_enterprise", (q: any) => q.eq("enterpriseId", args.enterpriseId))
+      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", args.enterpriseId))
       .collect();
     
     let bestMatch: typeof vendors[0] | null = null;
@@ -108,7 +108,7 @@ const findMatchingVendor = async (
 
 // Create new vendor from extracted data
 const createVendorFromContract = async (
-  ctx: any,
+  ctx: AgentMutationCtx,
   args: {
     enterpriseId: Id<"enterprises">;
     vendorName: string;
@@ -165,13 +165,13 @@ export const processUnassignedContracts = internalMutation({
     });
     
     try {
-      const enterpriseId = (task as any).metadata?.enterpriseId as Id<"enterprises">;
+      const enterpriseId = (task.data as { metadata?: { enterpriseId?: Id<"enterprises"> } })?.metadata?.enterpriseId;
       if (!enterpriseId) throw new Error("Enterprise ID not found in task metadata");
       
       // Find contracts with extracted parties but no vendor
       const contracts = await ctx.db
         .query("contracts")
-        .withIndex("by_enterprise", (q: any) => q.eq("enterpriseId", enterpriseId))
+        .withIndex("by_enterprise", (q) => q.eq("enterpriseId", enterpriseId))
         .filter((q) => 
           q.and(
             q.neq(q.field("extractedParties"), undefined),
@@ -228,7 +228,7 @@ export const processUnassignedContracts = internalMutation({
       
       // Create insight about vendor processing
       // Get vendor agent for agentId
-      const vendorAgent = await ctx.db.query("agents").withIndex("by_type", (q: any) => q.eq("type", "vendor")).first();
+      const vendorAgent = await ctx.db.query("agents").withIndex("by_type", (q) => q.eq("type", "vendor")).first();
       if (vendorAgent) {
         await ctx.db.insert("agentInsights", {
           agentId: vendorAgent._id,
@@ -278,14 +278,14 @@ export const processUnassignedContracts = internalMutation({
 
 // Check for duplicate vendors
 const checkDuplicateVendors = async (
-  ctx: any,
+  ctx: AgentMutationCtx,
   args: {
     enterpriseId: Id<"enterprises">;
   }
 ) => {
     const vendors = await ctx.db
       .query("vendors")
-      .withIndex("by_enterprise", (q: any) => q.eq("enterpriseId", args.enterpriseId))
+      .withIndex("by_enterprise", (q) => q.eq("enterpriseId", args.enterpriseId))
       .collect();
     
     const duplicates: Array<{

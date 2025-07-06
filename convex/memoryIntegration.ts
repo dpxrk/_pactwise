@@ -453,6 +453,8 @@ function getRelevantMemoryTypesForAgent(agentType: string): Array<
     secretary: ["interaction_pattern", "user_preference", "task_history"],
     analytics: ["domain_knowledge", "interaction_pattern", "entity_relation"],
     notifications: ["user_preference", "feedback", "interaction_pattern"],
+    chat: ["user_preference", "conversation_context", "feedback", "domain_knowledge", "interaction_pattern"],
+    vendor: ["entity_relation", "domain_knowledge", "feedback"],
   };
 
   return agentMemoryMap[agentType] || ["domain_knowledge", "task_history"];

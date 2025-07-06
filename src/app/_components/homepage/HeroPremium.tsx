@@ -4,10 +4,14 @@ import React, { useEffect, useRef } from "react";
 import { ArrowRight, Sparkles, Zap, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/app/_components/common/Container";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 
 export const HeroPremium = () => {
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
+  const router = useRouter();
+  const { isSignedIn } = useAuth();
 
   useEffect(() => {
     // Text scramble effect for headline
@@ -87,25 +91,33 @@ export const HeroPremium = () => {
           {/* Feature pills */}
           <div className="flex flex-wrap justify-center gap-3 mb-12 animate-fade-in animation-delay-300">
             {[
-              { icon: Zap, text: "10x Faster Analysis", color: "purple" },
-              { icon: Shield, text: "Zero-Risk Compliance", color: "pink" },
-              { icon: Sparkles, text: "AI-Powered Insights", color: "teal" },
+              { 
+                icon: Zap, 
+                text: "10x Faster Analysis", 
+                className: "bg-gradient-to-r from-teal-500/10 to-teal-600/10 border border-teal-500/20 hover:border-teal-400/40",
+                iconClass: "text-teal-400"
+              },
+              { 
+                icon: Shield, 
+                text: "Zero-Risk Compliance", 
+                className: "bg-gradient-to-r from-cyan-500/10 to-cyan-600/10 border border-cyan-500/20 hover:border-cyan-400/40",
+                iconClass: "text-cyan-400"
+              },
+              { 
+                icon: Sparkles, 
+                text: "AI-Powered Insights", 
+                className: "bg-gradient-to-r from-teal-500/10 to-teal-600/10 border border-teal-500/20 hover:border-teal-400/40",
+                iconClass: "text-teal-400"
+              },
             ].map((feature, index) => (
               <div
                 key={index}
-                className={`
-                  group relative overflow-hidden rounded-full
-                  px-5 py-2.5 
-                  bg-gradient-to-r from-${feature.color}-500/10 to-${feature.color}-600/10
-                  border border-${feature.color}-500/20
-                  hover:border-${feature.color}-400/40
-                  transition-all duration-300
-                  animate-fade-in animation-delay-${400 + index * 100}
-                `}
+                className={`group relative overflow-hidden rounded-full px-5 py-2.5 transition-all duration-300 animate-fade-in ${feature.className}`}
+                style={{ animationDelay: `${(index + 4) * 100}ms` }}
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                 <div className="relative flex items-center gap-2">
-                  <feature.icon className={`w-4 h-4 text-${feature.color}-400`} />
+                  <feature.icon className={`w-4 h-4 ${feature.iconClass}`} />
                   <span className="text-sm font-medium text-gray-200">{feature.text}</span>
                 </div>
               </div>
@@ -116,6 +128,7 @@ export const HeroPremium = () => {
           <div className="flex flex-col sm:flex-row gap-4 animate-fade-in animation-delay-500">
             <Button
               size="lg"
+              onClick={() => router.push(isSignedIn ? "/pricing" : "/sign-up")}
               className="group relative overflow-hidden bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-8 py-6 text-lg font-semibold rounded-xl transition-all duration-300 shadow-glow hover:shadow-glow hover:scale-105"
             >
               <span className="relative z-10 flex items-center gap-2">
@@ -128,6 +141,7 @@ export const HeroPremium = () => {
             <Button
               size="lg"
               variant="outline"
+              onClick={() => router.push("/demo")}
               className="group glass hover:bg-white/5 border-white/10 hover:border-white/20 text-white px-8 py-6 text-lg font-semibold rounded-xl transition-all duration-300"
             >
               <span className="flex items-center gap-2">

@@ -204,7 +204,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     to: new Date(),
   });
   const [selectedKPI, setSelectedKPI] = useState<string>("overview");
-  const [drillDownData, setDrillDownData] = useState<any>(null);
+  const [drillDownData, setDrillDownData] = useState<unknown>(null);
   const [isDrillDownOpen, setIsDrillDownOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -231,7 +231,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     }
   };
 
-  const handleChartDrillDown = (category: string, value: any) => {
+  const handleChartDrillDown = (category: string, value: unknown) => {
     // Generate mock drill-down data based on category
     const mockData = Array.from({ length: 20 }, (_, i) => ({
       id: `${category}-${i}`,

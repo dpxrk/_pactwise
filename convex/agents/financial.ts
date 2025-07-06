@@ -245,7 +245,12 @@ async function processFinancialTasks(
       const errorCategory = categorizeError(error);
       const isRetryable = errorCategory === 'temporary' || errorCategory === 'rate_limit';
       
-      const patchData: any = {
+      const patchData: {
+        status: "pending" | "failed";
+        errorMessage: string;
+        retryCount: number;
+        completedAt?: string;
+      } = {
         status: isRetryable && (task.retryCount || 0) < 3 ? "pending" : "failed",
         errorMessage: errorMessage,
         retryCount: (task.retryCount || 0) + 1,
@@ -360,7 +365,20 @@ async function analyzeContract(
 
   // Create insights based on analysis
   if (analysis.risks.length > 0) {
-    const insightData: any = {
+    const insightData: {
+      agentId: Id<"agents">;
+      type: "financial_risk";
+      title: string;
+      description: string;
+      priority: "high" | "medium";
+      contractId: Id<"contracts">;
+      actionRequired: boolean;
+      actionTaken: boolean;
+      isRead: boolean;
+      createdAt: string;
+      data: FinancialAnalysis;
+      vendorId?: Id<"vendors">;
+    } = {
       agentId,
       type: "financial_risk",
       title: `Financial Risks Identified: ${contract.title}`,
@@ -390,7 +408,7 @@ async function analyzeContract(
 }
 
 async function analyzeContractPortfolio(
-  ctx: any,
+  ctx: AgentMutationCtx,
   agentId: Id<"agents">
 ): Promise<number> {
   let insightsCreated = 0;
@@ -399,7 +417,7 @@ async function analyzeContractPortfolio(
   const activeContracts = await ctx.db
     .query("contracts")
     .withIndex("by_status_and_enterpriseId")
-    .filter((q: any) => q.eq(q.field("status"), "active"))
+    .filter((q) => q.eq(q.field("status"), "active"))
     .collect();
 
   if (activeContracts.length === 0) return 0;
@@ -428,8 +446,10 @@ async function analyzeContractPortfolio(
     portfolioMetrics.contractsByType[type] = (portfolioMetrics.contractsByType[type] || 0) + 1;
     
     // Group by vendor
-    const vendorId = contract.vendorId.toString();
-    portfolioMetrics.contractsByVendor[vendorId] = (portfolioMetrics.contractsByVendor[vendorId] || 0) + 1;
+    if (contract.vendorId) {
+      const vendorId = contract.vendorId.toString();
+      portfolioMetrics.contractsByVendor[vendorId] = (portfolioMetrics.contractsByVendor[vendorId] || 0) + 1;
+    }
     
     // Check expiration
     if (contract.extractedEndDate) {
@@ -486,7 +506,7 @@ async function analyzeContractPortfolio(
 }
 
 async function checkPaymentSchedules(
-  ctx: any,
+  ctx: AgentMutationCtx,
   agentId: Id<"agents">
 ): Promise<number> {
   let alertsCreated = 0;
@@ -494,7 +514,7 @@ async function checkPaymentSchedules(
   const contracts = await ctx.db
     .query("contracts")
     .withIndex("by_status_and_enterpriseId")
-    .filter((q: any) => q.eq(q.field("status"), "active"))
+    .filter((q) => q.eq(q.field("status"), "active"))
     .collect();
 
   const upcomingPayments: any[] = [];
@@ -559,9 +579,11 @@ async function checkPaymentSchedules(
         priority: "high",
         title: "Notify: Upcoming payment obligations",
         data: {
-          notificationType: "payment_reminder",
-          urgency: "high",
-          payments: upcomingPayments,
+          input: {
+            notificationType: "payment_reminder",
+            urgency: "high",
+            payments: upcomingPayments,
+          },
         },
         createdAt: new Date().toISOString(),
       });
@@ -572,7 +594,7 @@ async function checkPaymentSchedules(
 }
 
 async function findCostOptimizations(
-  ctx: any,
+  ctx: AgentMutationCtx,
   agentId: Id<"agents">
 ): Promise<number> {
   let opportunitiesFound = 0;
@@ -581,17 +603,19 @@ async function findCostOptimizations(
   const contractsByVendor = await ctx.db
     .query("contracts")
     .withIndex("by_status_and_enterpriseId")
-    .filter((q: any) => q.eq(q.field("status"), "active"))
+    .filter((q) => q.eq(q.field("status"), "active"))
     .collect();
 
   const vendorGroups: Record<string, any[]> = {};
   
   for (const contract of contractsByVendor) {
-    const vendorId = contract.vendorId.toString();
-    if (!vendorGroups[vendorId]) {
-      vendorGroups[vendorId] = [];
+    if (contract.vendorId) {
+      const vendorId = contract.vendorId.toString();
+      if (!vendorGroups[vendorId]) {
+        vendorGroups[vendorId] = [];
+      }
+      vendorGroups[vendorId].push(contract);
     }
-    vendorGroups[vendorId].push(contract);
   }
 
   // Check for bundling opportunities
@@ -668,7 +692,7 @@ async function findCostOptimizations(
 }
 
 async function detectPricingAnomalies(
-  ctx: any,
+  ctx: AgentMutationCtx,
   agentId: Id<"agents">
 ): Promise<number> {
   let anomaliesFound = 0;
@@ -739,7 +763,7 @@ async function detectPricingAnomalies(
 }
 
 async function generateFinancialForecast(
-  ctx: any,
+  ctx: AgentMutationCtx,
   agentId: Id<"agents">
 ): Promise<void> {
   // Get historical contract data
@@ -809,7 +833,7 @@ async function generateFinancialForecast(
 // ERROR HANDLING HELPERS
 // ============================================================================
 
-function categorizeError(error: any): 'validation' | 'permission' | 'not_found' | 'temporary' | 'rate_limit' | 'unknown' {
+function categorizeError(error: unknown): 'validation' | 'permission' | 'not_found' | 'temporary' | 'rate_limit' | 'unknown' {
   const errorMessage = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   
   if (errorMessage.includes('not found') || errorMessage.includes('does not exist')) {
@@ -878,7 +902,12 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-function analyzePaymentTerms(scheduleText: string): any {
+function analyzePaymentTerms(scheduleText: string): {
+  structure: string;
+  frequency: string;
+  hasUnfavorableTerms: boolean;
+  concern: string;
+} {
   const analysis = {
     structure: "unknown",
     frequency: "unknown",
@@ -914,12 +943,17 @@ function analyzePaymentTerms(scheduleText: string): any {
   return analysis;
 }
 
-async function compareWithSimilarContracts(ctx: any, contract: any): Promise<any> {
+async function compareWithSimilarContracts(ctx: AgentMutationCtx, contract: Doc<"contracts">): Promise<{
+  priceVariance: number;
+  potentialSavings: number;
+  averageMarketPrice?: number;
+  sampleSize?: number;
+}> {
   // Get similar contracts
   const similarContracts = await ctx.db
     .query("contracts")
     .withIndex("by_contractType_and_enterpriseId")
-    .filter((q: any) => 
+    .filter((q) => 
       q.and(
         q.eq(q.field("contractType"), contract.contractType),
         q.neq(q.field("_id"), contract._id)
@@ -933,14 +967,14 @@ async function compareWithSimilarContracts(ctx: any, contract: any): Promise<any
 
   const currentValue = parseContractValue(contract.extractedPricing || "0");
   const similarValues = similarContracts
-    .map((c:any) => parseContractValue(c.extractedPricing || "0"))
-    .filter((v:any) => v > 0);
+    .map((c) => parseContractValue(c.extractedPricing || "0"))
+    .filter((v) => v > 0);
 
   if (similarValues.length === 0 || currentValue === 0) {
     return { priceVariance: 0, potentialSavings: 0 };
   }
 
-  const averageSimilar = similarValues.reduce((a:any, b:any) => a + b, 0) / similarValues.length;
+  const averageSimilar = similarValues.reduce((a, b) => a + b, 0) / similarValues.length;
   const variance = ((currentValue - averageSimilar) / averageSimilar) * 100;
   const savings = variance > 0 ? currentValue - averageSimilar : 0;
 
@@ -952,7 +986,10 @@ async function compareWithSimilarContracts(ctx: any, contract: any): Promise<any
   };
 }
 
-async function assessFinancialRisk(ctx: any, agentId: Id<"agents">, task: any): Promise<any> {
+async function assessFinancialRisk(ctx: AgentMutationCtx, agentId: Id<"agents">, task: Doc<"agentTasks">): Promise<FinancialAnalysis> {
+  if (!task.contractId) {
+    throw new Error("Contract ID not provided for risk assessment");
+  }
   const contract = await ctx.db.get(task.contractId);
   if (!contract) {
     throw new Error("Contract not found for risk assessment");
@@ -994,15 +1031,32 @@ async function assessFinancialRisk(ctx: any, agentId: Id<"agents">, task: any): 
 
   const riskLevel = riskScore > 40 ? "high" : riskScore > 20 ? "medium" : "low";
 
+  const risks: FinancialRisk[] = riskFactors.map(factor => ({
+    type: "contract_risk",
+    severity: riskLevel as "low" | "medium" | "high" | "critical",
+    description: factor,
+  }));
+
   return {
-    riskScore,
-    riskLevel,
-    riskFactors,
-    recommendations: generateRiskRecommendations(riskFactors, riskLevel),
+    financialSummary: {
+      totalValue: parseContractValue(contract.extractedPricing || "0"),
+    },
+    risks,
+    opportunities: [],
+    metrics: {
+      paymentTerms: contract.extractedPaymentSchedule,
+    },
   };
 }
 
-async function verifyPaymentTerms(ctx: any, agentId: Id<"agents">, task: any): Promise<any> {
+async function verifyPaymentTerms(ctx: AgentMutationCtx, agentId: Id<"agents">, task: Doc<"agentTasks">): Promise<{
+  isValid: boolean;
+  issues: string[];
+  recommendations: string[];
+}> {
+  if (!task.contractId) {
+    throw new Error("Contract ID not provided for payment verification");
+  }
   const contract = await ctx.db.get(task.contractId);
   if (!contract) {
     throw new Error("Contract not found for payment verification");
@@ -1037,7 +1091,14 @@ async function verifyPaymentTerms(ctx: any, agentId: Id<"agents">, task: any): P
   return verification;
 }
 
-async function compareCosts(ctx: any, agentId: Id<"agents">, task: any): Promise<any> {
+async function compareCosts(ctx: AgentMutationCtx, agentId: Id<"agents">, task: Doc<"agentTasks">): Promise<{
+  comparison: unknown;
+  savings?: number;
+  recommendations: string[];
+}> {
+  if (!task.contractId) {
+    throw new Error("Contract ID not provided for cost comparison");
+  }
   const contract = await ctx.db.get(task.contractId);
   if (!contract) {
     throw new Error("Contract not found for cost comparison");
@@ -1046,18 +1107,22 @@ async function compareCosts(ctx: any, agentId: Id<"agents">, task: any): Promise
   const comparison = await compareWithSimilarContracts(ctx, contract);
   
   return {
-    currentValue: parseContractValue(contract.extractedPricing || "0"),
-    marketAverage: comparison.averageMarketPrice || 0,
-    variance: comparison.priceVariance,
-    potentialSavings: comparison.potentialSavings,
-    recommendation: comparison.priceVariance > 15 
-      ? "Consider renegotiation - price significantly above market"
-      : "Price appears competitive",
+    comparison: {
+      currentValue: parseContractValue(contract.extractedPricing || "0"),
+      marketAverage: comparison.averageMarketPrice || 0,
+      variance: comparison.priceVariance,
+    },
+    savings: comparison.potentialSavings,
+    recommendations: [
+      comparison.priceVariance > 15 
+        ? "Consider renegotiation - price significantly above market"
+        : "Price appears competitive"
+    ],
   };
 }
 
 async function updateAgentMetrics(
-  ctx: any,
+  ctx: AgentMutationCtx,
   agentId: Id<"agents">,
   runData: {
     runTime: number;
@@ -1106,7 +1171,7 @@ async function updateAgentMetrics(
   });
 }
 
-async function handleAgentError(ctx: any, agentId: Id<"agents">, error: any): Promise<void> {
+async function handleAgentError(ctx: AgentMutationCtx, agentId: Id<"agents">, error: unknown): Promise<void> {
   await ctx.db.insert("agentLogs", {
     agentId,
     level: "error",
@@ -1144,7 +1209,7 @@ async function handleAgentError(ctx: any, agentId: Id<"agents">, error: any): Pr
 
 
 
-function calculateAnnualizedValue(contract: any): number {
+function calculateAnnualizedValue(contract: Doc<"contracts">): number {
   const totalValue = parseContractValue(contract.extractedPricing || "0");
   
   if (!contract.extractedStartDate || !contract.extractedEndDate) {
@@ -1165,7 +1230,7 @@ function calculateAnnualizedValue(contract: any): number {
   }
 }
 
-function calculateCostPerUnit(contract: any): number {
+function calculateCostPerUnit(contract: Doc<"contracts">): number {
   const totalValue = parseContractValue(contract.extractedPricing || "0");
   
   // Extract potential unit information from scope, pricing, and payment schedule
@@ -1231,7 +1296,7 @@ function calculateCostPerUnit(contract: any): number {
   return totalValue; // Return total if no units found
 }
 
-function calculatePaybackPeriod(contract: any): number {
+function calculatePaybackPeriod(contract: Doc<"contracts">): number {
   const investmentCost = parseContractValue(contract.extractedPricing || "0");
   
   // Extract savings or benefit information from contract
@@ -1306,7 +1371,7 @@ function calculatePaybackPeriod(contract: any): number {
   return investmentCost / monthlySavings; // Months to payback
 }
 
-function calculateTCO(contract: any): number {
+function calculateTCO(contract: Doc<"contracts">): number {
   const baseValue = parseContractValue(contract.extractedPricing || "0");
   
   // Calculate contract duration in years
@@ -1368,7 +1433,12 @@ function calculateTCO(contract: any): number {
     const contractType = contract.contractType?.toLowerCase() || '';
     
     // TCO multipliers by contract type
-    const tcoMultipliers: { [key: string]: any } = {
+    const tcoMultipliers: Record<string, {
+      implementation: number;
+      training: number;
+      maintenance: number;
+      infrastructure: number;
+    }> = {
       'saas': {
         implementation: 0.10,      // 10% one-time
         training: 0.05,           // 5% one-time
@@ -1403,9 +1473,9 @@ function calculateTCO(contract: any): number {
     
     const multipliers = tcoMultipliers[contractType] || tcoMultipliers.default;
     
-    implementationCost = baseValue * multipliers.implementation;
-    trainingCost = baseValue * multipliers.training;
-    annualMaintenanceCost = baseValue * (multipliers.maintenance + multipliers.infrastructure);
+    implementationCost = baseValue * (multipliers?.implementation || 0);
+    trainingCost = baseValue * (multipliers?.training || 0);
+    annualMaintenanceCost = baseValue * ((multipliers?.maintenance || 0) + (multipliers?.infrastructure || 0));
   }
   
   // Calculate total TCO

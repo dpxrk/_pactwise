@@ -26,6 +26,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { EmptyState as PremiumEmptyState } from '@/components/premium';
+import { PremiumButton } from '@/components/premium';
 
 // Base empty state component
 export interface EmptyStateProps {
@@ -62,108 +64,26 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   className,
   children
 }) => {
-  const sizeClasses = {
-    sm: {
-      container: 'py-8',
-      icon: 'h-12 w-12',
-      title: 'text-lg',
-      description: 'text-sm',
-      spacing: 'space-y-3'
-    },
-    md: {
-      container: 'py-12',
-      icon: 'h-16 w-16',
-      title: 'text-xl',
-      description: 'text-base',
-      spacing: 'space-y-4'
-    },
-    lg: {
-      container: 'py-16',
-      icon: 'h-20 w-20',
-      title: 'text-2xl',
-      description: 'text-lg',
-      spacing: 'space-y-6'
-    }
-  };
-
-  const classes = sizeClasses[size];
-
-  const content = (
-    <div className={cn(
-      'text-center flex flex-col items-center',
-      classes.container,
-      classes.spacing,
-      className
-    )}>
-      {/* Icon or Image */}
-      {image ? (
-        <img 
-          src={image} 
-          alt={title}
-          className={cn('object-contain', classes.icon)}
-        />
-      ) : (
-        <div className={cn(
-          'rounded-full bg-muted/50 flex items-center justify-center',
-          variant === 'minimal' ? 'bg-transparent' : 'bg-muted/50',
-          size === 'sm' ? 'p-3' : size === 'lg' ? 'p-5' : 'p-4'
-        )}>
-          <IconComponent className={cn(classes.icon, 'text-muted-foreground')} />
-        </div>
-      )}
-
-      {/* Title */}
-      <h3 className={cn('font-semibold text-foreground', classes.title)}>
-        {title}
-      </h3>
-
-      {/* Description */}
-      {description && (
-        <p className={cn('text-muted-foreground max-w-md', classes.description)}>
-          {description}
-        </p>
-      )}
-
-      {/* Custom content */}
-      {children}
-
-      {/* Actions */}
-      {(action || secondaryAction) && (
-        <div className="flex flex-col sm:flex-row gap-3 mt-2">
-          {action && (
-            <Button
-              onClick={action.onClick}
-              variant={action.variant || 'default'}
-              className="flex items-center gap-2"
-            >
-              {action.icon && <action.icon className="h-4 w-4" />}
-              {action.label}
-            </Button>
-          )}
-          {secondaryAction && (
-            <Button
-              onClick={secondaryAction.onClick}
-              variant={secondaryAction.variant || 'outline'}
-            >
-              {secondaryAction.label}
-            </Button>
-          )}
-        </div>
-      )}
-    </div>
+  // Map old props to new premium component props
+  const premiumVariant = variant === 'minimal' ? 'default' : 
+                        variant === 'illustrated' ? 'constellation' : 
+                        variant === 'card' ? 'aurora' : 'default';
+  
+  const iconElement = IconComponent ? <IconComponent className="h-12 w-12" /> : undefined;
+  
+  return (
+    <PremiumEmptyState
+      title={title}
+      description={description}
+      icon={iconElement}
+      action={action ? {
+        label: action.label,
+        onClick: action.onClick
+      } : undefined}
+      variant={premiumVariant}
+      className={className}
+    />
   );
-
-  if (variant === 'card') {
-    return (
-      <Card className={className}>
-        <CardContent>
-          {content}
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return content;
 };
 
 // Contract-specific empty states
@@ -556,7 +476,7 @@ export const MaintenanceMode: React.FC<{
   onCheckStatus,
   className 
 }) => {
-  const emptyStateProps: any = {
+  const emptyStateProps: Partial<EmptyStateProps> = {
     icon: Settings,
     title,
     description: `${description} ${expectedDuration ? `Expected completion: ${expectedDuration}.` : ''}`,

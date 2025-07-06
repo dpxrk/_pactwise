@@ -20,8 +20,8 @@ export interface UserEvent {
 
 export interface ErrorReport {
   error: Error;
-  errorInfo?: any;
-  context?: Record<string, any>;
+  errorInfo?: unknown;
+  context?: Record<string, unknown>;
   timestamp: number;
   url: string;
   userId?: string;

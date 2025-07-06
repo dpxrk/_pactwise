@@ -40,19 +40,15 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# performance testing
+/performance-metrics/
+/test-data-*.json
+
 # clerk configuration (can include secrets)
 /.clerk/
 
-#my plan for incorporation to be ignored
-SaasIncorporationPlan.md
-pricing.md
-AI_AGENT_EXPANSION_PLAN.md
-CLAUDE.md
-instructions.md
-CONVEX_REORGANIZATION_COMPLETE.md
-API_MIGRATION.md
-FAILED_TESTS.md
-INFRASTRUCTURE_COST_BREAKDOWN.md
-PRODUCTION_READINESS_PLAN.md
-THREEJS_TROUBLESHOOTING.md
-landing_page_review.md
+# Ignore all markdown files
+*.md
+
+# work_done folder (internal documentation)
+/work_done/

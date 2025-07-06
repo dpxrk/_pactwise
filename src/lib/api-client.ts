@@ -1,5 +1,5 @@
 // src/lib/api-client.ts
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { api } from "../../convex/_generated/api"; // Correct path to generated API
 import { useQuery, useMutation, useAction } from "convex/react";
 import type {
@@ -10,6 +10,7 @@ import type {
 import { Id } from '../../convex/_generated/dataModel'; // Correct path to generated dataModel
 import type { VendorCategory } from '@/types/vendor.types'; // Import VendorCategory
 import type { ContractTypeEnum } from '@/types/contract.types'; // Import ContractTypeEnum
+import { performanceMonitor } from './performance-monitoring';
 
 // Define a constant for skipping queries cleanly
 const SKIP_TOKEN = 'skip' as const;
@@ -26,6 +27,8 @@ export function useConvexQuery<
   args: FunctionArgs<Query> | typeof SKIP_TOKEN
 ) {
     const stableArgs = useMemo(() => args, [JSON.stringify(args)]);
+    const [queryStartTime, setQueryStartTime] = useState<number | null>(null);
+    const queryName = queryFn._functionPath || 'unknown_query';
 
     const result = useQuery(
         queryFn,
@@ -37,6 +40,20 @@ export function useConvexQuery<
     const data = (!isLoading && !error && stableArgs !== SKIP_TOKEN && result !== undefined)
                  ? result as FunctionReturnType<Query>
                  : null;
+
+    // Track query performance
+    useEffect(() => {
+        if (stableArgs !== SKIP_TOKEN) {
+            if (isLoading && !queryStartTime) {
+                setQueryStartTime(Date.now());
+            } else if (!isLoading && queryStartTime) {
+                const duration = Date.now() - queryStartTime;
+                const measure = performanceMonitor.measureDatabaseQuery(queryName);
+                measure.end(!error, data ? 1 : 0);
+                setQueryStartTime(null);
+            }
+        }
+    }, [isLoading, error, queryStartTime, queryName, stableArgs]);
 
     return { data, isLoading, error };
 }
@@ -52,19 +69,26 @@ export function useConvexMutation<
   const mutationRunner = useMutation(mutationFn);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const mutationName = mutationFn._functionPath || 'unknown_mutation';
 
   const execute = async (
       args: FunctionArgs<Mutation>
   ): Promise<FunctionReturnType<Mutation> | null> => {
     setIsLoading(true);
     setError(null);
+    
+    // Start performance measurement
+    const measure = performanceMonitor.measureDatabaseQuery(mutationName);
+    
     try {
       const result = await mutationRunner(args);
+      measure.end(true);
       return result as FunctionReturnType<Mutation>;
     } catch (err) {
       const caughtError = err instanceof Error ? err : new Error(String(err));
       console.error(`Mutation failed:`, caughtError);
       setError(caughtError);
+      measure.end(false);
       return null;
     } finally {
       setIsLoading(false);
@@ -196,7 +220,13 @@ export const useContracts = (args: UseContractsArgs | null | undefined | typeof 
         args === SKIP_TOKEN || !args || !args.enterpriseId
             ? SKIP_TOKEN
             : (() => {
-                  const queryArgs: any = {
+                  const queryArgs: {
+                      enterpriseId: Id<"enterprises">;
+                      status?: string;
+                      contractType?: string;
+                      cursor?: string;
+                      limit?: number;
+                  } = {
                       enterpriseId: args.enterpriseId,
                   };
                   

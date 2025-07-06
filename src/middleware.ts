@@ -6,62 +6,8 @@ import {
 } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-
-// Rate limiting store (in production, use Redis)
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
-
-// Rate limiting configuration
-const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
-const RATE_LIMIT_MAX_REQUESTS = 100; // requests per window
-const RATE_LIMIT_MAX_AUTH_ATTEMPTS = 5; // auth attempts per window
-
-// Helper function to get client IP
-function getClientIP(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  const realIP = request.headers.get('x-real-ip');
-  
-  if (forwarded) {
-    return forwarded.split(',')[0]?.trim() || 'unknown';
-  }
-  
-  if (realIP) {
-    return realIP;
-  }
-  
-  // Try to get IP from headers or fall back to 'unknown'
-  const xRealIp = request.headers.get('x-real-ip');
-  const xForwardedFor = request.headers.get('x-forwarded-for');
-  
-  if (xForwardedFor) {
-    return xForwardedFor.split(',')[0]?.trim() || 'unknown';
-  }
-  
-  if (xRealIp) {
-    return xRealIp;
-  }
-  
-  // NextRequest doesn't have an ip property, so we default to 'unknown'
-  return 'unknown';
-}
-
-// Rate limiting function
-function isRateLimited(ip: string, key: string, maxRequests: number): boolean {
-  const now = Date.now();
-  const limitKey = `${ip}:${key}`;
-  const record = rateLimitStore.get(limitKey);
-
-  if (!record || now > record.resetTime) {
-    rateLimitStore.set(limitKey, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    return false;
-  }
-
-  if (record.count >= maxRequests) {
-    return true;
-  }
-
-  record.count++;
-  return false;
-}
+import { rateLimitMiddleware, authRateLimit, apiRateLimit } from "./middleware/redis-rate-limit";
+import { apiVersionMiddleware } from "./middleware/api-version";
 
 // --- Route Matchers ---
 const isProtectedRoute = createRouteMatcher([
@@ -90,6 +36,53 @@ const isPublicPage = createRouteMatcher([
   '/pricing',
 ]);
 
+// Match API routes
+const isApiRoute = createRouteMatcher([
+  '/api(.*)',
+]);
+
+// Helper function to get client IP
+function getClientIP(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  const realIP = request.headers.get('x-real-ip');
+  
+  if (forwarded) {
+    return forwarded.split(',')[0]?.trim() || 'unknown';
+  }
+  
+  if (realIP) {
+    return realIP;
+  }
+  
+  return 'unknown';
+}
+
+// Enhanced CSP with violation reporting
+function getCSPHeader(nonce: string, reportUri?: string): string {
+  const cspDirectives = [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' https://cdn.clerk.io https://*.sentry.io https://js.stripe.com`,
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: https: blob:",
+    "connect-src 'self' https://*.convex.cloud https://*.clerk.io https://*.sentry.io https://api.stripe.com wss://*.convex.cloud",
+    "frame-src 'self' https://accounts.google.com https://*.clerk.io https://js.stripe.com https://hooks.stripe.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "upgrade-insecure-requests",
+  ];
+
+  // Add violation reporting in production
+  if (reportUri && process.env.NODE_ENV === 'production') {
+    cspDirectives.push(`report-uri ${reportUri}`);
+    cspDirectives.push(`report-to csp-endpoint`);
+  }
+
+  return cspDirectives.join('; ');
+}
+
 // --- Clerk Middleware ---
 export default clerkMiddleware(async (auth, req) => {
   const authResult = await auth();
@@ -101,22 +94,39 @@ export default clerkMiddleware(async (auth, req) => {
 
   console.log(`Processing path: ${pathWithQuery}, User ID: ${userId || 'Not logged in'}, IP: ${clientIP}`);
 
-  // Rate limiting check
-  const isAuthRoute = isSignInOrSignUpPage(req);
-  const maxRequests = isAuthRoute ? RATE_LIMIT_MAX_AUTH_ATTEMPTS : RATE_LIMIT_MAX_REQUESTS;
-  const rateLimitKey = isAuthRoute ? 'auth' : 'general';
-  
-  if (isRateLimited(clientIP, rateLimitKey, maxRequests)) {
-    console.log(`Rate limit exceeded for IP: ${clientIP} on route: ${pathname}`);
-    return new NextResponse('Too Many Requests', { 
-      status: 429,
-      headers: {
-        'Retry-After': '900', // 15 minutes
-        'X-RateLimit-Limit': maxRequests.toString(),
-        'X-RateLimit-Remaining': '0',
-        'X-RateLimit-Reset': (Date.now() + RATE_LIMIT_WINDOW).toString(),
+  // Apply API versioning for API routes
+  if (isApiRoute(req)) {
+    const versionResponse = apiVersionMiddleware(req, {
+      defaultVersion: 'v1',
+      supportedVersions: ['v1'],
+      deprecatedVersions: {
+        // Example: 'v0': '2024-12-31', // v0 will be removed on this date
       },
     });
+    
+    if (versionResponse && versionResponse.status !== 200) {
+      return versionResponse;
+    }
+  }
+
+  // Apply rate limiting based on route type
+  let rateLimitResponse: NextResponse | null = null;
+  
+  if (isSignInOrSignUpPage(req)) {
+    // Stricter rate limiting for auth routes
+    rateLimitResponse = await authRateLimit(req);
+  } else if (isApiRoute(req)) {
+    // API rate limiting
+    rateLimitResponse = await apiRateLimit(req);
+  } else {
+    // General rate limiting
+    rateLimitResponse = await rateLimitMiddleware(req);
+  }
+
+  // If rate limited, return early
+  if (rateLimitResponse.status === 429) {
+    console.log(`Rate limit exceeded for IP: ${clientIP} on route: ${pathname}`);
+    return rateLimitResponse;
   }
 
   // --- Logic for Protected Routes ---
@@ -147,8 +157,11 @@ export default clerkMiddleware(async (auth, req) => {
   // --- Allow Request ---
   console.log(`Allowing request to proceed for path: ${pathname}`);
   
-  // Add security headers
-  const response = NextResponse.next();
+  // Generate nonce for CSP
+  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+  
+  // Continue with the rate limit response which has headers already set
+  const response = rateLimitResponse;
   
   // Security headers
   response.headers.set('X-Content-Type-Options', 'nosniff');
@@ -159,34 +172,39 @@ export default clerkMiddleware(async (auth, req) => {
     'Permissions-Policy',
     'camera=(), microphone=(), geolocation=(), interest-cohort=()'
   );
+  response.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
   
-  // HSTS for production
+  // HSTS and additional security headers for production
   if (process.env.NODE_ENV === 'production') {
     response.headers.set(
       'Strict-Transport-Security',
-      'max-age=31536000; includeSubDomains'
+      'max-age=31536000; includeSubDomains; preload'
+    );
+    response.headers.set('Expect-CT', 'enforce, max-age=86400');
+  }
+
+  // CSP Header with reporting
+  const cspReportUri = process.env.CSP_REPORT_URI || '/api/csp-report';
+  response.headers.set(
+    'Content-Security-Policy',
+    getCSPHeader(nonce, cspReportUri)
+  );
+
+  // Report-To header for CSP violation reporting
+  if (process.env.NODE_ENV === 'production') {
+    response.headers.set(
+      'Report-To',
+      JSON.stringify({
+        group: 'csp-endpoint',
+        max_age: 10886400,
+        endpoints: [{ url: cspReportUri }],
+        include_subdomains: true,
+      })
     );
   }
 
-  // CSP Header
-  const cspDirectives = [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.clerk.io https://*.sentry.io",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com",
-    "img-src 'self' data: https: blob:",
-    "connect-src 'self' https://*.convex.cloud https://*.clerk.io https://*.sentry.io wss://*.convex.cloud",
-    "frame-src 'self' https://accounts.google.com https://*.clerk.io",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "frame-ancestors 'none'",
-  ];
-  
-  response.headers.set(
-    'Content-Security-Policy',
-    cspDirectives.join('; ')
-  );
+  // Add nonce to response for inline scripts
+  response.headers.set('X-Nonce', nonce);
   
   return response;
 });

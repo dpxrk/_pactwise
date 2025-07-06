@@ -776,15 +776,11 @@ async function simulateCreateInsight(ctx: any, args: any) {
     createdAt: new Date().toISOString()
   };
   
-  // Auto-assign logic
-  if (args.relatedEntityType === 'contract' && args.relatedEntityId) {
-    const contract = await ctx.db.get(args.relatedEntityId);
-    if (contract && contract.createdBy) {
-      insight.assignedTo = contract.createdBy;
-    }
-  }
+  // Note: agentInsights table doesn't have assignedTo field
+  // This logic would need to be implemented differently,
+  // perhaps by creating a notification for the user
   
-  return await ctx.db.insert("insights", insight);
+  return await ctx.db.insert("agentInsights", insight);
 }
 
 async function simulateCoordinateWorkflow(ctx: any, workflow: any) {
