@@ -27,7 +27,10 @@
     "migration:phase2": "npx convex run migrations:schemaOptimization:phase2_migrateData",
     "migration:run": "npx convex run migrations:schemaOptimization:runFullMigration",
     "backup:create": "npx convex run backup:backupFunctions:createFullBackup",
-    "backup:report": "npx convex run backup:backupFunctions:generateBackupReport"
+    "backup:report": "npx convex run backup:backupFunctions:generateBackupReport",
+    "backup:monitor": "tsx scripts/backup-monitor.ts",
+    "backup:test-restore": "tsx scripts/test-restore.ts",
+    "health:check": "curl -f http://localhost:3000/api/v1/health || exit 1"
   },
   "dependencies": {
     "@auth/core": "^0.37.0",

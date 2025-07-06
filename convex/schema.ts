@@ -956,5 +956,31 @@ export default defineSchema({
     .index("by_template", ["templateId"])
     .index("by_enterprise", ["enterpriseId"])
     .index("by_user", ["userId"])
-    .index("by_used", ["usedAt"])
+    .index("by_used", ["usedAt"]),
+
+  // Backup metadata
+  backupMetadata: defineTable({
+    id: v.string(),
+    timestamp: v.string(),
+    type: v.union(v.literal("full"), v.literal("incremental")),
+    version: v.string(),
+    tables: v.array(v.string()),
+    recordCount: v.number(),
+    size: v.number(),
+    location: v.string(),
+    checksum: v.string(),
+    status: v.union(v.literal("completed"), v.literal("failed"), v.literal("in_progress")),
+    error: v.optional(v.string()),
+  })
+    .index("by_timestamp", ["timestamp"])
+    .index("by_status", ["status"])
+    .index("by_type", ["type"]),
+
+  // Backup data storage (for local backups)
+  backupData: defineTable({
+    backupId: v.string(),
+    data: v.string(), // JSON stringified backup data
+    createdAt: v.number(),
+  })
+    .index("by_backupId", ["backupId"])
 });

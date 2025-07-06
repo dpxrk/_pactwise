@@ -152,21 +152,21 @@ crons.weekly(
 // ============================================================================
 
 /**
- * Create incremental backup daily
+ * Create incremental backup daily with S3 upload
  */
 crons.daily(
   "incremental backup",
   { hourUTC: 1, minuteUTC: 0 }, // Run at 1 AM UTC
-  internal.backup.backupFunctions.createIncrementalBackup
+  internal.backup.backupToS3.automatedDailyBackup
 );
 
 /**
- * Create full backup weekly
+ * Create full backup weekly with S3 upload
  */
 crons.weekly(
   "full backup",
   { dayOfWeek: "sunday", hourUTC: 2, minuteUTC: 0 }, // Sunday at 2 AM UTC
-  internal.backup.backupFunctions.createFullBackup
+  internal.backup.backupToS3.automatedWeeklyBackup
 );
 
 export default crons;
