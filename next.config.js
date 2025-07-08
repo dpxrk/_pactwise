@@ -32,69 +32,35 @@ const nextConfig = {
       );
     }
 
-    // Optimize chunks
-    config.optimization = {
-      ...config.optimization,
-      splitChunks: {
-        chunks: 'all',
-        cacheGroups: {
-          default: false,
-          vendors: false,
-          // Vendor chunk
-          vendor: {
-            name: 'vendor',
-            chunks: 'all',
-            test: /node_modules/,
-            priority: 20,
-          },
-          // Common components chunk
-          common: {
-            name: 'common',
-            minChunks: 2,
-            chunks: 'all',
-            priority: 10,
-            reuseExistingChunk: true,
-            enforce: true,
-          },
-          // Three.js chunk
-          three: {
-            name: 'three',
-            test: /[\\/]node_modules[\\/]three/,
-            chunks: 'all',
-            priority: 30,
-          },
-          // React/Next.js framework chunk
-          framework: {
-            name: 'framework',
-            test: /[\\/]node_modules[\\/](react|react-dom|next)[\\/]/,
-            chunks: 'all',
-            priority: 40,
-          },
-          // UI libraries chunk
-          ui: {
-            name: 'ui',
-            test: /[\\/]node_modules[\\/](@radix-ui|@dnd-kit|framer-motion)[\\/]/,
-            chunks: 'all',
-            priority: 25,
+    // Simple chunk optimization to avoid issues
+    if (!dev) {
+      config.optimization = {
+        ...config.optimization,
+        splitChunks: {
+          chunks: 'all',
+          cacheGroups: {
+            default: {
+              minChunks: 2,
+              priority: -20,
+              reuseExistingChunk: true,
+            },
+            vendors: {
+              test: /[\\/]node_modules[\\/]/,
+              priority: -10,
+            },
           },
         },
-      },
-    };
+      };
+    }
 
     return config;
   },
 
   // Experimental features for better performance
   experimental: {
-    optimizeCss: true,
     optimizePackageImports: [
-      '@radix-ui/react-dialog',
-      '@radix-ui/react-dropdown-menu',
-      '@radix-ui/react-tabs',
-      '@radix-ui/react-tooltip',
       'lucide-react',
       'date-fns',
-      'recharts',
     ],
   },
 

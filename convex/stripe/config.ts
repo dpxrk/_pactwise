@@ -1,13 +1,16 @@
 import { action } from "../_generated/server";
-import Stripe from "stripe";
 
 // Initialize Stripe with the secret key
-export function getStripe() {
+// Note: Stripe should only be imported inside action handlers
+export async function getStripe() {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
   
   if (!stripeSecretKey) {
     throw new Error("STRIPE_SECRET_KEY is not set in environment variables");
   }
+  
+  // Dynamic import to avoid bundling issues
+  const { default: Stripe } = await import("stripe");
   
   return new Stripe(stripeSecretKey, {
     apiVersion: "2025-06-30.basil",

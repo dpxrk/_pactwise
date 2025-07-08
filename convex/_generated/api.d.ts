@@ -26,6 +26,7 @@ import type * as ai_chat from "../ai/chat.js";
 import type * as ai_contractAnalyzer from "../ai/contractAnalyzer.js";
 import type * as ai_enhancedMemoryRetrieval from "../ai/enhancedMemoryRetrieval.js";
 import type * as ai_insights from "../ai/insights.js";
+import type * as ai_openai_config from "../ai/openai-config.js";
 import type * as ai_search from "../ai/search.js";
 import type * as ai_workingMemory from "../ai/workingMemory.js";
 import type * as analytics from "../analytics.js";
@@ -161,6 +162,7 @@ declare const fullApi: ApiFromModules<{
   "ai/contractAnalyzer": typeof ai_contractAnalyzer;
   "ai/enhancedMemoryRetrieval": typeof ai_enhancedMemoryRetrieval;
   "ai/insights": typeof ai_insights;
+  "ai/openai-config": typeof ai_openai_config;
   "ai/search": typeof ai_search;
   "ai/workingMemory": typeof ai_workingMemory;
   analytics: typeof analytics;

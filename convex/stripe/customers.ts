@@ -12,7 +12,7 @@ export const createOrGetStripeCustomer = action({
     name: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const stripe = getStripe();
+    const stripe = await getStripe();
     
     // Check if customer already exists in our database
     const existingCustomer = await ctx.runQuery(convexApi.stripe.storeCustomer, {
@@ -107,7 +107,7 @@ export const syncFromStripe = action({
     stripeCustomerId: v.string(),
   },
   handler: async (ctx, args) => {
-    const stripe = getStripe();
+    const stripe = await getStripe();
     
     // Fetch customer from Stripe
     const customer = await stripe.customers.retrieve(args.stripeCustomerId);

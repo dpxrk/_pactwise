@@ -2,20 +2,13 @@
 import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
-import OpenAI from "openai";
 
 // ============================================================================
 // AI INSIGHTS GENERATION
 // ============================================================================
 
-// Initialize OpenAI client
-const getOpenAIClient = () => {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY environment variable is required");
-  }
-  return new OpenAI({ apiKey });
-};
+// Import OpenAI helpers
+import { getChatCompletion } from "./openai-config";
 
 /**
  * Get AI insights for contracts and vendors
@@ -131,7 +124,6 @@ export const generateInsights = mutation({
       throw new Error("User not found");
     }
 
-    const openai = getOpenAIClient();
     const insights: any[] = [];
 
     // Generate contract insights
@@ -166,23 +158,23 @@ Format each insight as JSON:
 }`;
 
       try {
-        const response = await openai.chat.completions.create({
+        const messages = [
+          {
+            role: "system",
+            content: "You are a contract analysis expert. Provide specific, actionable insights in JSON format."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ];
+
+        const content = await getChatCompletion(messages, {
           model: "gpt-4-1106-preview",
-          messages: [
-            {
-              role: "system",
-              content: "You are a contract analysis expert. Provide specific, actionable insights in JSON format."
-            },
-            {
-              role: "user",
-              content: prompt
-            }
-          ],
           temperature: 0.7,
           max_tokens: 1500
         });
-
-        const content = response.choices[0]?.message?.content;
+        
         if (content) {
           // Parse insights from response
           const lines = content.split('\n');
@@ -248,23 +240,23 @@ Format each insight as JSON:
 }`;
 
       try {
-        const response = await openai.chat.completions.create({
+        const messages = [
+          {
+            role: "system",
+            content: "You are a vendor management expert. Provide specific, actionable insights in JSON format."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ];
+
+        const content = await getChatCompletion(messages, {
           model: "gpt-4-1106-preview",
-          messages: [
-            {
-              role: "system",
-              content: "You are a vendor management expert. Provide specific, actionable insights in JSON format."
-            },
-            {
-              role: "user",
-              content: prompt
-            }
-          ],
           temperature: 0.7,
           max_tokens: 1500
         });
-
-        const content = response.choices[0]?.message?.content;
+        
         if (content) {
           // Parse insights from response
           const lines = content.split('\n');

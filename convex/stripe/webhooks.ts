@@ -6,7 +6,7 @@ import type { Id } from "../_generated/dataModel";
 
 // Main webhook handler
 export const handleWebhook = httpAction(async (ctx, request) => {
-  const stripe = getStripe();
+  const stripe = await getStripe();
   const webhookSecret = getWebhookSecret();
   
   // Get the signature from headers

@@ -16,7 +16,7 @@ export const createCheckoutSession = action({
     cancelUrl: v.string(),
   },
   handler: async (ctx, args) => {
-    const stripe = getStripe();
+    const stripe = await getStripe();
     
     // Create or get Stripe customer
     const customerId = await createOrGetStripeCustomer(ctx, {
@@ -73,7 +73,7 @@ export const createPortalSession = action({
     returnUrl: v.string(),
   },
   handler: async (ctx, args) => {
-    const stripe = getStripe();
+    const stripe = await getStripe();
     
     // Get the Stripe customer
     const customer = await ctx.runQuery(api.stripe.customers.getByEnterpriseId, {
@@ -106,7 +106,7 @@ export const createSetupSession = action({
     cancelUrl: v.string(),
   },
   handler: async (ctx, args) => {
-    const stripe = getStripe();
+    const stripe = await getStripe();
     
     // Create or get Stripe customer
     const customerId = await createOrGetStripeCustomer(ctx, {

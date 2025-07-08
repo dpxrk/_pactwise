@@ -2,7 +2,6 @@
 import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
-import OpenAI from "openai";
 
 // Temporarily define api to avoid undefined errors
 const api = {
@@ -49,14 +48,8 @@ export type ChatSession = {
   isActive: boolean;
 };
 
-// Initialize OpenAI client
-const getOpenAIClient = () => {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY environment variable is required");
-  }
-  return new OpenAI({ apiKey });
-};
+// Import OpenAI helpers
+import { getChatCompletion } from "./openai-config";
 
 /**
  * Analyze conversation for memory-worthy content
@@ -353,7 +346,6 @@ export const sendChatMessage = mutation({
     }
 
     // Get AI response
-    const openai = getOpenAIClient();
     const systemPrompt = `You are an AI assistant specializing in contract and vendor management. 
 You help users understand contracts, identify risks, suggest improvements, and manage vendor relationships.
 Be concise, professional, and actionable in your responses.
@@ -372,20 +364,20 @@ ${workingMemoryContext}
 ${memoryContext}`;
 
     try {
-      const response = await openai.chat.completions.create({
+      const messages = [
+        { role: "system", content: systemPrompt },
+        ...updatedMessages.map(msg => ({
+          role: msg.role as "user" | "assistant",
+          content: msg.content
+        }))
+      ];
+
+      const aiContent = await getChatCompletion(messages, {
         model: "gpt-4-1106-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...updatedMessages.map(msg => ({
-            role: msg.role as "user" | "assistant",
-            content: msg.content
-          }))
-        ],
         temperature: 0.7,
         max_tokens: 1000
       });
-
-      const aiContent = response.choices[0]?.message?.content;
+      
       if (!aiContent) {
         throw new Error("No response from AI");
       }
@@ -397,8 +389,7 @@ ${memoryContext}`;
         content: aiContent,
         timestamp: new Date().toISOString(),
         metadata: {
-          model: "gpt-4-1106-preview",
-          tokens: response.usage?.total_tokens
+          model: "gpt-4-1106-preview"
         }
       };
 

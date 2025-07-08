@@ -58,7 +58,7 @@ export const getAllDashboardData = query({
     const vendorMap = new Map(vendors.map(v => [v._id, v]));
     const enrichedContracts = contracts.map(contract => ({
       ...contract,
-      vendor: vendorMap.get(contract.vendorId)
+      vendor: contract.vendorId ? vendorMap.get(contract.vendorId) : undefined
     }));
     
     return {
@@ -238,7 +238,7 @@ async function getRiskAlerts(ctx: QueryCtx, enterpriseId: Id<"enterprises">) {
             vendorsWithoutContracts.push(vendor);
           }
         }
-        return vendorsWithoutContracts.slice(0, 5);
+        return vendorsWithoutContracts.slice(0, 5) as Doc<"vendors">[];
       }),
   ]);
   
@@ -259,7 +259,7 @@ async function getRiskAlerts(ctx: QueryCtx, enterpriseId: Id<"enterprises">) {
         title: `High value contract needs review: ${c.title}`,
         contractId: c._id,
       })),
-      ...vendorsWithoutContracts.map(v => ({
+      ...vendorsWithoutContracts.map((v: Doc<"vendors">) => ({
         type: "vendor_no_contract" as const,
         severity: "low" as const,
         title: `Vendor ${v.name} has no active contracts`,
@@ -285,11 +285,11 @@ async function getSpendAnalysis(ctx: QueryCtx, enterpriseId: Id<"enterprises">) 
   let totalSpend = 0;
   
   // Get vendor data for names
-  const vendorIds = Array.from(new Set(contracts.map((c: Doc<"contracts">) => c.vendorId)));
-  const vendors = await ctx.db
+  const vendorIds = Array.from(new Set(contracts.map((c: Doc<"contracts">) => c.vendorId).filter(Boolean))) as Id<"vendors">[];
+  const vendors = vendorIds.length > 0 ? await ctx.db
     .query("vendors")
     .filter((q: any) => q.or(...vendorIds.map(id => q.eq(q.field("_id"), id))))
-    .collect();
+    .collect() : [];
   
   const vendorMap = new Map(vendors.map((v: Doc<"vendors">) => [v._id, v]));
   
@@ -306,12 +306,14 @@ async function getSpendAnalysis(ctx: QueryCtx, enterpriseId: Id<"enterprises">) 
     spendByCategory[category] = (spendByCategory[category] || 0) + value;
     
     // By vendor
-    const vendor = vendorMap.get(contract.vendorId);
-    if (vendor) {
-      if (!spendByVendor[contract.vendorId]) {
-        spendByVendor[contract.vendorId] = { name: vendor.name, amount: 0 };
+    if (contract.vendorId) {
+      const vendor = vendorMap.get(contract.vendorId);
+      if (vendor) {
+        if (!spendByVendor[contract.vendorId]) {
+          spendByVendor[contract.vendorId] = { name: vendor.name, amount: 0 };
+        }
+        spendByVendor[contract.vendorId].amount += value;
       }
-      spendByVendor[contract.vendorId].amount += value;
     }
     
     // Monthly spend (simplified - assumes annual contracts)

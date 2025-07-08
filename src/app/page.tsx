@@ -1,5 +1,5 @@
 import React, { Suspense } from "react";
-import { NavigationPremium } from "@/app/_components/homepage/NavigationPremium";
+import NavigationPremium from "@/app/_components/homepage/NavigationPremium";
 import HeroPremium from "@/app/_components/homepage/HeroPremium";
 import ProcessPremium from "@/app/_components/homepage/ProcessPremium";
 import FeaturesPremium from "@/app/_components/homepage/FeaturesPremium";

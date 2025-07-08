@@ -161,12 +161,12 @@ async function retrieveCandidates(
   // Strategy 2: Entity-based retrieval
   if (context.entityContext) {
     const entityMemories = await ctx.runQuery(
-      api.memoryIntegration.getRelevantMemoriesForAgent as any,
+      api.memoryIntegration.getRelevantMemoriesForAgent,
       {
         agentType: "chat",
         entityId: context.entityContext.id,
-        entityType: context.entityContext.type as any,
-        limit: limit / 2
+        entityType: context.entityContext.type,
+        limit: Math.floor(limit / 2)
       }
     );
     

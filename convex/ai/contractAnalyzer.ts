@@ -1,7 +1,6 @@
 // convex/ai/contractAnalyzer.ts
 import { action } from "../_generated/server";
 import { v } from "convex/values";
-import OpenAI from "openai";
 
 // ============================================================================
 // AI CONTRACT ANALYZER
@@ -39,14 +38,8 @@ const STANDARD_CLAUSES = [
   "compliance"
 ];
 
-// Initialize OpenAI client
-const getOpenAIClient = () => {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY environment variable is required");
-  }
-  return new OpenAI({ apiKey });
-};
+// Import OpenAI helpers
+import { getChatCompletion, generateEmbedding } from "./openai-config";
 
 /**
  * Analyze contract text for specific clauses using AI/NLP
@@ -59,7 +52,6 @@ export const analyzeContractClauses = action({
   handler: async (ctx, args): Promise<ContractAnalysisResult> => {
     const requiredClauses = args.requiredClauses || STANDARD_CLAUSES;
     const contractText = args.contractText;
-    const openai = getOpenAIClient();
 
     // Prepare the prompt for clause analysis
     const prompt = `
@@ -104,23 +96,23 @@ Respond in valid JSON format:
 `;
 
     try {
-      const response = await openai.chat.completions.create({
+      const messages = [
+        {
+          role: "system",
+          content: "You are a legal expert specializing in contract analysis. Always respond with valid JSON format."
+        },
+        {
+          role: "user", 
+          content: prompt
+        }
+      ];
+
+      const content = await getChatCompletion(messages, {
         model: "gpt-4-1106-preview",
-        messages: [
-          {
-            role: "system",
-            content: "You are a legal expert specializing in contract analysis. Always respond with valid JSON format."
-          },
-          {
-            role: "user", 
-            content: prompt
-          }
-        ],
         temperature: 0.1, // Low temperature for consistent analysis
         max_tokens: 4000
       });
-
-      const content = response.choices[0]?.message?.content;
+      
       if (!content) {
         throw new Error("No response from OpenAI");
       }
@@ -155,29 +147,21 @@ export const findSimilarClauses = action({
   },
   handler: async (ctx, args): Promise<{ text: string; similarity: number }[]> => {
     const { clauseText, contractText, threshold = 0.7 } = args;
-    const openai = getOpenAIClient();
 
     try {
       // Get embeddings for the clause and contract sections
-      const clauseEmbedding = await openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: clauseText
-      });
+      const clauseVector = await generateEmbedding(clauseText);
 
       // Split contract into sections for analysis
       const sections = contractText.split('\n\n').filter(section => section.trim().length > 50);
       const sectionEmbeddings = await Promise.all(
         sections.map(async (section) => {
-          const embedding = await openai.embeddings.create({
-            model: "text-embedding-3-small",
-            input: section
-          });
-          return { text: section, embedding: embedding.data[0]!.embedding };
+          const embedding = await generateEmbedding(section);
+          return { text: section, embedding };
         })
       );
 
       // Calculate similarities
-      const clauseVector = clauseEmbedding.data[0]!.embedding;
       const similarities = sectionEmbeddings.map(({ text, embedding }) => ({
         text,
         similarity: cosineSimilarity(clauseVector, embedding)
@@ -209,7 +193,6 @@ export const assessClauseRisk = action({
     mitigationStrategies: string[];
   }> => {
     const { clauseText, clauseType } = args;
-    const openai = getOpenAIClient();
 
     const prompt = `
 Analyze the following ${clauseType} clause for legal and business risks:
@@ -233,23 +216,23 @@ Respond in JSON format:
 `;
 
     try {
-      const response = await openai.chat.completions.create({
+      const messages = [
+        {
+          role: "system",
+          content: "You are a legal risk assessment expert. Always respond with valid JSON."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ];
+
+      const content = await getChatCompletion(messages, {
         model: "gpt-4-1106-preview",
-        messages: [
-          {
-            role: "system",
-            content: "You are a legal risk assessment expert. Always respond with valid JSON."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
         temperature: 0.1,
         max_tokens: 1000
       });
-
-      const content = response.choices[0]?.message?.content;
+      
       if (!content) {
         throw new Error("No response from risk assessment");
       }

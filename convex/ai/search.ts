@@ -3,20 +3,13 @@ import { query, action, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 import { api } from "../_generated/api";
-import OpenAI from "openai";
 
 // ============================================================================
 // AI-POWERED SEARCH
 // ============================================================================
 
-// Initialize OpenAI client
-const getOpenAIClient = () => {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY environment variable is required");
-  }
-  return new OpenAI({ apiKey });
-};
+// Import OpenAI helpers
+import { generateEmbedding, getChatCompletion } from "./openai-config";
 
 /**
  * Search for similar contract clauses using AI
@@ -210,14 +203,8 @@ export const searchClausesWithAI = action({
     
     const { user, clauses } = result;
 
-    const openai = getOpenAIClient();
-
     // Get query embedding
-    const queryEmbedding = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: args.query
-    });
-    const queryVector = queryEmbedding.data[0]!.embedding;
+    const queryVector = await generateEmbedding(args.query);
 
     // Calculate similarities
     const results: any[] = [];
@@ -388,8 +375,6 @@ export const searchContractsNL = action({
       throw new Error("User not found");
     }
 
-    const openai = getOpenAIClient();
-
     // Parse the natural language query
     const parsePrompt = `Parse this contract search query and extract search criteria:
 "${args.query}"
@@ -406,23 +391,23 @@ Extract and return in JSON format:
 }`;
 
     try {
-      const response = await openai.chat.completions.create({
+      const messages = [
+        {
+          role: "system",
+          content: "You are a search query parser. Extract search criteria from natural language queries."
+        },
+        {
+          role: "user",
+          content: parsePrompt
+        }
+      ];
+
+      const content = await getChatCompletion(messages, {
         model: "gpt-4-1106-preview",
-        messages: [
-          {
-            role: "system",
-            content: "You are a search query parser. Extract search criteria from natural language queries."
-          },
-          {
-            role: "user",
-            content: parsePrompt
-          }
-        ],
         temperature: 0.1,
         max_tokens: 500
       });
-
-      const content = response.choices[0]?.message?.content;
+      
       if (!content) {
         throw new Error("No response from query parser");
       }
@@ -451,23 +436,22 @@ And these ${contracts.length} contracts found, provide a brief analysis:
 
 Keep it concise (3-4 sentences).`;
 
-        const analysisResponse = await openai.chat.completions.create({
+        const analysisMessages = [
+          {
+            role: "system",
+            content: "You are a contract analysis expert providing concise insights."
+          },
+          {
+            role: "user",
+            content: analysisPrompt
+          }
+        ];
+
+        const analysis = await getChatCompletion(analysisMessages, {
           model: "gpt-4-1106-preview",
-          messages: [
-            {
-              role: "system",
-              content: "You are a contract analysis expert providing concise insights."
-            },
-            {
-              role: "user",
-              content: analysisPrompt
-            }
-          ],
           temperature: 0.7,
           max_tokens: 300
-        });
-
-        const analysis = analysisResponse.choices[0]?.message?.content || "";
+        }) || "";
 
         return {
           contracts: contracts.slice(0, 20), // Limit results

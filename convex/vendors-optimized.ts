@@ -391,11 +391,12 @@ export const prefetchVendorData = query({
 // Helper functions
 
 function calculateOnTimeRenewalRate(contracts: Doc<"contracts">[]): number {
-  const renewedContracts = contracts.filter(c => 
-    c.status === "active" && c.contractType === "renewal"
+  // Since "renewal" is not a valid contract type, we'll check for contracts that have isAutoRenew flag
+  const renewableContracts = contracts.filter(c => 
+    c.status === "active" && c.isAutoRenew === true
   );
   
-  if (renewedContracts.length === 0) return 100;
+  if (renewableContracts.length === 0) return 100;
   
   // This is a simplified calculation
   // In reality, you'd check if renewals happened before expiry

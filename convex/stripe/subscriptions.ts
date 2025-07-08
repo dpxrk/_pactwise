@@ -94,7 +94,7 @@ export const cancelSubscription = action({
     immediately: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const stripe = getStripe();
+    const stripe = await getStripe();
     
     // Get active subscription
     const subscription = await ctx.runQuery(api.stripe.subscriptions.getActiveSubscription, {
@@ -144,7 +144,7 @@ export const resumeSubscription = action({
     enterpriseId: v.id("enterprises"),
   },
   handler: async (ctx, args) => {
-    const stripe = getStripe();
+    const stripe = await getStripe();
     
     // Get subscription that's set to cancel
     const subscription = await ctx.runQuery(api.stripe.subscriptions.getActiveSubscription, {
@@ -191,7 +191,7 @@ export const updateSubscriptionPlan = action({
     newBillingPeriod: v.optional(v.union(v.literal("monthly"), v.literal("annual"))),
   },
   handler: async (ctx, args) => {
-    const stripe = getStripe();
+    const stripe = await getStripe();
     
     // Get current subscription
     const subscription = await ctx.runQuery(api.stripe.subscriptions.getActiveSubscription, {

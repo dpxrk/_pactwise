@@ -250,7 +250,28 @@ export const updateTemplate = mutation({
     templateId: v.id("contractTemplates"),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
-    content: v.optional(templateContentValidator),
+    content: v.optional(v.object({
+      sections: v.array(v.object({
+        id: v.string(),
+        title: v.string(),
+        content: v.string(),
+        isRequired: v.boolean(),
+        variables: v.optional(v.array(v.object({
+          name: v.string(),
+          type: v.union(v.literal("text"), v.literal("date"), v.literal("number"), v.literal("select")),
+          defaultValue: v.optional(v.string()),
+          options: v.optional(v.array(v.string())),
+          required: v.boolean(),
+          description: v.optional(v.string()),
+        }))),
+      })),
+      metadata: v.optional(v.object({
+        estimatedValue: v.optional(v.number()),
+        typicalDuration: v.optional(v.string()),
+        requiredApprovals: v.optional(v.array(v.string())),
+        tags: v.optional(v.array(v.string())),
+      })),
+    })),
     isPublic: v.optional(v.boolean()),
     isActive: v.optional(v.boolean()),
     tags: v.optional(v.array(v.string())),
@@ -550,10 +571,11 @@ export const getTemplateCategories = query({
     const templates = await ctx.db
       .query("contractTemplates")
       .withIndex("by_enterprise", (q) => q.eq("enterpriseId", securityContext.enterpriseId))
-      .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
+    
+    const activeTemplates = templates.filter(t => t.isActive);
 
-    const categoryCounts = templates.reduce((acc, template) => {
+    const categoryCounts = activeTemplates.reduce((acc, template) => {
       acc[template.category] = (acc[template.category] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -569,7 +591,7 @@ export const getTemplateCategories = query({
 });
 
 // Helper functions
-function calculateAverageCompletionTime(usageStats: Doc<"templateUsageStats">[]): number {
+function calculateAverageCompletionTime(usageStats: any[]): number {
   // In a real implementation, this would calculate time from template use to contract finalization
   return 2.5; // Mock: 2.5 days average
 }

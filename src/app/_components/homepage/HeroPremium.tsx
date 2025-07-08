@@ -15,7 +15,7 @@ try {
   useAuth = () => ({ isSignedIn: false });
 }
 
-export const HeroPremium = () => {
+const HeroPremium = () => {
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
   const router = useRouter();

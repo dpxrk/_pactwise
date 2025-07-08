@@ -210,7 +210,7 @@ export const reportUsageToStripe = action({
     timestamp: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const stripe = getStripe();
+    const stripe = await getStripe();
     
     // Get active subscription
     const subscription = await ctx.runQuery(api.stripe.subscriptions.getActiveSubscription, {

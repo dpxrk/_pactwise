@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Container } from "@/app/_components/common/Container";
 import { useRouter } from "next/navigation";
-import { useAuth, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 
 const navItems = [
   { href: "#features", label: "Features" },
@@ -14,11 +13,12 @@ const navItems = [
   { href: "#contact", label: "Contact" },
 ];
 
-export const NavigationPremium = () => {
-  const { isSignedIn } = useAuth();
+const NavigationPremium = () => {
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // For demo purposes, always show as not signed in
+  const isSignedIn = false;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -29,47 +29,61 @@ export const NavigationPremium = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    e.preventDefault();
+    if (href.startsWith("#")) {
+      const element = document.querySelector(href);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth" });
+        setMobileMenuOpen(false);
+      }
+    }
+  };
+
   return (
     <nav
-      className={`
-        fixed top-0 z-50 w-full transition-all duration-300
-        ${scrolled 
-          ? "bg-black/80 backdrop-blur-xl border-b border-white/10" 
-          : "bg-transparent"
-        }
-      `}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+        scrolled
+          ? "backdrop-blur-2xl bg-black/80 border-b border-white/10 py-4"
+          : "bg-transparent py-6"
+      }`}
     >
       <Container>
-        <div className="flex h-20 items-center justify-between">
+        <div className="flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center">
-            <a href="/" className="flex items-center gap-2 group">
+          <div
+            className="group cursor-pointer"
+            onClick={() => router.push("/")}
+          >
+            <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-teal-600 to-cyan-600 rounded-lg blur-lg opacity-60 group-hover:opacity-100 transition-opacity" />
-                <div className="relative bg-black rounded-lg p-2">
-                  <Sparkles className="h-6 w-6 text-white" />
+                <div className="absolute inset-0 bg-gradient-to-r from-teal-600 to-cyan-600 rounded-lg blur-lg opacity-75 group-hover:opacity-100 transition-opacity" />
+                <div className="relative bg-black rounded-lg p-2 border border-white/20">
+                  <Sparkles className="h-6 w-6 text-teal-400" />
                 </div>
               </div>
-              <span className="text-xl font-bold text-white">Pactwise</span>
-            </a>
+              <span className="text-2xl font-bold bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">
+                Pactwise
+              </span>
+            </div>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex md:items-center md:gap-1">
+          <div className="hidden md:flex items-center gap-8">
             {navItems.map((item) => (
               <a
                 key={item.href}
                 href={item.href}
-                className="relative px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-colors group"
+                onClick={(e) => handleNavClick(e, item.href)}
+                className="text-white/70 hover:text-white transition-colors duration-300 text-sm font-medium tracking-wide"
               >
                 {item.label}
-                <span className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-teal-600 to-cyan-600 scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
               </a>
             ))}
           </div>
 
-          {/* Desktop Auth */}
-          <div className="hidden md:flex md:items-center md:gap-4">
+          {/* Desktop Auth Buttons */}
+          <div className="hidden md:flex items-center gap-4">
             {isSignedIn ? (
               <>
                 <Button
@@ -79,39 +93,22 @@ export const NavigationPremium = () => {
                 >
                   Dashboard
                 </Button>
-                <div className="w-px h-6 bg-white/20" />
-                <UserButton 
-                  afterSignOutUrl="/"
-                  appearance={{
-                    elements: {
-                      avatarBox: "w-9 h-9 ring-2 ring-teal-500/50"
-                    }
-                  }}
-                />
               </>
             ) : (
               <>
-                <SignInButton
-                  mode="modal"
-                  forceRedirectUrl="/dashboard"
-                  fallbackRedirectUrl="/dashboard"
+                <Button 
+                  variant="ghost" 
+                  className="text-white hover:text-white hover:bg-white/10"
+                  onClick={() => router.push('/auth/sign-in')}
                 >
-                  <Button 
-                    variant="ghost" 
-                    className="text-white hover:text-white hover:bg-white/10"
-                  >
-                    Sign In
-                  </Button>
-                </SignInButton>
-                <SignUpButton
-                  mode="modal"
-                  forceRedirectUrl="/dashboard"
-                  fallbackRedirectUrl="/dashboard"
+                  Sign In
+                </Button>
+                <Button 
+                  className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white shadow-glow"
+                  onClick={() => router.push('/auth/sign-up')}
                 >
-                  <Button className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white shadow-glow">
-                    Get Started
-                  </Button>
-                </SignUpButton>
+                  Get Started
+                </Button>
               </>
             )}
           </div>
@@ -134,69 +131,74 @@ export const NavigationPremium = () => {
               >
                 <div className="flex flex-col h-full">
                   {/* Mobile Logo */}
-                  <div className="flex items-center gap-2 mb-8">
-                    <div className="bg-gradient-to-r from-teal-600 to-cyan-600 rounded-lg p-2">
-                      <Sparkles className="h-6 w-6 text-white" />
+                  <div 
+                    className="flex items-center gap-3 mb-8 cursor-pointer"
+                    onClick={() => {
+                      router.push("/");
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-r from-teal-600 to-cyan-600 rounded-lg blur-lg opacity-75" />
+                      <div className="relative bg-black rounded-lg p-2 border border-white/20">
+                        <Sparkles className="h-6 w-6 text-teal-400" />
+                      </div>
                     </div>
-                    <span className="text-xl font-bold text-white">Pactwise</span>
+                    <span className="text-2xl font-bold text-white">
+                      Pactwise
+                    </span>
                   </div>
 
-                  {/* Mobile Nav Items */}
-                  <nav className="flex flex-col gap-2">
-                    {navItems.map((item) => (
-                      <a
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="px-4 py-3 text-lg text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-all"
-                      >
-                        {item.label}
-                      </a>
-                    ))}
+                  {/* Mobile Navigation Links */}
+                  <nav className="flex-1">
+                    <div className="space-y-4">
+                      {navItems.map((item) => (
+                        <a
+                          key={item.href}
+                          href={item.href}
+                          onClick={(e) => handleNavClick(e, item.href)}
+                          className="block text-white/70 hover:text-white transition-colors duration-300 text-lg font-medium py-2"
+                        >
+                          {item.label}
+                        </a>
+                      ))}
+                    </div>
                   </nav>
 
-                  {/* Mobile Auth */}
-                  <div className="mt-auto pt-8 border-t border-white/10">
+                  {/* Mobile Auth Buttons */}
+                  <div className="mt-auto space-y-4 pb-8">
                     {isSignedIn ? (
-                      <div className="flex flex-col gap-4">
-                        <Button
-                          variant="outline"
+                      <Button 
+                        onClick={() => {
+                          router.push('/dashboard');
+                          setMobileMenuOpen(false);
+                        }}
+                        className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white"
+                      >
+                        Go to Dashboard
+                      </Button>
+                    ) : (
+                      <>
+                        <Button 
+                          variant="outline" 
                           className="w-full border-white/20 text-white hover:bg-white/10"
                           onClick={() => {
-                            router.push("/dashboard");
+                            router.push('/auth/sign-in');
                             setMobileMenuOpen(false);
                           }}
                         >
-                          Go to Dashboard
+                          Sign In
                         </Button>
-                        <div className="flex items-center justify-center">
-                          <UserButton afterSignOutUrl="/" />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-4">
-                        <SignInButton
-                          mode="modal"
-                          forceRedirectUrl="/dashboard"
-                          fallbackRedirectUrl="/dashboard"
+                        <Button 
+                          className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white"
+                          onClick={() => {
+                            router.push('/auth/sign-up');
+                            setMobileMenuOpen(false);
+                          }}
                         >
-                          <Button
-                            variant="outline"
-                            className="w-full border-white/20 text-white hover:bg-white/10"
-                          >
-                            Sign In
-                          </Button>
-                        </SignInButton>
-                        <SignUpButton
-                          mode="modal"
-                          forceRedirectUrl="/dashboard"
-                          fallbackRedirectUrl="/dashboard"
-                        >
-                          <Button className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white">
-                            Get Started Free
-                          </Button>
-                        </SignUpButton>
-                      </div>
+                          Get Started
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -208,3 +210,5 @@ export const NavigationPremium = () => {
     </nav>
   );
 };
+
+export default NavigationPremium;

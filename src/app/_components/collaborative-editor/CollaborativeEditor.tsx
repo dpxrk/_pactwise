@@ -94,7 +94,7 @@ const defaultConfig: EditorConfig = {
   enableSpellCheck: true,
   theme: 'light',
   fontSize: 14,
-  fontFamily: 'Inter, system-ui, sans-serif',
+  fontFamily: 'var(--font-sans)',
   lineHeight: 1.6,
   maxCollaborators: 10,
   operationBatchSize: 50,
