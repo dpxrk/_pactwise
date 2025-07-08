@@ -29,6 +29,7 @@ import {
   Printer
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { OptimizedImage } from '@/components/performance/OptimizedImage';
 
 interface DocumentViewerProps {
   storageId: Id<"_storage">;
@@ -326,11 +327,13 @@ export const DocumentViewer = ({
       return (
         <div className="flex items-center justify-center h-full overflow-auto p-4">
           <div style={containerStyle}>
-            <img
+            <OptimizedImage
               src={fileUrl}
               alt={fileName}
-              className="max-w-full max-h-full object-contain"
+              className="max-w-full max-h-full"
+              objectFit="contain"
               onError={() => setError('Failed to load image')}
+              priority
             />
           </div>
         </div>

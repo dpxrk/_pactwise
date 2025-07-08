@@ -35,6 +35,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from '@/lib/utils';
 import { logger } from '@/lib/logger';
 import { trackBusinessMetric } from '@/lib/metrics';
+import { useWebWorker } from '@/hooks/useWebWorker';
 
 interface SimilarClause {
   id: string;
@@ -74,6 +75,14 @@ export const SimilaritySearch: React.FC<SimilaritySearchProps> = ({
 
   const debouncedSearchText = useDebounce(searchText, 500);
   
+  // Initialize similarity Web Worker
+  const similarityWorker = useWebWorker('/workers/similarity.worker.js', {
+    timeout: 30000,
+    onProgress: (progress) => {
+      logger.info('Similarity search progress', progress);
+    }
+  });
+  
   // Mock search mutation - replace with actual Convex mutation
   const searchSimilarClauses = useMutation(api.ai.searchSimilarClauses);
 
@@ -87,16 +96,38 @@ export const SimilaritySearch: React.FC<SimilaritySearchProps> = ({
     const startTime = performance.now();
 
     try {
-      // Mock search results - replace with actual API call
+      // First get the search results with embeddings from the API
       const results = await searchSimilarClauses({
         searchText: debouncedSearchText,
         clauseType: clauseType !== 'all' ? clauseType : undefined,
         similarityThreshold: similarityThreshold[0],
         excludeContractId: contractId,
-        limit: 20
+        limit: 50, // Get more for Web Worker processing
+        includeEmbeddings: true
       });
 
-      setSearchResults(results as SimilarClause[]);
+      // If we have embeddings, use Web Worker for advanced similarity calculations
+      if (results && results.length > 0 && results[0].embedding) {
+        const workerResults = await similarityWorker.postMessage('BATCH_SIMILARITY', {
+          targetVector: results[0].queryEmbedding,
+          vectorDatabase: results.map(r => ({
+            ...r,
+            vector: r.embedding
+          })),
+          options: {
+            threshold: similarityThreshold[0],
+            topK: 20,
+            includeScores: true
+          }
+        });
+
+        // Update results with Web Worker calculations
+        setSearchResults(workerResults as SimilarClause[]);
+        logger.info('Web Worker similarity calculations complete', { count: workerResults.length });
+      } else {
+        // Fallback to regular results
+        setSearchResults(results as SimilarClause[]);
+      }
       
       const duration = performance.now() - startTime;
       trackBusinessMetric.aiAgentExecution('similarity-search', duration, true);
@@ -113,7 +144,7 @@ export const SimilaritySearch: React.FC<SimilaritySearchProps> = ({
     } finally {
       setIsSearching(false);
     }
-  }, [debouncedSearchText, clauseType, similarityThreshold, contractId, searchSimilarClauses]);
+  }, [debouncedSearchText, clauseType, similarityThreshold, contractId, searchSimilarClauses, similarityWorker]);
 
   React.useEffect(() => {
     handleSearch();

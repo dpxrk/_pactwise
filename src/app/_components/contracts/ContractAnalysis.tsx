@@ -48,6 +48,7 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { logger } from '@/lib/logger';
+import { useWebWorker, useContractAnalysisWorker } from '@/hooks/useWebWorker';
 import { trackBusinessMetric } from '@/lib/metrics';
 import { SimilaritySearch } from '../ai/SimilaritySearch';
 
@@ -136,6 +137,10 @@ const ContractAnalysisComponent: React.FC<ContractAnalysisProps> = ({
   const [showSimilaritySearch, setShowSimilaritySearch] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['summary']));
+  const [workerAnalysis, setWorkerAnalysis] = useState<any>(null);
+
+  // Initialize contract analysis Web Worker
+  const { analyzeContract, result: workerResult } = useContractAnalysisWorker();
 
   // Mock data - replace with actual Convex query
   const analysis = useQuery(api.contracts.getAnalysis, { contractId });
@@ -288,7 +293,20 @@ const ContractAnalysisComponent: React.FC<ContractAnalysisProps> = ({
     const startTime = performance.now();
     
     try {
+      // First run the backend analysis
       await runAnalysis({ contractId });
+      
+      // Then use Web Worker for additional text analysis if contract content is available
+      const contract = await api.contracts.get({ id: contractId });
+      if (contract?.content) {
+        // Offload heavy text analysis to Web Worker
+        analyzeContract(contract.content, {
+          includeReadability: true,
+          extractMetadata: true
+        });
+        
+        logger.info('Running advanced text analysis in Web Worker');
+      }
       
       const duration = performance.now() - startTime;
       trackBusinessMetric.contractAnalyzed(duration, 'success');
@@ -302,6 +320,14 @@ const ContractAnalysisComponent: React.FC<ContractAnalysisProps> = ({
       setIsRefreshing(false);
     }
   };
+
+  // Handle Web Worker results
+  React.useEffect(() => {
+    if (workerResult && workerResult.type === 'ANALYZE_CONTRACT_RESULT') {
+      setWorkerAnalysis(workerResult.data);
+      logger.info('Web Worker analysis complete', workerResult.data);
+    }
+  }, [workerResult]);
 
   const getRiskBadgeVariant = (level: string) => {
     switch (level) {

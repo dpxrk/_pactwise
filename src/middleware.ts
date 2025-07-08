@@ -6,7 +6,7 @@ import {
 } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { rateLimitMiddleware, authRateLimit, apiRateLimit } from "./middleware/redis-rate-limit";
+import { rateLimitMiddleware, authRateLimit, apiRateLimit } from "./middleware/edge-rate-limit";
 import { apiVersionMiddleware } from "./middleware/api-version";
 
 // --- Route Matchers ---
@@ -173,6 +173,38 @@ export default clerkMiddleware(async (auth, req) => {
     'camera=(), microphone=(), geolocation=(), interest-cohort=()'
   );
   response.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
+  response.headers.set('X-DNS-Prefetch-Control', 'on');
+  
+  // HTTP/2 Server Push and Resource Hints
+  const linkHeaders: string[] = [];
+  
+  // Common resources for all pages
+  linkHeaders.push('<https://convex.cloud>; rel=preconnect');
+  linkHeaders.push('<https://api.clerk.dev>; rel=preconnect');
+  linkHeaders.push('<https://fonts.googleapis.com>; rel=preconnect');
+  linkHeaders.push('<https://fonts.gstatic.com>; rel=preconnect; crossorigin');
+  
+  // Route-specific resource hints
+  if (pathname === '/') {
+    // Landing page specific prefetches
+  } else if (pathname.startsWith('/dashboard')) {
+    linkHeaders.push('</_next/static/chunks/dashboard.js>; rel=prefetch');
+    
+    if (pathname.includes('/contracts')) {
+      linkHeaders.push('</_next/static/chunks/react-window.js>; rel=prefetch');
+    } else if (pathname.includes('/analytics')) {
+      linkHeaders.push('</_next/static/chunks/three.js>; rel=prefetch');
+      linkHeaders.push('</_next/static/chunks/recharts.js>; rel=prefetch');
+    }
+  }
+  
+  // Add Link headers for HTTP/2 Server Push
+  if (linkHeaders.length > 0) {
+    response.headers.set('Link', linkHeaders.join(', '));
+  }
+  
+  // Add Early Hints status (103) support for Cloudflare and other CDNs
+  response.headers.set('X-Early-Data', '1');
   
   // HSTS and additional security headers for production
   if (process.env.NODE_ENV === 'production') {

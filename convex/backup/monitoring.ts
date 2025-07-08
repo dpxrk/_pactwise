@@ -170,7 +170,7 @@ export const validateBackupIntegrity = query({
       };
     }
     
-    const issues = [];
+    const issues: string[] = [];
     
     // Check metadata consistency
     if (!metadata.checksum || metadata.checksum.length < 8) {

@@ -2,7 +2,16 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@clerk/nextjs';
+
+// Conditional import to handle missing Clerk
+let useAuth: any;
+try {
+  const clerkModule = require('@clerk/nextjs');
+  useAuth = clerkModule.useAuth;
+} catch (error) {
+  // Mock useAuth if Clerk is not available
+  useAuth = () => ({ isSignedIn: false, isLoaded: true });
+}
 
 const AuthRedirectHandler = () => {
   const { isSignedIn, isLoaded } = useAuth();

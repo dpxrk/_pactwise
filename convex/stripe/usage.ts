@@ -142,7 +142,7 @@ export const checkUsageLimit = query({
   },
   handler: async (ctx, args) => {
     // Get the subscription for this enterprise
-    const subscription = await ctx.db.query("stripeSubscriptions")
+    const subscription = await ctx.db.query("subscriptions")
       .withIndex("by_enterprise", (q) => q.eq("enterpriseId", args.enterpriseId))
       .filter((q) => q.eq(q.field("status"), "active"))
       .first();

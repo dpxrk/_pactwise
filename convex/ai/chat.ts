@@ -228,14 +228,16 @@ export const sendChatMessage = mutation({
       // Check if working memory already exists
       const existingMemory = await ctx.db
         .query("workingMemory")
-        .withIndex("by_session", (q) => q.eq("sessionId", sessionId as string))
+        .withIndex("by_session", (q) => 
+          q.eq("userId", user._id).eq("sessionId", sessionId!)
+        )
         .first();
       
       if (!existingMemory) {
         // Create new working memory
         await ctx.db.insert("workingMemory", {
           userId: user._id,
-          sessionId: sessionId as string,
+          sessionId: sessionId!,
           items: [],
           capacity: 7,
           lastUpdate: new Date().toISOString()
@@ -275,7 +277,9 @@ export const sendChatMessage = mutation({
       // Get working memory state directly from database
       const workingMemoryDoc = await ctx.db
         .query("workingMemory")
-        .withIndex("by_session", (q) => q.eq("sessionId", sessionId as string))
+        .withIndex("by_session", (q) => 
+          q.eq("userId", user._id).eq("sessionId", sessionId!)
+        )
         .first();
       
       const workingMemory = workingMemoryDoc ? {
@@ -285,7 +289,20 @@ export const sendChatMessage = mutation({
       } : null;
       
       // Also get standard memories for fallback
-      const memories: any[] = [];
+      // Query long term and short term memories
+      const longTermMemories = await ctx.db
+        .query("longTermMemory")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .order("desc")
+        .take(10);
+        
+      const shortTermMemories = await ctx.db
+        .query("shortTermMemory")
+        .withIndex("by_user_session", (q) => 
+          q.eq("userId", user._id).eq("sessionId", sessionId!)
+        )
+        .order("desc")
+        .take(5);
       
       // Build enhanced memory context
       if (enhancedMemories.memories.length > 0) {
@@ -311,9 +328,9 @@ export const sendChatMessage = mutation({
       }
       
       // Fallback to standard memories if enhanced retrieval is empty
-      if (!enhancedMemories.memories.length && memories.longTerm.length > 0) {
+      if (!enhancedMemories.memories.length && longTermMemories.length > 0) {
         memoryContext += "\n\nRelevant memories and preferences:\n";
-        memories.longTerm.forEach((mem: any) => {
+        longTermMemories.forEach((mem: any) => {
           if (mem.memoryType === "user_preference") {
             memoryContext += `- User preference: ${mem.content}\n`;
           } else if (mem.memoryType === "domain_knowledge") {
@@ -323,9 +340,9 @@ export const sendChatMessage = mutation({
       }
       
       // Add recent conversation context
-      if (memories.shortTerm.length > 0) {
+      if (shortTermMemories.length > 0) {
         memoryContext += "\nRecent context:\n";
-        memories.shortTerm.slice(0, 5).forEach((mem: any) => {
+        shortTermMemories.slice(0, 5).forEach((mem: any) => {
           if (mem.memoryType === "conversation_context" || mem.memoryType === "feedback") {
             memoryContext += `- ${mem.content}\n`;
           }
@@ -405,7 +422,9 @@ ${memoryContext}`;
         // Add item to working memory directly
         const workingMem = await ctx.db
           .query("workingMemory")
-          .withIndex("by_session", (q) => q.eq("sessionId", sessionId as string))
+          .withIndex("by_session", (q) => 
+            q.eq("userId", user._id).eq("sessionId", sessionId!)
+          )
           .first();
         
         if (workingMem) {
@@ -442,7 +461,7 @@ ${memoryContext}`;
         
         // Store in short-term memory
         await ctx.runMutation(api.memoryShortTerm.store as any, {
-          sessionId: sessionId as string,
+          sessionId: sessionId!,
           memoryType: memoryAnalysis.memoryType,
           content: `User asked: "${args.message}". Assistant responded: "${aiContent.substring(0, 200)}..."`,
           structuredData: {
@@ -466,7 +485,7 @@ ${memoryContext}`;
         // If it should be consolidated to long-term memory
         if (memoryAnalysis.shouldConsolidate && memoryAnalysis.importance !== "low") {
           await ctx.runMutation(api.memoryConsolidation.triggerConsolidation as any, {
-            sessionId: sessionId as string
+            sessionId: sessionId!
           });
         }
         
@@ -474,7 +493,7 @@ ${memoryContext}`;
         if (args.attachments && args.attachments.length > 0) {
           for (const attachment of args.attachments) {
             await ctx.runMutation(api.memoryIntegration.storeInteractionPattern as any, {
-              sessionId: sessionId as string,
+              sessionId: sessionId!,
               action: "chat_about",
               entityType: attachment.type,
               entityId: attachment.id,
@@ -557,7 +576,7 @@ export const provideChatFeedback = mutation({
         : `User marked AI response as ${args.feedback}`;
       
       await ctx.runMutation(api.memoryIntegration.storeUserFeedback as any, {
-        sessionId: args.sessionId as string,
+        sessionId: args.sessionId,
         feedbackType: args.feedback === "helpful" ? "positive" : "negative",
         content: feedbackContent,
         relatedEntityId: args.sessionId,

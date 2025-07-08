@@ -191,12 +191,24 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     }
 
     // Setup event listeners
-    setupEventListeners();
+    const cleanup = setupEventListeners();
 
     return () => {
+      // Clean up event listeners
+      cleanup?.();
+      
+      // Destroy presence manager
       presenceManagerRef.current?.destroy();
+      presenceManagerRef.current = null;
+      
+      // Clear operation queue and timeout
+      operationQueueRef.current = [];
+      if (operationTimeoutRef.current) {
+        clearTimeout(operationTimeoutRef.current);
+        operationTimeoutRef.current = null;
+      }
     };
-  }, [userId, documentId, clerkUser]);
+  }, [userId, documentId, clerkUser, setupEventListeners]);
 
   // Update editor state when document loads
   useEffect(() => {
@@ -235,32 +247,6 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
   // EVENT HANDLERS
   // ============================================================================
 
-  const setupEventListeners = useCallback(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-
-    // Content change handlers
-    editor.addEventListener('input', handleInput);
-    editor.addEventListener('keydown', handleKeyDown);
-    editor.addEventListener('paste', handlePaste);
-    
-    // Selection change handlers
-    globalThis.document.addEventListener('selectionchange', handleSelectionChange);
-    
-    // Mouse handlers
-    editor.addEventListener('click', handleClick);
-    editor.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      editor.removeEventListener('input', handleInput);
-      editor.removeEventListener('keydown', handleKeyDown);
-      editor.removeEventListener('paste', handlePaste);
-      globalThis.document.removeEventListener('selectionchange', handleSelectionChange);
-      editor.removeEventListener('click', handleClick);
-      editor.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
-
   const handleInput = useCallback((event: Event) => {
     if (isApplyingOperationRef.current || !editorState.canEdit) return;
 
@@ -277,7 +263,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
       console.error('Error handling input:', error);
       onError?.(error as Error);
     }
-  }, [editorState.canEdit, onError]);
+  }, [editorState.canEdit, onError, queueOperation]);
 
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (!editorState.canEdit) {
@@ -329,7 +315,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
         insertText('  '); // Insert 2 spaces
         break;
     }
-  }, [editorState.canEdit]);
+  }, [editorState.canEdit, toggleFormat, undo, redo, handleSave, insertText]);
 
   const handlePaste = useCallback((event: ClipboardEvent) => {
     if (!editorState.canEdit) {
@@ -342,7 +328,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     if (text) {
       insertText(text);
     }
-  }, [editorState.canEdit]);
+  }, [editorState.canEdit, insertText]);
 
   const handleSelectionChange = useCallback(() => {
     const selection = window.getSelection();
@@ -382,7 +368,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     } catch (error) {
       console.error('Error handling selection change:', error);
     }
-  }, [documentId, userId, updatePresence]);
+  }, [documentId, userId, updatePresence, updateActiveFormat]);
 
   const handleClick = useCallback((event: MouseEvent) => {
     // Handle clicking on comments, suggestions, etc.
@@ -391,6 +377,32 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
   const handleMouseUp = useCallback((event: MouseEvent) => {
     handleSelectionChange();
   }, [handleSelectionChange]);
+
+  const setupEventListeners = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    // Content change handlers
+    editor.addEventListener('input', handleInput);
+    editor.addEventListener('keydown', handleKeyDown);
+    editor.addEventListener('paste', handlePaste);
+    
+    // Selection change handlers
+    globalThis.document.addEventListener('selectionchange', handleSelectionChange);
+    
+    // Mouse handlers
+    editor.addEventListener('click', handleClick);
+    editor.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      editor.removeEventListener('input', handleInput);
+      editor.removeEventListener('keydown', handleKeyDown);
+      editor.removeEventListener('paste', handlePaste);
+      globalThis.document.removeEventListener('selectionchange', handleSelectionChange);
+      editor.removeEventListener('click', handleClick);
+      editor.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [handleInput, handleKeyDown, handlePaste, handleSelectionChange, handleClick, handleMouseUp]);
 
   // ============================================================================
   // OPERATION MANAGEMENT
@@ -449,16 +461,25 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     return null;
   }, [userId, activeFormat]);
 
+  // Store timeout reference for cleanup
+  const operationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const queueOperation = useCallback((operation: DocumentOperation) => {
     operationQueueRef.current.push(operation);
     
+    // Clear existing timeout
+    if (operationTimeoutRef.current) {
+      clearTimeout(operationTimeoutRef.current);
+    }
+    
     // Batch operations for better performance
-    setTimeout(() => {
+    operationTimeoutRef.current = setTimeout(() => {
       if (operationQueueRef.current.length > 0) {
         processOperationQueue();
       }
+      operationTimeoutRef.current = null;
     }, EDITOR_CONSTANTS.OPERATION_BATCH_TIMEOUT);
-  }, []);
+  }, [processOperationQueue]);
 
   const processOperationQueue = useCallback(async () => {
     if (operationQueueRef.current.length === 0 || !editorState.document) return;
@@ -603,14 +624,31 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
 
   // Auto-save functionality
   useEffect(() => {
-    if (!config.autoSave) return;
+    if (!config.autoSave || !editorState.document) return;
 
     const autoSaveTimer = setInterval(() => {
       handleSave();
     }, config.autoSaveInterval);
 
-    return () => clearInterval(autoSaveTimer);
-  }, [config.autoSave, config.autoSaveInterval, handleSave]);
+    return () => {
+      clearInterval(autoSaveTimer);
+    };
+  }, [config.autoSave, config.autoSaveInterval, handleSave, editorState.document]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Clear any pending timeouts
+      if (operationTimeoutRef.current) {
+        clearTimeout(operationTimeoutRef.current);
+        operationTimeoutRef.current = null;
+      }
+      
+      // Clear refs
+      operationQueueRef.current = [];
+      isApplyingOperationRef.current = false;
+    };
+  }, []);
 
   // ============================================================================
   // UTILITY FUNCTIONS

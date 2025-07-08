@@ -39,6 +39,7 @@ import { cn } from '@/lib/utils';
 import { logger } from '@/lib/logger';
 import { trackBusinessMetric } from '@/lib/metrics';
 import { format } from 'date-fns';
+import { useWebWorker } from '@/hooks/useWebWorker';
 
 interface Message {
   id: string;
@@ -88,9 +89,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     id: string;
     title: string;
   } | null>(null);
+  const [conversationSummary, setConversationSummary] = useState<any>(null);
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Initialize Web Workers for memory operations
+  const memoryWorker = useWebWorker('/workers/chat-memory.worker.js', {
+    timeout: 30000
+  });
 
   // Mock chat mutation - replace with actual Convex mutation
   const sendMessage = useMutation(api.ai.sendChatMessage);
@@ -102,6 +109,35 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Analyze conversation patterns when messages change
+  useEffect(() => {
+    if (messages.length > 5) {
+      // Use Web Worker to analyze conversation patterns
+      memoryWorker.postMessage('ANALYZE_PATTERNS', { messages })
+        .then(patterns => {
+          logger.info('Conversation patterns analyzed', patterns);
+        })
+        .catch(err => {
+          logger.error('Failed to analyze patterns', err);
+        });
+    }
+
+    // Generate summary for long conversations
+    if (messages.length > 10 && messages.length % 5 === 0) {
+      memoryWorker.postMessage('GENERATE_SUMMARY', { 
+        messages,
+        options: { maxLength: 300, includeInsights: true }
+      })
+        .then(summary => {
+          setConversationSummary(summary);
+          logger.info('Conversation summary generated', summary);
+        })
+        .catch(err => {
+          logger.error('Failed to generate summary', err);
+        });
+    }
+  }, [messages, memoryWorker]);
 
   // Set initial context
   useEffect(() => {

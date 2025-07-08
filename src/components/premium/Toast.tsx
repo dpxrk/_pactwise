@@ -163,12 +163,14 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 };
 
-// CSS for shrink animation
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes shrink {
-    from { width: 100%; }
-    to { width: 0%; }
-  }
-`;
-document.head.appendChild(style);
+// CSS for shrink animation - inject only on client side
+if (typeof window !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes shrink {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+  `;
+  document.head.appendChild(style);
+}

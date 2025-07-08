@@ -3,7 +3,7 @@ import { mutation, query, action } from "../_generated/server";
 import { ConvexError } from "convex/values";
 import { getSecurityContext } from "../security/rowLevelSecurity";
 import { api } from "../_generated/api";
-import { Id } from "../_generated/dataModel";
+import { Id, Doc } from "../_generated/dataModel";
 
 // Type definitions to avoid deep type instantiation
 const templateVariableValidator = v.object({
@@ -569,7 +569,7 @@ export const getTemplateCategories = query({
 });
 
 // Helper functions
-function calculateAverageCompletionTime(usageStats: any[]): number {
+function calculateAverageCompletionTime(usageStats: Doc<"templateUsageStats">[]): number {
   // In a real implementation, this would calculate time from template use to contract finalization
   return 2.5; // Mock: 2.5 days average
 }

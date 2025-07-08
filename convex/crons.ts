@@ -30,6 +30,15 @@ crons.interval(
 );
 
 /**
+ * Clean up expired Convex cache entries every 15 minutes
+ */
+crons.interval(
+  "cleanup convex cache",
+  { minutes: 15 },
+  internal.cache.cleanupExpiredCache
+);
+
+/**
  * Clean up old performance logs daily
  */
 crons.daily(

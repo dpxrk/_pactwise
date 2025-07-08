@@ -5,7 +5,15 @@ import { ArrowRight, Sparkles, Zap, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/app/_components/common/Container";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+// Conditional import to handle missing Clerk
+let useAuth: any;
+try {
+  const clerkModule = require('@clerk/nextjs');
+  useAuth = clerkModule.useAuth;
+} catch (error) {
+  // Mock useAuth if Clerk is not available
+  useAuth = () => ({ isSignedIn: false });
+}
 
 export const HeroPremium = () => {
   const headlineRef = useRef<HTMLHeadingElement>(null);

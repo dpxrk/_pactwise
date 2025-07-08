@@ -20,7 +20,7 @@ import {
 // OPTIONS / ENUMS
 // ============================================================================
 
-const contractStatusOptions = [
+export const contractStatusOptions = [
   "draft", "pending_analysis", "active", "expired", "terminated", "archived",
 ] as const;
 
@@ -29,7 +29,7 @@ const analysisStatusOptions = [
     "pending", "processing", "completed", "failed",
 ] as const;
 
-const vendorCategoryOptions = [
+export const vendorCategoryOptions = [
   "technology",    // e.g., Software providers, IT services
   "marketing",     // e.g., Advertising agencies, SEO services
   "legal",         // e.g., Law firms, legal consultants
@@ -44,7 +44,7 @@ const vendorCategoryOptions = [
 
 export type VendorCategory = typeof vendorCategoryOptions[number];
 
-const contractTypeOptions = [
+export const contractTypeOptions = [
   "nda",             // Non-Disclosure Agreement
   "msa",             // Master Service Agreement
   "sow",             // Statement of Work
@@ -161,7 +161,12 @@ export default defineSchema({
   // Performance-optimized indexes
   .index("by_enterprise_name_category", ["enterpriseId", "name", "category"])
   .index("by_enterprise_status_created", ["enterpriseId", "status"])
-  .index("by_enterprise_category_status", ["enterpriseId", "category", "status"]),
+  .index("by_enterprise_category_status", ["enterpriseId", "category", "status"])
+  // New performance indexes for vendor analytics
+  .index("by_enterprise_performance", ["enterpriseId", "performanceScore"])
+  .index("by_enterprise_value", ["enterpriseId", "totalContractValue"])
+  .index("by_enterprise_status_performance", ["enterpriseId", "status", "performanceScore"])
+  .index("by_enterprise_created", ["enterpriseId", "createdAt"]),
 
   // ===== CONTRACTS =====
   contracts: defineTable({
@@ -196,6 +201,7 @@ export default defineSchema({
     )),
     analysisError: v.optional(v.string()),
     notes: v.optional(v.string()),
+    isAutoRenew: v.optional(v.boolean()), // Whether contract auto-renews
     // Ownership and tracking fields
     ownerId: v.optional(v.id("users")), // User responsible for the contract
     departmentId: v.optional(v.string()), // Department managing the contract
@@ -223,7 +229,13 @@ export default defineSchema({
   .index("by_enterprise_contractType_status", ["enterpriseId", "contractType", "status"])
   // Additional required indexes
   .index("by_enterprise_created", ["enterpriseId", "createdAt"])
-  .index("by_enterprise_status_vendor", ["enterpriseId", "status", "vendorId"]),
+  .index("by_enterprise_status_vendor", ["enterpriseId", "status", "vendorId"])
+  // New performance-critical compound indexes
+  .index("by_enterprise_endDate", ["enterpriseId", "extractedEndDate"])
+  .index("by_enterprise_status_created", ["enterpriseId", "status", "createdAt"])
+  .index("by_enterprise_owner_status", ["enterpriseId", "ownerId", "status"])
+  .index("by_enterprise_value", ["enterpriseId", "value"])
+  .index("by_enterprise_renewal", ["enterpriseId", "isAutoRenew", "extractedEndDate"]),
 
   // ===== CONTRACT ASSIGNMENTS =====
   contractAssignments: defineTable({
@@ -982,5 +994,38 @@ export default defineSchema({
     data: v.string(), // JSON stringified backup data
     createdAt: v.number(),
   })
-    .index("by_backupId", ["backupId"])
+    .index("by_backupId", ["backupId"]),
+
+  // Cache table for performance optimization
+  cache: defineTable({
+    key: v.string(),
+    value: v.string(), // JSON stringified cached data
+    expiresAt: v.number(),
+    tags: v.array(v.string()),
+    enterpriseId: v.optional(v.id("enterprises")),
+    metadata: v.optional(v.object({
+      type: v.string(),
+      version: v.number(),
+      compressed: v.optional(v.boolean()),
+    })),
+  })
+    .index("by_key", ["key"])
+    .index("by_enterprise", ["enterpriseId"])
+    .index("by_expiry", ["expiresAt"])
+    .index("by_tags", ["tags"]),
+
+  // Query performance metrics
+  queryMetrics: defineTable({
+    name: v.string(),
+    startTime: v.number(),
+    duration: v.number(),
+    rowsReturned: v.number(),
+    cacheHit: v.boolean(),
+    error: v.optional(v.string()),
+    metadata: v.optional(v.any()),
+    timestamp: v.string(),
+  })
+    .index("by_name", ["name"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_duration", ["duration"])
 });

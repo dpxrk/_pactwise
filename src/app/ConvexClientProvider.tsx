@@ -23,11 +23,7 @@ declare global {
 
 // Initialize the Convex client
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-if (!convexUrl) {
-  throw new Error("Missing NEXT_PUBLIC_CONVEX_URL environment variable");
-}
-
-const convex = new ConvexReactClient(convexUrl);
+const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
 
 // Monitoring wrapper component
 function MonitoringProvider({ children }: { children: ReactNode }) {
@@ -93,8 +89,10 @@ export function ConvexClientProvider({
 }) {
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   
-  if (!publishableKey) {
-    throw new Error("Missing NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY environment variable");
+  // If environment variables are missing, render children without providers
+  if (!publishableKey || !convex) {
+    console.warn("Missing environment variables. Running in demo mode without authentication.");
+    return <>{children}</>;
   }
 
   return (

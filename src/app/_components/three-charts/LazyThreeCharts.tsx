@@ -1,50 +1,159 @@
-'use client';
-
 import dynamic from 'next/dynamic';
-import { Skeleton } from '@/components/premium/Skeleton';
-import type { 
-  BarChartProps, 
-  LineChartProps, 
-  PieChartProps, 
-  AreaChartProps 
-} from '@/types/three-charts.types';
+import { useState, useEffect, useRef } from 'react';
+import { Skeleton } from '@/components/premium';
+import type { BaseThreeChartProps } from '@/types/three-charts.types';
 
-// Loading component for charts
-const ChartLoader = () => (
-  <div className="w-full h-full flex items-center justify-center">
-    <Skeleton className="w-full h-full" />
+/**
+ * Lazy loading wrapper for Three.js charts
+ * Only loads Three.js when the component is visible in viewport
+ */
+
+// Dynamically import Three.js components
+const ThreeLineChart = dynamic(
+  () => import('./ThreeLineChart'),
+  {
+    loading: () => <ChartSkeleton type="line" />,
+    ssr: false, // Three.js doesn't work with SSR
+  }
+);
+
+const ThreeBarChart = dynamic(
+  () => import('./ThreeBarChart'),
+  {
+    loading: () => <ChartSkeleton type="bar" />,
+    ssr: false,
+  }
+);
+
+const ThreeScatterChart = dynamic(
+  () => import('./ThreeScatterChart'),
+  {
+    loading: () => <ChartSkeleton type="scatter" />,
+    ssr: false,
+  }
+);
+
+// Chart skeleton component
+const ChartSkeleton = ({ type }: { type: string }) => (
+  <div className="w-full h-[400px] flex flex-col gap-4">
+    <Skeleton className="h-8 w-48" /> {/* Title */}
+    <Skeleton className="flex-1 w-full" /> {/* Chart area */}
+    <div className="flex gap-2 justify-center">
+      {/* Legend items */}
+      {[1, 2, 3].map((i) => (
+        <Skeleton key={i} className="h-4 w-20" />
+      ))}
+    </div>
   </div>
 );
 
-// Lazy load Three.js chart components
-export const LazyThreeBarChart = dynamic<BarChartProps>(
-  () => import('./ThreeBarChart').then(mod => mod.ThreeBarChart),
-  { 
-    loading: ChartLoader,
-    ssr: false // Disable SSR for Three.js components
-  }
+interface LazyThreeChartProps extends BaseThreeChartProps {
+  type: 'line' | 'bar' | 'scatter';
+  preload?: boolean; // Option to preload the component
+}
+
+/**
+ * Lazy Three.js chart that loads on viewport intersection
+ */
+export const LazyThreeChart: React.FC<LazyThreeChartProps> = ({
+  type,
+  preload = false,
+  ...chartProps
+}) => {
+  const [isVisible, setIsVisible] = useState(preload);
+  const [hasBeenVisible, setHasBeenVisible] = useState(preload);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (preload || hasBeenVisible) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          setHasBeenVisible(true);
+          observer.disconnect();
+        }
+      },
+      {
+        threshold: 0.1, // Load when 10% visible
+        rootMargin: '50px', // Start loading 50px before visible
+      }
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [preload, hasBeenVisible]);
+
+  // Keep component mounted once loaded to preserve state
+  const shouldRenderChart = isVisible || hasBeenVisible;
+
+  return (
+    <div ref={containerRef} className="min-h-[400px]">
+      {shouldRenderChart ? (
+        <div style={{ display: isVisible ? 'block' : 'none' }}>
+          {type === 'line' && <ThreeLineChart {...chartProps} />}
+          {type === 'bar' && <ThreeBarChart {...chartProps} />}
+          {type === 'scatter' && <ThreeScatterChart {...chartProps} />}
+        </div>
+      ) : (
+        <ChartSkeleton type={type} />
+      )}
+    </div>
+  );
+};
+
+/**
+ * Batch loading optimization for multiple charts
+ */
+export const LazyThreeChartGroup: React.FC<{
+  children: React.ReactNode;
+  loadStrategy?: 'sequential' | 'parallel';
+}> = ({ children, loadStrategy = 'parallel' }) => {
+  const [loadIndex, setLoadIndex] = useState(0);
+
+  useEffect(() => {
+    if (loadStrategy === 'sequential') {
+      // Load charts one by one to reduce memory spike
+      const timer = setTimeout(() => {
+        setLoadIndex((prev) => prev + 1);
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [loadIndex, loadStrategy]);
+
+  return (
+    <div className="space-y-8">
+      {React.Children.map(children, (child, index) => {
+        if (!React.isValidElement(child)) return child;
+
+        if (loadStrategy === 'sequential') {
+          return React.cloneElement(child as any, {
+            preload: index <= loadIndex,
+          });
+        }
+
+        return child;
+      })}
+    </div>
+  );
+};
+
+// Export convenience wrappers
+export const LazyLineChart = (props: Omit<LazyThreeChartProps, 'type'>) => (
+  <LazyThreeChart {...props} type="line" />
 );
 
-export const LazyThreeLineChart = dynamic<LineChartProps>(
-  () => import('./ThreeLineChart').then(mod => mod.ThreeLineChart),
-  { 
-    loading: ChartLoader,
-    ssr: false
-  }
+export const LazyBarChart = (props: Omit<LazyThreeChartProps, 'type'>) => (
+  <LazyThreeChart {...props} type="bar" />
 );
 
-export const LazyThreePieChart = dynamic<PieChartProps>(
-  () => import('./ThreePieChart').then(mod => mod.ThreePieChart),
-  { 
-    loading: ChartLoader,
-    ssr: false
-  }
-);
-
-export const LazyThreeAreaChart = dynamic<AreaChartProps>(
-  () => import('./ThreeAreaChart').then(mod => mod.ThreeAreaChart),
-  { 
-    loading: ChartLoader,
-    ssr: false
-  }
+export const LazyScatterChart = (props: Omit<LazyThreeChartProps, 'type'>) => (
+  <LazyThreeChart {...props} type="scatter" />
 );

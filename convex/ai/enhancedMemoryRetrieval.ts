@@ -161,7 +161,7 @@ async function retrieveCandidates(
   // Strategy 2: Entity-based retrieval
   if (context.entityContext) {
     const entityMemories = await ctx.runQuery(
-      api.memoryIntegration.getRelevantMemoriesForAgent,
+      api.memoryIntegration.getRelevantMemoriesForAgent as any,
       {
         agentType: "chat",
         entityId: context.entityContext.id,
@@ -425,8 +425,8 @@ function calculateTextSimilarity(text1: string, text2: string): number {
   const words1 = new Set(text1.toLowerCase().split(/\s+/));
   const words2 = new Set(text2.toLowerCase().split(/\s+/));
   
-  const intersection = new Set([...words1].filter(x => words2.has(x)));
-  const union = new Set([...words1, ...words2]);
+  const intersection = new Set(Array.from(words1).filter(x => words2.has(x)));
+  const union = new Set([...Array.from(words1), ...Array.from(words2)]);
   
   return intersection.size / union.size; // Jaccard similarity
 }
